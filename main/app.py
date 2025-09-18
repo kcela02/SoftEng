@@ -4,31 +4,59 @@ import plotly.graph_objs as go
 import pandas as pd
 import numpy as np
 import dash_bootstrap_components as dbc
+from sklearn.linear_model import LinearRegression
+import base64, io
 
-# ========== Sample dataset loader ==========
+# ========== Sample dataset loader (realistic 500 sales/day) ==========
 def load_sample_data():
-    dates = pd.date_range("2023-08-01", periods=28)  # 4 weeks of data
+    dates = pd.date_range("2023-08-01", periods=(pd.Timestamp.today() - pd.Timestamp("2023-08-01")).days + 1)
     products = [f"Product {i}" for i in range(1, 11)]
     np.random.seed(42)
     data = []
-    for product in products:
-        sales = np.random.randint(50, 200, size=len(dates))
-        for d, s in zip(dates, sales):
+
+    for d in dates:
+        total_sales = np.random.normal(loc=500, scale=30)  # mean 500 per day
+        total_sales = max(400, min(600, int(total_sales)))  # clamp between 400–600
+
+        weights = np.random.dirichlet(np.ones(len(products)), size=1)[0]
+        product_sales = (weights * total_sales).astype(int)
+
+        for product, s in zip(products, product_sales):
             data.append({"date": d, "product": product, "actual": s})
+
     return pd.DataFrame(data)
 
-# ========== Forecast generator ==========
+# ========== Forecast generator with Linear Regression ==========
 def generate_forecast(df, days_ahead=7):
     df = df.copy()
-    df["forecast"] = df["actual"].rolling(window=3, min_periods=1).mean()
+    df = df.dropna(subset=["actual"])
+    if len(df) < 2:
+        df["forecast"] = df["actual"]
+        return df
+
+    # Linear regression
+    X = np.arange(len(df)).reshape(-1, 1)
+    y = df["actual"].values
+    model = LinearRegression()
+    model.fit(X, y)
+
+    # Predict historical + future
+    forecast_hist = model.predict(X)
+    forecast_hist = np.clip(forecast_hist, 0, None).astype(int)
+
+    future_X = np.arange(len(df), len(df) + days_ahead).reshape(-1, 1)
+    forecast_future = model.predict(future_X)
+    forecast_future = np.clip(forecast_future, 0, None).astype(int)
+
+    # Build forecast dataframe
+    df["forecast"] = forecast_hist
     last_date = df["date"].max()
     future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=days_ahead)
-    future_forecast = [df["forecast"].iloc[-1]] * days_ahead
     future_df = pd.DataFrame({
         "date": future_dates,
         "product": df["product"].iloc[0],
         "actual": [None]*days_ahead,
-        "forecast": future_forecast
+        "forecast": forecast_future
     })
     return pd.concat([df, future_df], ignore_index=True)
 
@@ -44,67 +72,78 @@ def calculate_accuracy(df):
 # ========== Initialize app ==========
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 df = load_sample_data()
-df["week"] = df["date"].dt.strftime("%Y-W%U")
-weeks = sorted(df["week"].unique())
+df["month"] = df["date"].dt.to_period("M").astype(str)
+df["week"] = ((df["date"].dt.day - 1) // 7 + 1).astype(str)
+
+months = sorted(df["month"].unique())
+weeks = ["1", "2", "3", "4"]
 
 # ========== Layout ==========
 app.layout = dbc.Container([
+
     html.H1("Predictive Sales & Restocking Dashboard"),
 
-    # Upload
-    dcc.Upload(
-        id='upload-data',
-        children=html.Div(['Drag and Drop or ', html.A('Select a CSV File')]),
-        style={
-            'width': '50%', 'height': '60px', 'lineHeight': '60px',
-            'borderWidth': '1px', 'borderStyle': 'dashed',
-            'borderRadius': '5px', 'textAlign': 'center', 'margin': '10px'
-        },
-        multiple=False
-    ),
-
-    # Controls
+    # Controls (Product / Month / Week + Upload & Download)
     dbc.Row([
+
+        # Filters
         dbc.Col([
             html.Label("Select Product:"),
             dcc.Dropdown(
                 id='product-filter',
-                options=[{'label': p, 'value': p} for p in sorted(df['product'].unique())] +
-                        [{'label': 'All Products', 'value': 'ALL'}],
-                value='Product 1'
+                options=[{'label': 'All Products', 'value': 'ALL'}] +
+                        [{'label': p, 'value': p} for p in sorted(df['product'].unique())],
+                value='ALL'
             )
-        ], md=4),
+        ], md=3),
 
         dbc.Col([
-            html.Label("Aggregation (All Products):"),
-            dcc.RadioItems(
-                id='agg-toggle',
-                options=[{'label': 'Sum', 'value': 'sum'},
-                         {'label': 'Average', 'value': 'avg'}],
-                value='sum',
-                inline=True
+            html.Label("Select Month:"),
+            dcc.Dropdown(
+                id='month-filter',
+                options=[{'label': m, 'value': m} for m in months],
+                value=months[-1]  # latest month
             )
-        ], md=4),
+        ], md=3),
 
         dbc.Col([
             html.Label("Select Week:"),
             dcc.Dropdown(
                 id='week-filter',
-                options=[{'label': 'All Weeks (Daily View)', 'value': 'ALL'}] +
-                        [{'label': w, 'value': w} for w in weeks],
+                options=[{'label': 'All Weeks', 'value': 'ALL'}] +
+                        [{'label': f"Week {w}", 'value': w} for w in weeks],
                 value='ALL'
             )
-        ], md=4),
+        ], md=3),
+
+        # Upload & Download
+        dbc.Col([
+            html.Label("Data Options:"),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Upload(
+                        id="upload-data",
+                        children=html.Div(["📂 Upload File"]),
+                        style={
+                            "width": "100%", "height": "40px", "lineHeight": "40px",
+                            "borderWidth": "1px", "borderStyle": "dashed",
+                            "borderRadius": "5px", "textAlign": "center"
+                        },
+                        multiple=False
+                    )
+                ], width=6),
+
+                dbc.Col([
+                    html.Button("⬇️ Download", id="btn-download", className="btn btn-primary", style={"width": "100%"}),
+                    dcc.Download(id="download-data")
+                ], width=6),
+            ])
+        ], md=3)
+
     ], className="mb-4"),
 
     # Graph
     dcc.Graph(id='sales-forecast-graph'),
-
-    # Download button
-    html.Div([
-        html.Button("Download Data", id="btn-download", className="btn btn-primary"),
-        dcc.Download(id="download-dataframe-csv")
-    ], style={"marginTop": "10px"}),
 
     # Summary + Accuracy Cards
     dbc.Row([
@@ -133,33 +172,51 @@ app.layout = dbc.Container([
 ], fluid=True)
 
 # ========== Callbacks ==========
+
+# Upload callback
 @app.callback(
-    Output('sales-forecast-graph', 'figure'),
-    Output('summary-title', 'children'),
-    Output('summary-actual', 'children'),
-    Output('summary-forecast', 'children'),
-    Output('summary-accuracy', 'children'),
-    Input('product-filter', 'value'),
-    Input('agg-toggle', 'value'),
-    Input('week-filter', 'value')
+    Output("sales-forecast-graph", "figure"),
+    Output("summary-title", "children"),
+    Output("summary-actual", "children"),
+    Output("summary-forecast", "children"),
+    Output("summary-accuracy", "children"),
+    Input("product-filter", "value"),
+    Input("month-filter", "value"),
+    Input("week-filter", "value"),
+    Input("upload-data", "contents"),
+    State("upload-data", "filename")
 )
-def update_graph(selected_product, agg_type, selected_week):
-    df_filtered = df.copy()
+def update_graph(selected_product, selected_month, selected_week, uploaded_file, filename):
+    global df
 
-    # Product filter
-    if selected_product == 'ALL':
-        if agg_type == 'sum':
-            df_grouped = df_filtered.groupby('date')['actual'].sum().reset_index()
-        else:
-            df_grouped = df_filtered.groupby('date')['actual'].mean().reset_index()
-        df_grouped['product'] = 'All Products'
-        df_filtered = df_grouped
-    else:
-        df_filtered = df_filtered[df_filtered['product'] == selected_product]
+    # Handle upload
+    if uploaded_file is not None:
+        content_type, content_string = uploaded_file.split(',')
+        decoded = base64.b64decode(content_string)
+        try:
+            if filename.endswith('.csv'):
+                df_new = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            elif filename.endswith(('.xls', '.xlsx')):
+                df_new = pd.read_excel(io.BytesIO(decoded))
+            else:
+                return dash.no_update
+            df_new["date"] = pd.to_datetime(df_new["date"])
+            df = pd.concat([df, df_new], ignore_index=True)
+            df["month"] = df["date"].dt.to_period("M").astype(str)
+            df["week"] = ((df["date"].dt.day - 1) // 7 + 1).astype(str)
+        except Exception as e:
+            print("Error reading file:", e)
+            return dash.no_update
 
-    # Week filter
+    # Filter
+    df_filtered = df[df["month"] == selected_month]
     if selected_week != "ALL":
-        df_filtered = df_filtered[df_filtered['date'].dt.strftime("%Y-W%U") == selected_week]
+        df_filtered = df_filtered[df_filtered["week"] == selected_week]
+    if selected_product != "ALL":
+        df_filtered = df_filtered[df_filtered["product"] == selected_product]
+    else:
+        df_filtered = df_filtered.groupby("date")["actual"].sum().reset_index()
+        df_filtered["product"] = "All Products"
 
     # Forecast
     df_forecast = generate_forecast(df_filtered)
@@ -178,7 +235,7 @@ def update_graph(selected_product, agg_type, selected_week):
     # Summary
     total_actual = df_forecast['actual'].sum(skipna=True)
     total_forecast = df_forecast['forecast'].sum(skipna=True)
-    summary_title = f"Summary ({'All Weeks' if selected_week == 'ALL' else selected_week})"
+    summary_title = f"Summary ({selected_month}, {'Week ' + selected_week if selected_week != 'ALL' else 'All Weeks'})"
 
     # Accuracy
     accuracy = calculate_accuracy(df_forecast)
@@ -198,56 +255,12 @@ def update_graph(selected_product, agg_type, selected_week):
 
 # Download callback
 @app.callback(
-    Output("download-dataframe-csv", "data"),
+    Output("download-data", "data"),
     Input("btn-download", "n_clicks"),
-    State("product-filter", "value"),
-    State("agg-toggle", "value"),
-    State("week-filter", "value"),
     prevent_initial_call=True
 )
-def download_data(n_clicks, selected_product, agg_type, selected_week):
-    df_filtered = df.copy()
-
-    # Product filter
-    if selected_product == 'ALL':
-        if agg_type == 'sum':
-            df_grouped = df_filtered.groupby('date')['actual'].sum().reset_index()
-        else:
-            df_grouped = df_filtered.groupby('date')['actual'].mean().reset_index()
-        df_grouped['product'] = 'All Products'
-        df_filtered = df_grouped
-    else:
-        df_filtered = df_filtered[df_filtered['product'] == selected_product]
-
-    # Week filter
-    if selected_week != "ALL":
-        df_filtered = df_filtered[df_filtered['date'].dt.strftime("%Y-W%U") == selected_week]
-
-    # Forecast
-    df_forecast = generate_forecast(df_filtered)
-
-    # Summary
-    total_actual = df_forecast['actual'].sum(skipna=True)
-    total_forecast = df_forecast['forecast'].sum(skipna=True)
-    accuracy = calculate_accuracy(df_forecast)
-
-    # Add summary rows at the bottom
-    summary_rows = pd.DataFrame({
-        "date": ["", "", ""],
-        "product": ["Summary", "Summary", "Summary"],
-        "actual": [f"Total Actual: {int(total_actual)}", "", ""],
-        "forecast": [f"Total Forecast: {int(total_forecast)}",
-                     f"Accuracy: {accuracy if accuracy else 'N/A'}%", ""]
-    })
-
-    export_df = pd.concat([df_forecast, summary_rows], ignore_index=True)
-
-    # Dynamic filename
-    product_label = selected_product.replace(" ", "_")
-    week_label = "AllWeeks" if selected_week == "ALL" else selected_week.replace("-", "_")
-    filename = f"forecast_{product_label}_{week_label}.csv"
-
-    return dcc.send_data_frame(export_df.to_csv, filename, index=False)
+def download_filtered_data(n_clicks):
+    return dcc.send_data_frame(df.to_csv, "sales_forecast_data.csv", index=False)
 
 # ========== Run ==========
 if __name__ == '__main__':
