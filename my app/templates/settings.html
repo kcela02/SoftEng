@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Predictive Sales Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>📊 Predictive Sales Dashboard</h1>
+                </div>
+                <nav class="nav">
+                    <a href="{{ url_for('main.dashboard') }}" class="nav-link">Dashboard</a>
+                    <a href="{{ url_for('main.forecasting') }}" class="nav-link">Forecasting</a>
+                    <a href="{{ url_for('main.products_page') }}" class="nav-link">Products</a>
+                    <a href="{{ url_for('main.reports') }}" class="nav-link">Reports</a>
+                    <a href="{{ url_for('main.settings') }}" class="nav-link active">Settings</a>
+                    <span class="user-info">Welcome, {{ current_user.username }} ({{ current_user.role }})</span>
+                    <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
+                </nav>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="container" style="max-width: 1200px; padding: 20px;">
+                <h2 style="margin-bottom: 10px;">⚙️ Settings</h2>
+                <p style="color: #666; margin-bottom: 30px;">Manage your account and system preferences.</p>
+                
+                <div style="display: grid; gap: 20px;">
+                    <!-- Account Settings -->
+                    <div class="card">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">👤 Account Settings</h3>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Your profile information</p>
+                        </div>
+                        
+                        <div style="display: grid; gap: 15px;">
+                            <div>
+                                <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 6px; font-weight: 500;">Username:</label>
+                                <div style="padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; color: #1f2937;">
+                                    {{ current_user.username }}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 6px; font-weight: 500;">Email:</label>
+                                <div style="padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; color: #1f2937;">
+                                    {{ current_user.email }}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 6px; font-weight: 500;">Role:</label>
+                                <div style="padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;">
+                                    <span style="background: #4f46e5; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;">
+                                        {{ current_user.role }}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 6px; font-weight: 500;">Member Since:</label>
+                                <div style="padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; color: #1f2937;">
+                                    {{ current_user.created_at.strftime('%B %d, %Y') if current_user.created_at else 'N/A' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Preferences -->
+                    <div class="card">
+                        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">🎛️ System Preferences</h3>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Customize your experience</p>
+                        </div>
+                        
+                        <div style="display: grid; gap: 15px;">
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f9fafb; border-radius: 6px; cursor: pointer;">
+                                <input type="checkbox" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                <div>
+                                    <div style="font-weight: 500; color: #1f2937;">Email Notifications</div>
+                                    <div style="font-size: 13px; color: #64748b;">Receive alerts for low stock and forecasts</div>
+                                </div>
+                            </label>
+                            
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f9fafb; border-radius: 6px; cursor: pointer;">
+                                <input type="checkbox" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                <div>
+                                    <div style="font-weight: 500; color: #1f2937;">Auto-generate Forecasts</div>
+                                    <div style="font-size: 13px; color: #64748b;">Daily automatic forecast regeneration</div>
+                                </div>
+                            </label>
+                            
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f9fafb; border-radius: 6px; cursor: pointer;">
+                                <input type="checkbox" style="width: 18px; height: 18px; cursor: pointer;">
+                                <div>
+                                    <div style="font-weight: 500; color: #1f2937;">Dark Mode</div>
+                                    <div style="font-size: 13px; color: #64748b;">Coming soon</div>
+                                </div>
+                            </label>
+                            
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f9fafb; border-radius: 6px; cursor: pointer;">
+                                <input type="checkbox" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                <div>
+                                    <div style="font-weight: 500; color: #1f2937;">Real-time Updates</div>
+                                    <div style="font-size: 13px; color: #64748b;">WebSocket live data synchronization</div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="alert('Settings saved!')">💾 Save Preferences</button>
+                    </div>
+
+                    {% if current_user.role == 'admin' %}
+                    <div class="card" style="margin-top: 20px;">
+                        <h3>🔐 Admin Controls</h3>
+                        <p style="color: #666; margin: 10px 0;">These options are only available to administrators.</p>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 10px;">Manage Users</button>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 10px;">System Logs</button>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 10px;">Database Backup</button>
+                    </div>
+
+                    <div class="card" style="margin-top: 20px; border: 2px solid #ef4444;">
+                        <h3 style="color: #ef4444;">🧪 Test Data Management</h3>
+                        <p style="color: #666; margin: 10px 0;">
+                            Generate realistic fake data for testing and demos, or wipe all fake data to start fresh.
+                        </p>
+                        
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-top: 15px;">
+                            <h4 style="color: white; margin: 0 0 10px 0;">📊 Generate Fake Data</h4>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
+                                Creates 3 years of sales data (Jan 2023 - Oct 2025) with seasonal patterns, weekend effects, and holiday spikes.
+                                Includes 40 products across 8 categories.
+                            </p>
+                            <button onclick="generateFakeData()" class="btn" style="background: white; color: #667eea; width: 100%; font-weight: 600;">
+                                🚀 Generate Fake Data
+                            </button>
+                        </div>
+
+                        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px; margin-top: 15px;">
+                            <h4 style="color: white; margin: 0 0 10px 0;">🗑️ Wipe Fake Data</h4>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
+                                Permanently deletes all fake products and sales. This action cannot be undone.
+                                Real data uploaded via CSV will NOT be affected.
+                            </p>
+                            <button onclick="wipeFakeData()" class="btn" style="background: white; color: #f5576c; width: 100%; font-weight: 600;">
+                                ⚠️ Wipe Fake Data
+                            </button>
+                        </div>
+
+                        <div id="fake-data-status" style="margin-top: 15px; display: none; padding: 15px; border-radius: 8px; background: #f0f9ff; border-left: 4px solid #3b82f6;">
+                            <p id="fake-data-message" style="margin: 0; color: #1e40af;"></p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function generateFakeData() {
+            if (!confirm('This will generate ~3 years of fake sales data. Continue?')) {
+                return;
+            }
+
+            const statusDiv = document.getElementById('fake-data-status');
+            const messageP = document.getElementById('fake-data-message');
+
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fef3c7';
+            statusDiv.style.borderColor = '#f59e0b';
+            messageP.style.color = '#92400e';
+            messageP.textContent = '⏳ Generating fake data... This may take 1-2 minutes.';
+
+            // Disable button
+            event.target.disabled = true;
+            event.target.textContent = 'Generating...';
+
+            fetch('/api/generate-fake-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                event.target.disabled = false;
+                event.target.textContent = '🚀 Generate Fake Data';
+
+                if (data.success) {
+                    statusDiv.style.background = '#d1fae5';
+                    statusDiv.style.borderColor = '#10b981';
+                    messageP.style.color = '#065f46';
+                    messageP.innerHTML = `✅ ${data.message}<br>Generated: ${data.products_created} products, ${data.sales_created.toLocaleString()} sales records`;
+                    
+                    // Auto-hide after 10 seconds
+                    setTimeout(() => {
+                        statusDiv.style.display = 'none';
+                    }, 10000);
+                } else {
+                    statusDiv.style.background = '#fee2e2';
+                    statusDiv.style.borderColor = '#ef4444';
+                    messageP.style.color = '#991b1b';
+                    messageP.textContent = `❌ Error: ${data.error}`;
+                }
+            })
+            .catch(error => {
+                event.target.disabled = false;
+                event.target.textContent = '🚀 Generate Fake Data';
+
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.borderColor = '#ef4444';
+                messageP.style.color = '#991b1b';
+                messageP.textContent = `❌ Network error: ${error.message}`;
+            });
+        }
+
+        function wipeFakeData() {
+            if (!confirm('⚠️ WARNING: This will permanently delete ALL fake data (products and sales). This cannot be undone. Continue?')) {
+                return;
+            }
+
+            const statusDiv = document.getElementById('fake-data-status');
+            const messageP = document.getElementById('fake-data-message');
+
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fef3c7';
+            statusDiv.style.borderColor = '#f59e0b';
+            messageP.style.color = '#92400e';
+            messageP.textContent = '⏳ Wiping fake data...';
+
+            // Disable button
+            event.target.disabled = true;
+            event.target.textContent = 'Wiping...';
+
+            fetch('/api/wipe-fake-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                event.target.disabled = false;
+                event.target.textContent = '⚠️ Wipe Fake Data';
+
+                if (data.success) {
+                    statusDiv.style.background = '#d1fae5';
+                    statusDiv.style.borderColor = '#10b981';
+                    messageP.style.color = '#065f46';
+                    messageP.innerHTML = `✅ ${data.message}<br>Deleted: ${data.deleted_products} products, ${data.deleted_sales.toLocaleString()} sales records`;
+                    
+                    // Auto-hide after 8 seconds
+                    setTimeout(() => {
+                        statusDiv.style.display = 'none';
+                    }, 8000);
+                } else {
+                    statusDiv.style.background = '#fee2e2';
+                    statusDiv.style.borderColor = '#ef4444';
+                    messageP.style.color = '#991b1b';
+                    messageP.textContent = `❌ Error: ${data.error}`;
+                }
+            })
+            .catch(error => {
+                event.target.disabled = false;
+                event.target.textContent = '⚠️ Wipe Fake Data';
+
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.borderColor = '#ef4444';
+                messageP.style.color = '#991b1b';
+                messageP.textContent = `❌ Network error: ${error.message}`;
+            });
+        }
+    </script>
+</body>
+</html>

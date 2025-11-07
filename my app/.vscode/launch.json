@@ -1,0 +1,14 @@
+{
+    // VS Code launch configuration to run the Flask app instead of accidentally executing templates
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Run app.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

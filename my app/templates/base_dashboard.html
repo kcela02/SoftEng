@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Predictive Sales Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" crossorigin="anonymous"></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="dashboard">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>📊 Predictive Sales Dashboard</h1>
+                </div>
+                <nav class="nav">
+                    <a href="{{ url_for('main.dashboard') }}" class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}">Dashboard</a>
+                    <a href="{{ url_for('main.forecasting') }}" class="nav-link {% if request.endpoint == 'main.forecasting' %}active{% endif %}">Forecasting</a>
+                    <a href="{{ url_for('main.products_page') }}" class="nav-link {% if request.endpoint == 'main.products_page' %}active{% endif %}">Products</a>
+                    <a href="{{ url_for('main.reports') }}" class="nav-link {% if request.endpoint == 'main.reports' %}active{% endif %}">Reports</a>
+                    <a href="{{ url_for('main.settings') }}" class="nav-link {% if request.endpoint == 'main.settings' %}active{% endif %}">Settings</a>
+                    <span class="user-info">Welcome, {{ current_user.username }} ({{ current_user.role }})</span>
+                    <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
+                </nav>
+            </div>
+        </header>
+
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+        <!-- Currency formatting utilities -->
+        <script src="{{ url_for('static', filename='utils.js') }}"></script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

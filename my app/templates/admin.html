@@ -1,0 +1,568 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}Dashboard - Predictive Sales Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+    .dot.live { background: #10b981; }
+</style>
+{% endblock %}
+
+{% block content %}
+                
+                <!-- Date Range Filter (NEW) -->
+                <div class="filter-bar" style="background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                        <h3 style="margin: 0; color: #374151;">📅 Dashboard Time Period</h3>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <button class="period-btn active" data-period="7d">Last 7 Days</button>
+                            <button class="period-btn" data-period="30d">Last 30 Days</button>
+                            <button class="period-btn" data-period="3m">Last 3 Months</button>
+                            <button class="period-btn" data-period="6m">Last 6 Months</button>
+                            <button class="period-btn" data-period="1y">Last Year</button>
+                            <button class="period-btn" data-period="all">All Time</button>
+                            <div style="border-left: 2px solid #e5e7eb; height: 30px; margin: 0 5px;"></div>
+                            <input type="date" id="custom-start-date" style="padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
+                            <span style="color: #6b7280;">to</span>
+                            <input type="date" id="custom-end-date" style="padding: 8px; border: 1px d5db; border-radius: 4px;">
+                            <button class="btn btn-secondary" id="apply-custom-range" style="padding: 8px 16px;">Apply Custom Range</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Synthetic Data Banner -->
+                <div id="fake-data-banner" style="display:none; margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; background: #fffbeb; border: 1px solid #f59e0b; color: #92400e;">
+                    <strong>Demo data active:</strong> You're viewing synthetic sales data for testing and demos. Upload real CSV data to replace it automatically.
+                    <span id="fake-data-count" style="margin-left: 8px; font-weight: 600;"></span>
+                    <a href="{{ url_for('main.settings') }}" style="margin-left: 12px; color: #92400e; text-decoration: underline;">Manage</a>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="card">
+                        <h3>Total Sales Products</h3>
+                        <div class="metric" id="total-units">Loading...</div>
+                        <div class="hint" id="total-units-period" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Last 7 days</div>
+                        <div class="change" id="change-units" style="display: none;"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Total Sales Revenue</h3>
+                        <div class="metric" id="total-revenue">Loading...</div>
+                        <div class="hint" id="total-revenue-period" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Last 7 days</div>
+                        <div class="change" id="change-revenue" style="display: none;"></div>
+                    </div>
+                        <div class="card">
+                            <h3>Total Inventory Value</h3>
+                            <div class="metric" id="total-inventory-value">Loading...</div>
+                            <div class="hint" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Current stock × Unit cost</div>
+                        </div>
+                    <div class="card">
+                        <h3>Forecast Accuracy</h3>
+                        <div class="metric" id="accuracy">Loading...</div>
+                        <div class="hint" id="accuracy-period" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Based on selected period</div>
+                        <div class="change" id="change-accuracy" style="display: none;"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Active Alerts</h3>
+                        <div class="metric" id="alerts-count">Loading...</div>
+                        <div class="hint" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Low stock warnings</div>
+                        <div class="change" id="change-alerts" style="display: none;"></div>
+                    </div>
+                   <!-- <div class="card">
+                        <h3>Inventory Turnover</h3>
+                        <div class="metric" id="turnover-rate">Loading...</div>
+                        <div class="hint" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Not affected by date range</div>
+                        <div class="change" id="change-turnover" style="display: none;"></div>
+                    </div> -->
+                </div>
+
+                <!-- Period Comparison Section (NEW) -->
+                <div class="comparison-section" style="margin: 30px 0;">
+                    <h3 style="margin-bottom: 20px; color: #374151;">📊 Period Comparisons</h3>
+                    
+                    <div class="comparison-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                        <!-- Month-over-Month Revenue -->
+                        <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                            <h4 style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">Month-over-Month Revenue</h4>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <div style="font-size: 0.75em; opacity: 0.8;">This Month</div>
+                                    <div id="current-month-revenue" style="font-size: 1.5em; font-weight: bold;">₱0</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.75em; opacity: 0.8;">Last Month</div>
+                                    <div id="last-month-revenue" style="font-size: 1.2em;">₱0</div>
+                                </div>
+                            </div>
+                            <div id="month-revenue-change" style="display: flex; align-items: center; gap: 5px; font-size: 1.1em; font-weight: bold;">
+                                <span class="change-icon">—</span>
+                                <span>No data</span>
+                            </div>
+                        </div>
+
+                        <!-- Month-over-Month Units -->
+                        <div class="card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                            <h4 style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">Month-over-Month Units</h4>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <div style="font-size: 0.75em; opacity: 0.8;">This Month</div>
+                                    <div id="current-month-units" style="font-size: 1.5em; font-weight: bold;">0</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.75em; opacity: 0.8;">Last Month</div>
+                                    <div id="last-month-units" style="font-size: 1.2em;">0</div>
+                                </div>
+                            </div>
+                            <div id="month-units-change" style="display: flex; align-items: center; gap: 5px; font-size: 1.1em; font-weight: bold;">
+                                <span class="change-icon">—</span>
+                                <span>No data</span>
+                            </div>
+                        </div>
+
+                        <!-- Year-over-Year Revenue -->
+                        <div class="card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+                            <h4 style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">Year-over-Year Revenue</h4>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <div style="font-size: 0.75em; opacity: 0.8;">This Year</div>
+                                    <div id="current-year-revenue" style="font-size: 1.5em; font-weight: bold;">₱0</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.75em; opacity: 0.8;">Last Year</div>
+                                    <div id="last-year-revenue" style="font-size: 1.2em;">₱0</div>
+                                </div>
+                            </div>
+                            <div id="year-revenue-change" style="display: flex; align-items: center; gap: 5px; font-size: 1.1em; font-weight: bold;">
+                                <span class="change-icon">—</span>
+                                <span>No data</span>
+                            </div>
+                        </div>
+
+                        <!-- Year-over-Year Units -->
+                        <div class="card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white;">
+                            <h4 style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">Year-over-Year Units</h4>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <div style="font-size: 0.75em; opacity: 0.8;">This Year</div>
+                                    <div id="current-year-units" style="font-size: 1.5em; font-weight: bold;">0</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.75em; opacity: 0.8;">Last Year</div>
+                                    <div id="last-year-units" style="font-size: 1.2em;">0</div>
+                                </div>
+                            </div>
+                            <div id="year-units-change" style="display: flex; align-items: center; gap: 5px; font-size: 1.1em; font-weight: bold;">
+                                <span class="change-icon">—</span>
+                                <span>No data</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-section">
+                    <div class="chart-container">
+                        <h3>Sales Trend Analysis</h3>
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Monthly Performance</h3>
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bottom-section">
+                    <div class="alerts-panel">
+                        <h3>Restock Alerts</h3>
+                        <div id="alerts-list">
+                            <div class="loading-message">Loading alerts...</div>
+                        </div>
+                        {% if can_edit %}
+                        <div class="admin-controls">
+                            <button class="btn btn-secondary" id="export-alerts-csv">Export Alerts (CSV)</button>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="activity-panel">
+                        <h3>Recent Activity</h3>
+                        <ul id="activity-list">
+                            <li style="color: #999;">Loading recent activity...</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Top Products Section -->
+                <div class="top-products-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0;">📊 Sales Ranking - Top Products</h3>
+                        <button class="btn btn-secondary" id="export-top-products-btn" style="padding: 8px 16px; font-size: 0.9em; background: #667eea; color: white; border: 1px solid #667eea;">
+                            📥 Export
+                        </button>
+                    </div>
+                    <div class="controls" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="ranking-period" style="font-weight: 500; color: #374151;">Period:</label>
+                            <select id="ranking-period" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer;">
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                                <option value="90d">Last 90 Days</option>
+                                <option value="1y">Last Year</option>
+                                <option value="all">All Time</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="ranking-metric" style="font-weight: 500; color: #374151;">Metric:</label>
+                            <select id="ranking-metric" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer;">
+                                <option value="revenue">Revenue (₱)</option>
+                                <option value="quantity">Quantity Sold</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <canvas id="topProductsChart" style="max-height: 400px;"></canvas>
+                    </div>
+                </div>
+                </section>
+
+                <!-- DUPLICATE TAB SECTIONS REMOVED (lines 222-745) -->
+                <!-- These sections duplicated forecasting.html, products.html, reports.html, and settings.html -->
+                <!-- Content removed to eliminate 523 lines of legacy code from old tab-based navigation -->
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container" style="position:fixed;right:16px;bottom:16px;z-index:1000;display:flex;flex-direction:column;gap:8px;"></div>
+
+    <script>
+        // Prefer live updates for metrics and alerts on this page
+        window.USE_WEBSOCKET_METRICS = true;
+        window.USE_WEBSOCKET_ALERTS = true;
+
+        // Handle hash navigation for Forecasting/Products links from other pages
+        (function(){
+            const hash = window.location.hash.substring(1);
+            if(hash && ['forecasting', 'products'].includes(hash)){
+                sessionStorage.setItem('dashboard_active_tab', hash);
+            }
+        })();
+
+        // Tabs
+        (function(){
+            const buttons = document.querySelectorAll('.tab-btn');
+            const sections = {
+                overview: document.getElementById('tab-overview'),
+                forecasting: document.getElementById('tab-forecasting'),
+                products: document.getElementById('tab-products'),
+                reports: document.getElementById('tab-reports'),
+                settings: document.getElementById('tab-settings')
+            };
+            // Check for hash navigation first (from Reports/Settings links)
+            const hash = window.location.hash.substring(1);
+            let initialTab = 'overview';
+            if (hash && ['overview', 'forecasting', 'products'].includes(hash)) {
+                initialTab = hash;
+            } else {
+                // Only use saved tab if coming from within the same page session
+                const saved = sessionStorage.getItem('dashboard_active_tab');
+                if (saved && ['overview', 'forecasting', 'products'].includes(saved)) {
+                    initialTab = saved;
+                }
+            }
+            
+            const navLinks = document.querySelectorAll('.nav [data-tab-link]');
+            function activateTab(name){
+                buttons.forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+                Object.entries(sections).forEach(([k,el])=> el.classList.toggle('active', k===name));
+                sessionStorage.setItem('dashboard_active_tab', name);
+                // Toggle navbar active state for in-page tabs
+                if (navLinks && navLinks.length) {
+                    navLinks.forEach(a=> a.classList.toggle('active', a.getAttribute('data-tab-link')===name));
+                }
+            }
+            buttons.forEach(b=> b.addEventListener('click', ()=> activateTab(b.dataset.tab)));
+            // Top navbar tab links
+            document.querySelectorAll('[data-tab-link]')?.forEach(a=>{
+                a.addEventListener('click', (e)=>{ e.preventDefault(); activateTab(a.getAttribute('data-tab-link')); });
+            });
+            activateTab(initialTab);
+        })();
+
+        // WebSocket live metrics
+        (function(){
+            try {
+                const dot = document.getElementById('wsDot');
+                const txt = document.getElementById('wsText');
+                const hdot = document.getElementById('wsHeaderDot');
+                const htxt = document.getElementById('wsHeaderText');
+                const socket = io({ transports: ['websocket','polling'] });
+                function setStatus(ok){
+                    if(dot){ dot.classList.toggle('live', !!ok); }
+                    if(txt){ txt.textContent = ok ? 'Realtime: Connected' : 'Realtime: Disconnected'; }
+                    if(hdot){ hdot.classList.toggle('live', !!ok); }
+                    if(htxt){ htxt.textContent = ok ? 'Realtime' : 'Realtime'; }
+                }
+                socket.on('connect', ()=> setStatus(true));
+                socket.on('disconnect', ()=> setStatus(false));
+                socket.on('metrics_update', (m)=>{
+                    const fmtMoney = (v)=> '₱' + Number(v||0).toFixed(2);
+                    const fmtInt = (v)=> Number(v||0).toLocaleString();
+                    const u = document.getElementById('total-units');
+                    const r = document.getElementById('total-revenue');
+                    const a = document.getElementById('alerts-count');
+                    if(u) u.textContent = fmtInt(m.total_units_sold);
+                    if(r) r.textContent = fmtMoney(m.total_revenue);
+                    if(a) a.textContent = fmtInt(m.active_alerts);
+                });
+                // Toast helper
+                function showToast(message, tone){
+                    const cont = document.getElementById('toast-container');
+                    if(!cont) return;
+                    const item = document.createElement('div');
+                    item.style.padding = '10px 12px';
+                    item.style.borderRadius = '6px';
+                    item.style.color = '#fff';
+                    item.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+                    item.style.background = tone==='error' ? '#ef4444' : (tone==='warn' ? '#f59e0b' : '#10b981');
+                    item.textContent = message;
+                    cont.appendChild(item);
+                    setTimeout(()=>{ item.style.opacity='0'; item.style.transition='opacity .4s'; setTimeout(()=>cont.removeChild(item), 400); }, 3000);
+                }
+                // Alerts live update
+                    // Note: Enhanced restock alerts are now handled by fetchEnhancedRestockAlerts() in app.js
+                    // This WebSocket handler is disabled to prevent conflicts
+                    /*
+                function renderAlerts(list){
+                    const root = document.getElementById('alerts-list');
+                    if(!root) return;
+                    if(!list || !list.length){
+                        root.innerHTML = '<div class="loading-message">No active alerts</div>';
+                        return;
+                    }
+                    root.innerHTML = '';
+                    list.forEach(alert=>{
+                        const div = document.createElement('div');
+                        div.className = 'alert-item ' + (alert.severity||'').toLowerCase();
+                        div.dataset.alertId = alert.id;
+                        div.style.padding = '10px';
+                        div.style.borderLeft = '4px solid ' + (alert.severity==='CRITICAL' ? '#ef4444' : (alert.severity==='WARNING' ? '#f59e0b' : '#3b82f6'));
+                        div.style.background = '#fff';
+                        div.style.marginBottom = '8px';
+                        const canAck = true; // server already guards by role when needed
+                        div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                                            <div style="font-weight:600;">${alert.severity} - ${alert.product_name||'Product'}</div>
+                                            ${canAck ? `<button class="btn btn-secondary" data-ack-btn="${alert.id}" style="padding:4px 8px;">Acknowledge</button>` : ''}
+                                         </div>
+                                         <div style="color:#374151;">${alert.message||''}</div>`;
+                        root.appendChild(div);
+                    });
+                }
+                socket.on('alerts_update', renderAlerts);
+                socket.on('new_alert', (a)=>{
+                    // Prepend new alert
+                    const current = Array.from(document.querySelectorAll('#alerts-list .alert-item')).map(el=>({
+                        severity: (el.querySelector('div')?.textContent||'').split(' - ')[0],
+                        product_name: '',
+                        message: el.querySelectorAll('div')[1]?.textContent || '',
+                        id: parseInt(el.dataset.alertId || '0', 10)
+                    }));
+                    renderAlerts([a, ...current].slice(0, 10));
+                    showToast(`${a.severity} alert for ${a.product_name || 'product'}`, a.severity==='CRITICAL' ? 'error' : 'warn');
+                });
+                // Acknowledge actions (event delegation)
+                document.getElementById('alerts-list')?.addEventListener('click', (e)=>{
+                    const btn = e.target.closest('[data-ack-btn]');
+                    if(!btn) return;
+                    const alertId = parseInt(btn.getAttribute('data-ack-btn'), 10);
+                    if(Number.isFinite(alertId)){
+                        socket.emit('acknowledge_alert', { alert_id: alertId });
+                    }
+                });
+                socket.on('alert_acknowledged', (payload)=>{
+                    const { alert_id } = payload || {};
+                    const el = document.querySelector(`#alerts-list .alert-item[data-alert-id="${alert_id}"]`);
+                    if(el){ el.remove(); }
+                    if(!document.querySelector('#alerts-list .alert-item')){
+                        document.getElementById('alerts-list').innerHTML = '<div class="loading-message">No active alerts</div>';
+                    }
+                    showToast(`Alert #${alert_id} acknowledged`, 'ok');
+                });
+                */
+                // Request initial metrics (server also pushes on connect)
+                socket.emit('request_metrics');
+            } catch(e) { /* ignore */ }
+        })();
+
+        // Load recent activity from logs
+        (function(){
+            const activityList = document.getElementById('activity-list');
+            if(!activityList) return;
+            
+            fetch('/api/recent-activity?limit=10')
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success && data.activities && data.activities.length){
+                        activityList.innerHTML = data.activities.map(a => {
+                            const timeAgo = new Date(a.timestamp).toLocaleString();
+                            return `<li><strong>${a.username}:</strong> ${a.action} <small style="color:#999;">(${timeAgo})</small></li>`;
+                        }).join('');
+                    } else {
+                        activityList.innerHTML = '<li style="color:#999;">No recent activity</li>';
+                    }
+                })
+                .catch(err => {
+                    activityList.innerHTML = '<li style="color:#999;">Unable to load activity</li>';
+                });
+        })();
+    </script>
+
+    <!-- Product Management Modal -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="product-modal-title">Add Product</h3>
+                <span class="close" onclick="closeProductModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="product-modal-form">
+                    <input type="hidden" id="modal-product-id" />
+                    <div class="form-group">
+                        <label for="modal-product-name">Product Name *</label>
+                        <input type="text" id="modal-product-name" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="modal-product-category">Category</label>
+                        <input type="text" id="modal-product-category" />
+                    </div>
+                    <div class="form-group">
+                        <label for="modal-product-cost">Unit Cost (₱)</label>
+                        <input type="number" id="modal-product-cost" step="0.01" min="0" />
+                    </div>
+                    <div class="form-group" id="modal-stock-group">
+                        <label for="modal-product-stock">Initial Stock</label>
+                        <input type="number" id="modal-product-stock" value="0" min="0" />
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="product-modal-submit" onclick="document.getElementById('product-modal-form').dispatchEvent(new Event('submit'))">Save Product</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>Confirm Deletion</h3>
+                <span class="close" onclick="closeDeleteModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="delete-modal-message">Are you sure you want to delete this product?</p>
+                <p id="delete-modal-warning" class="warning-text" style="display: none;">
+                    This product has sales records. Deleting it may affect your reports.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Adjustment Modal -->
+    <div id="inventory-modal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h3>Adjust Inventory</h3>
+                <span class="close" onclick="closeInventoryModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="inventory-modal-form">
+                    <input type="hidden" id="inventory-product-id" />
+                    <p><strong id="inventory-product-name"></strong></p>
+                    <p>Current Stock: <strong id="inventory-current-stock">0</strong> units</p>
+                    
+                    <div class="form-group">
+                        <label>Operation</label>
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="inventory-operation" value="add" checked />
+                                Add Stock
+                            </label>
+                            <label>
+                                <input type="radio" name="inventory-operation" value="remove" />
+                                Remove Stock
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="inventory-quantity">Quantity *</label>
+                        <input type="number" id="inventory-quantity" required min="1" />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="inventory-reason">Reason (optional)</label>
+                        <input type="text" id="inventory-reason" placeholder="e.g., Received shipment, Damaged goods" />
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeInventoryModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" onclick="document.getElementById('inventory-modal-form').dispatchEvent(new Event('submit'))">Adjust Stock</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script>
+    // Prefer live updates for metrics and alerts on this page
+    window.USE_WEBSOCKET_METRICS = true;
+    window.USE_WEBSOCKET_ALERTS = true;
+
+    // WebSocket live metrics
+    (function(){
+        try {
+            const socket = io({ transports: ['websocket','polling'] });
+            socket.on('metrics_update', (m)=>{
+                const fmtMoney = (v)=> '₱' + Number(v||0).toFixed(2);
+                const fmtInt = (v)=> Number(v||0).toLocaleString();
+                const u = document.getElementById('total-units');
+                const r = document.getElementById('total-revenue');
+                const a = document.getElementById('alerts-count');
+                if(u) u.textContent = fmtInt(m.total_units_sold);
+                if(r) r.textContent = fmtMoney(m.total_revenue);
+                if(a) a.textContent = fmtInt(m.active_alerts);
+            });
+            // Request initial metrics
+            socket.emit('request_metrics');
+        } catch(e) { /* ignore */ }
+    })();
+
+    // Load recent activity
+    (function(){
+        const activityList = document.getElementById('activity-list');
+        if(!activityList) return;
+        
+        fetch('/api/recent-activity?limit=10')
+            .then(res => res.json())
+            .then(data => {
+                if(data.success && data.activities && data.activities.length){
+                    activityList.innerHTML = data.activities.map(a => {
+                        const timeAgo = new Date(a.timestamp).toLocaleString();
+                        return `<li><strong>${a.username}:</strong> ${a.action} <small style="color:#999;">(${timeAgo})</small></li>`;
+                    }).join('');
+                } else {
+                    activityList.innerHTML = '<li style="color:#999;">No recent activity</li>';
+                }
+            })
+            .catch(err => {
+                activityList.innerHTML = '<li style="color:#999;">Unable to load activity</li>';
+            });
+    })();
+</script>
+{% endblock %}

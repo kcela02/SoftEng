@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Predictive Sales Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>📊 Predictive Sales Dashboard</h1>
+                </div>
+                <nav class="nav">
+                    <a href="{{ url_for('main.dashboard') }}" class="nav-link">Dashboard</a>
+                    <a href="{{ url_for('main.forecasting') }}" class="nav-link">Forecasting</a>
+                    <a href="{{ url_for('main.products_page') }}" class="nav-link">Products</a>
+                    <a href="{{ url_for('main.reports') }}" class="nav-link active">Reports</a>
+                    <a href="{{ url_for('main.settings') }}" class="nav-link">Settings</a>
+                    <span class="user-info">Welcome, {{ current_user.username }} ({{ current_user.role }})</span>
+                    <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
+                </nav>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="container" style="max-width: 1400px; padding: 20px;">
+                <h2 style="margin-bottom: 10px;">📈 Reports & Analytics</h2>
+                <p style="color: #666; margin-bottom: 30px;">Download comprehensive reports and insights about your business performance.</p>
+                
+                <!-- Report Cards Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+                    <!-- Sales Report -->
+                    <div class="card">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">📈 Sales Report</h3>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Detailed sales transactions and trends</p>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Time Period:</label>
+                            <select class="form-control" style="width: 100%;">
+                                <option>Last 7 days</option>
+                                <option>Last 30 days</option>
+                                <option>Last 90 days</option>
+                                <option>This year</option>
+                                <option>All time</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="alert('Sales report generation coming soon!')">📥 Download Report</button>
+                    </div>
+
+                    <!-- Forecast Accuracy -->
+                    <div class="card">
+                        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">🎯 Forecast Accuracy</h3>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Review prediction accuracy over time</p>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Analysis Period:</label>
+                            <select class="form-control" style="width: 100%;">
+                                <option>Last 7 days</option>
+                                <option>Last 30 days</option>
+                                <option>Last 90 days</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='{{ url_for('main.dashboard') }}'; sessionStorage.setItem('activeTab', 'forecasting');">📊 View Analysis</button>
+                    </div>
+
+                    <!-- Inventory Report -->
+                    <div class="card">
+                        <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">📦 Inventory Report</h3>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Stock levels and movements</p>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Report Type:</label>
+                            <select class="form-control" style="width: 100%;">
+                                <option>Current Stock Levels</option>
+                                <option>Low Stock Items</option>
+                                <option>Stock Movement History</option>
+                                <option>Restock Recommendations</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="alert('Inventory report generation coming soon!')">📥 Generate Report</button>
+                    </div>
+
+                    <!-- Product Performance -->
+                    <div class="card">
+                        <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">⭐ Product Performance</h3>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Top and bottom performers</p>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Metric:</label>
+                            <select class="form-control" style="width: 100%;">
+                                <option>Revenue</option>
+                                <option>Units Sold</option>
+                                <option>Profit Margin</option>
+                                <option>Growth Rate</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='{{ url_for('main.dashboard') }}'; sessionStorage.setItem('activeTab', 'products');">📊 View Details</button>
+                    </div>
+
+                    <!-- Import History -->
+                    <div class="card">
+                        <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 18px;">📁 Import History</h3>
+                            <p style="color: #374151; font-size: 14px; margin: 0;">CSV upload and processing logs</p>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <p style="font-size: 14px; color: #64748b; margin: 0;">View all CSV imports and their status</p>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='{{ url_for('main.dashboard') }}'; sessionStorage.setItem('activeTab', 'products');">📋 View Import Logs</button>
+                    </div>
+
+                    <!-- Alerts Summary -->
+                    <div class="card">
+                        <div style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
+                            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 18px;">🔔 Alerts Summary</h3>
+                            <p style="color: #374151; font-size: 14px; margin: 0;">Active and resolved alerts</p>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <p style="font-size: 14px; color: #64748b; margin: 0;">Review low stock and restock alerts</p>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='{{ url_for('main.dashboard') }}';">🚨 View Alerts</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Load quick stats
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fetch metrics
+            fetch('/api/metrics?period=30d')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.total_revenue) {
+                        document.getElementById('report-total-sales').textContent = '$' + data.total_revenue.toLocaleString();
+                    }
+                    if (data.total_sales) {
+                        document.getElementById('report-products-sold').textContent = data.total_sales.toLocaleString();
+                    }
+                })
+                .catch(err => console.error('Error loading metrics:', err));
+
+            // Fetch forecast accuracy
+            fetch('/api/forecast-accuracy?days_back=7')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.overall_accuracy !== undefined) {
+                        document.getElementById('report-accuracy').textContent = data.overall_accuracy + '%';
+                    }
+                })
+                .catch(err => console.error('Error loading accuracy:', err));
+
+            // Fetch products count
+            fetch('/api/products')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.products) {
+                        document.getElementById('report-active-products').textContent = data.products.length;
+                    }
+                })
+                .catch(err => console.error('Error loading products:', err));
+        });
+    </script>
+</body>
+</html>
