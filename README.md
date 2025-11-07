@@ -112,17 +112,17 @@ The system will be available at **http://127.0.0.1:5000/**
 
 ## 👨‍💻 Developers
 
-This project was developed as a **Capstone Project** by a team of four.
- 
-| 👤 Developer | 🎓 Role | 💻 Skills | 🔗 GitHub | ✉️ Contact |
-|--------------|---------|-----------|-----------|------------|
-| **Ronan A. Gatmaitan** | Backend Developer | Python, Flask, MySQL | [github.com/ronan](https://github.com/ronanaleckgatmaitan=lab) | roananaleckgatmaitan@gmail.com |
-| **Glenn G. Gamul** | Frontend Developer | HTML, CSS, JavaScript, Bootstrap | [github.com/Glenn](https://github.com/GUiSIPPE) | glennjimgamul@gmail.com |
-| **Alberto C. Rili** | Data Analyst | Pandas, NumPy, ARIMA, Regression | [github.com/alberto](https://github.com/rcmtreb) | rcmtrebla@gmail.com.com |
-| **Mark Angco** | Project Manager | Documentation, Git, System Design | [github.com/dev4](https://github.com/dev4) | dev4@example.com |
+This project was developed as a **Capstone Project** by a team of four.  
+Below is a suggested profile template for contributors:  
 
-
-
+### Developer Template
+```markdown
+### 👤 [Full Name]
+- 🎓 Role: [e.g., Backend Developer | Frontend Developer | Data Analyst | Project Manager]
+- 💻 Skills: [Python, Flask, MySQL, JavaScript, HTML/CSS, Machine Learning]
+- 🔗 GitHub: [github.com/username]
+- ✉️ Email: [your-email@example.com]
+```
 
 ---
 
