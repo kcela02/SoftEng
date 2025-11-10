@@ -46,6 +46,87 @@ class Inventory(db.Model):
     date = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
+
+class InventoryBatch(db.Model):
+    """Track inventory batches with FIFO and expiration dates."""
+    __tablename__ = 'inventory_batches'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    batch_number = db.Column(db.String(50), nullable=False)  # e.g., "BATCH-2025-001"
+    quantity = db.Column(db.Integer, nullable=False, default=0)
+    original_quantity = db.Column(db.Integer, nullable=False)  # Initial quantity received
+    expiration_date = db.Column(db.Date, nullable=False)
+    received_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    unit_cost = db.Column(db.Float)  # Cost per unit for this batch
+    supplier = db.Column(db.String(255))  # Optional supplier info
+    notes = db.Column(db.Text)  # Additional notes
+    is_expired = db.Column(db.Boolean, default=False)  # Auto-computed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    product = db.relationship('Product', backref='batches', lazy=True)
+    
+    # Composite unique constraint - prevent duplicate batch numbers per product
+    __table_args__ = (
+        db.UniqueConstraint('product_id', 'batch_number', name='_product_batch_uc'),
+        db.Index('idx_batch_expiration', 'product_id', 'expiration_date'),
+        db.Index('idx_batch_quantity', 'product_id', 'quantity'),
+    )
+    
+    def days_until_expiry(self):
+        """Calculate days until expiration."""
+        from datetime import date
+        if self.expiration_date:
+            delta = self.expiration_date - date.today()
+            return delta.days
+        return None
+    
+    def is_expiring_soon(self, threshold_days=7):
+        """Check if batch is expiring within threshold days."""
+        days = self.days_until_expiry()
+        return days is not None and 0 <= days <= threshold_days
+    
+    def urgency_level(self):
+        """Get urgency level for expiration."""
+        days = self.days_until_expiry()
+        if days is None or days < 0:
+            return 'EXPIRED'
+        elif days <= 3:
+            return 'CRITICAL'
+        elif days <= 7:
+            return 'HIGH'
+        elif days <= 14:
+            return 'MEDIUM'
+        else:
+            return 'OK'
+
+
+class BatchTransaction(db.Model):
+    """Track all batch transactions for audit trail."""
+    __tablename__ = 'batch_transactions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.Integer, db.ForeignKey('inventory_batches.id'), nullable=False)
+    sale_id = db.Column(db.Integer, db.ForeignKey('sale.id'))  # Link to sale if applicable
+    transaction_type = db.Column(db.String(50), nullable=False)  # 'sale', 'adjustment', 'expired', 'received'
+    quantity_change = db.Column(db.Integer, nullable=False)  # Negative for deductions, positive for additions
+    quantity_before = db.Column(db.Integer, nullable=False)
+    quantity_after = db.Column(db.Integer, nullable=False)
+    notes = db.Column(db.Text)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    batch = db.relationship('InventoryBatch', backref='transactions', lazy=True)
+    sale = db.relationship('Sale', backref='batch_transactions', lazy=True)
+    
+    __table_args__ = (
+        db.Index('idx_batch_trans', 'batch_id', 'created_at'),
+    )
+
+
 class Log(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))

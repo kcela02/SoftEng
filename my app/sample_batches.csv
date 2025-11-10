@@ -1,0 +1,7 @@
+product_name,batch_number,quantity,expiration_date,received_date,unit_cost,supplier,notes
+Laptop,BATCH-20251110-001,50,2026-12-31,2025-11-10,500.00,Tech Supplier Inc,Initial inventory batch
+Monitor,BATCH-20251110-002,30,2026-06-30,2025-11-10,150.00,Display Co,27-inch displays
+Mouse,BATCH-20251110-003,100,2026-03-15,2025-11-10,15.00,Peripherals Ltd,Wireless mice
+Keyboard,BATCH-20251110-004,75,2026-09-20,2025-11-10,35.00,Peripherals Ltd,Mechanical keyboards
+Tablet,BATCH-20251110-005,25,2025-12-01,2025-11-10,300.00,Mobile Devices Inc,10-inch tablets - SHORT EXPIRY
+Headphones,BATCH-20251110-006,60,2026-05-15,2025-11-10,45.00,Audio Tech,Noise-cancelling

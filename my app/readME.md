@@ -1,8 +1,18 @@
 # 📊 Predictive Sales & Restocking Dashboard
 
-An intelligent inventory management system with AI-powered demand forecasting, real-time alerts, and automated restock recommendations.
+An intelligent inventory management system with AI-powered demand forecasting, real-time alerts, automated restock recommendations, and **FIFO batch tracking with expiration management**.
 
 ## 🚀 Key Features
+
+### ⏰ **NEW: FIFO Batch Tracking & Expiration Management**
+- **Automatic First-In-First-Out**: Sales deduct from oldest expiration dates first
+- **Batch Expiration Tracking**: Monitor all inventory batches with expiration dates
+- **Urgency Alerts**: EXPIRED, CRITICAL (≤3 days), HIGH (≤7 days), MEDIUM (≤14 days)
+- **Complete Audit Trail**: Track every batch transaction (additions, deductions, adjustments)
+- **Batch-Level COGS**: Accurate cost calculations per batch
+- **CSV Batch Import**: Upload inventory batches with expiration dates
+- **Visual Batch Dashboard**: See batch status per product with color-coded urgency
+- **Expiring Stock Card**: Dashboard widget showing all batches needing attention
 
 ### 📈 Intelligent Forecasting
 - **Multi-Horizon Predictions**: 1-day, 7-day, and 30-day demand forecasts
@@ -15,12 +25,18 @@ An intelligent inventory management system with AI-powered demand forecasting, r
 - **Recommended Order Quantities**: Calculated with 20% safety margin
 - **Multi-Horizon Analysis**: Shows which time periods are at risk
 - **One-Click Restock**: Quick inventory adjustment workflow
+- **Expiration-Aware**: Considers expiring batches in recommendations
 
 ### 📁 Simplified Data Import
 - **⭐ Unified Sales CSV**: One file for sales + products + inventory
   - Perfect for POS system exports
   - Auto-creates products
+  - **Auto-deducts using FIFO** from batch system
   - Natural business workflow
+- **📦 NEW: Batch CSV Import**: Upload inventory batches with expiration dates
+  - Format: product_name, quantity, expiration_date, batch_number, supplier, etc.
+  - Auto-generates batch numbers
+  - Supports multiple batches per product
 - **Legacy Formats**: Still supports separate CSV files
 - **Validation & Deduplication**: Automatic duplicate detection
 - **Detailed Import Reports**: Shows success/skipped/failed rows
@@ -30,12 +46,14 @@ An intelligent inventory management system with AI-powered demand forecasting, r
 - **Interactive Charts**: Sales trends, monthly performance, top products
 - **Tab-Based Interface**: Overview, Forecasting, Products, Reports, Settings
 - **Period Filtering**: 7-day, 30-day, 3-month, 6-month, 1-year, custom ranges
+- **⏰ Expiring Stock Widget**: Real-time expiration alerts with urgency breakdown
 
 ### 🔔 Alert System
 - **Real-Time Notifications**: WebSocket-powered instant alerts
 - **Acknowledgment Tracking**: Mark alerts as resolved
 - **Alert History**: Full audit trail in database
 - **Severity Levels**: CRITICAL, HIGH, MEDIUM
+- **Expiration Alerts**: Automatic notifications for expiring batches
 
 ## 📦 Quick Start
 

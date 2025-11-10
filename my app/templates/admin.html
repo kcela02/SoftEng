@@ -68,6 +68,16 @@
                         <div class="hint" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Low stock warnings</div>
                         <div class="change" id="change-alerts" style="display: none;"></div>
                     </div>
+                    <div class="card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                        <h3 style="color: white;">⏰ Expiring Stock</h3>
+                        <div class="metric" id="expiring-count" style="color: white;">Loading...</div>
+                        <div class="hint" style="font-size: 0.75em; color: rgba(255,255,255,0.9); margin-top: 5px;">
+                            <div id="expiring-breakdown">Batches expiring soon</div>
+                        </div>
+                        <button class="btn" style="margin-top: 10px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 6px 12px; font-size: 0.85em;" onclick="showExpiringBatchesModal()">
+                            View Details
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Period Comparison Section (NEW) -->
@@ -167,6 +177,9 @@
                 <div class="bottom-section">
                     <div class="alerts-panel">
                         <h3>Restock Alerts</h3>
+                        <div class="hint" style="font-size: 0.85em; color: #6b7280; margin-bottom: 12px;">
+                            🔴 CRITICAL: Stock < 1-day forecast | 🟠 HIGH: Stock < 7-day forecast | 🟡 MEDIUM: Stock < 30-day forecast
+                        </div>
                         <div id="alerts-list">
                             <div class="loading-message">Loading alerts...</div>
                         </div>
@@ -178,6 +191,9 @@
                     </div>
                     <div class="activity-panel">
                         <h3>Recent Activity</h3>
+                        <div class="hint" style="font-size: 0.85em; color: #6b7280; margin-bottom: 12px;">
+                            📦 Inventory batches tracked with FIFO (First-In-First-Out) expiration management
+                        </div>
                         <ul id="activity-list">
                             <li style="color: #999;">Loading recent activity...</li>
                         </ul>

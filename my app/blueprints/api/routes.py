@@ -906,8 +906,22 @@ def upload_csv_file():
                 'operation': 'Operation',
                 'date': 'Date'
             }
-        }
-        ,
+        },
+        # NEW: Batch inventory with expiration tracking
+        'batches': {
+            'required': ['product_name', 'quantity', 'expiration_date'],
+            'optional': ['batch_number', 'received_date', 'unit_cost', 'supplier', 'notes'],
+            'friendly_names': {
+                'product_name': 'Product Name',
+                'batch_number': 'Batch Number',
+                'quantity': 'Quantity',
+                'expiration_date': 'Expiration Date (YYYY-MM-DD)',
+                'received_date': 'Received Date (YYYY-MM-DD)',
+                'unit_cost': 'Unit Cost',
+                'supplier': 'Supplier',
+                'notes': 'Notes'
+            }
+        },
         # Unified sales CSV: recommended single-file format containing product, sale and optional inventory info
         'unified_sales': {
             'required': ['product_name', 'quantity_sold', 'sale_price'],
@@ -1127,19 +1141,93 @@ def upload_csv_file():
                         user_id=current_user.id
                     )
                     db.session.add(sale)
+                    db.session.flush()  # Get sale ID for batch transactions
 
-                    # If stock_after_sale provided, set product stock to that value; otherwise, decrement by quantity
-                    if 'stock_after_sale' in row and pd.notna(row['stock_after_sale']):
+                    # Use FIFO batch deduction if batches exist
+                    try:
+                        from utils.batch_manager import BatchManager, InsufficientStockError
+                        
                         try:
-                            new_stock = int(row['stock_after_sale'])
-                            product.current_stock = new_stock
-                        except Exception:
-                            # fallback to decrement
+                            # Try FIFO deduction from batches
+                            batch_deductions = BatchManager.deduct_stock_fifo(
+                                product_id=product.id,
+                                quantity_to_deduct=quantity,
+                                sale_id=sale.id,
+                                user_id=current_user.id,
+                                notes=f"Sale from CSV: {file.filename}"
+                            )
+                            # FIFO already updated product.current_stock
+                        except InsufficientStockError:
+                            # No batches or insufficient batch stock - fall back to manual stock adjustment
+                            # If stock_after_sale provided, set product stock to that value; otherwise, decrement by quantity
+                            if 'stock_after_sale' in row and pd.notna(row['stock_after_sale']):
+                                try:
+                                    new_stock = int(row['stock_after_sale'])
+                                    product.current_stock = new_stock
+                                except Exception:
+                                    # fallback to decrement
+                                    product.current_stock = max(0, (product.current_stock or 0) - quantity)
+                            else:
+                                product.current_stock = max(0, (product.current_stock or 0) - quantity)
+                    except ImportError:
+                        # Batch system not available, use traditional stock deduction
+                        if 'stock_after_sale' in row and pd.notna(row['stock_after_sale']):
+                            try:
+                                new_stock = int(row['stock_after_sale'])
+                                product.current_stock = new_stock
+                            except Exception:
+                                product.current_stock = max(0, (product.current_stock or 0) - quantity)
+                        else:
                             product.current_stock = max(0, (product.current_stock or 0) - quantity)
-                    else:
-                        product.current_stock = max(0, (product.current_stock or 0) - quantity)
 
                     rows_processed += 1
+                except Exception as e:
+                    rows_failed += 1
+                    errors.append(f"Row {idx + 2}: {str(e)}")
+        
+        elif data_type == 'batches':
+            # NEW: Process batch inventory with expiration tracking
+            from utils.batch_manager import BatchManager
+            
+            for idx, row in df.iterrows():
+                try:
+                    product_name = str(row['product_name']).strip()
+                    
+                    # Find product by name
+                    product = Product.query.filter_by(name=product_name).first()
+                    if not product:
+                        # Auto-create product if it doesn't exist
+                        product = Product(
+                            name=product_name,
+                            unit_cost=float(row['unit_cost']) if 'unit_cost' in row and pd.notna(row['unit_cost']) else 0.0,
+                            current_stock=0  # Will be updated by batch addition
+                        )
+                        db.session.add(product)
+                        db.session.flush()
+                    
+                    quantity = int(row['quantity'])
+                    expiration_date = str(row['expiration_date']).strip()
+                    batch_number = str(row['batch_number']).strip() if 'batch_number' in row and pd.notna(row['batch_number']) else None
+                    received_date = str(row['received_date']).strip() if 'received_date' in row and pd.notna(row['received_date']) else None
+                    unit_cost = float(row['unit_cost']) if 'unit_cost' in row and pd.notna(row['unit_cost']) else None
+                    supplier = str(row['supplier']).strip() if 'supplier' in row and pd.notna(row['supplier']) else None
+                    notes = str(row['notes']).strip() if 'notes' in row and pd.notna(row['notes']) else None
+                    
+                    # Add batch using BatchManager
+                    batch = BatchManager.add_batch(
+                        product_id=product.id,
+                        quantity=quantity,
+                        expiration_date=expiration_date,
+                        received_date=received_date,
+                        batch_number=batch_number,
+                        unit_cost=unit_cost,
+                        supplier=supplier,
+                        notes=notes,
+                        user_id=current_user.id
+                    )
+                    
+                    rows_processed += 1
+                    
                 except Exception as e:
                     rows_failed += 1
                     errors.append(f"Row {idx + 2}: {str(e)}")
@@ -3299,8 +3387,63 @@ def inventory_report():
     try:
         report_type = request.args.get('type', 'current')
         
-        # Base query
+        # Handle expiring batches report separately
+        if report_type == 'expiring':
+            from datetime import datetime, timedelta
+            from models import InventoryBatch
+            
+            # Get batches expiring within 90 days
+            expiry_threshold = datetime.now() + timedelta(days=90)
+            
+            batches = db.session.query(
+                InventoryBatch,
+                Product.name.label('product_name'),
+                Product.category
+            ).join(
+                Product, InventoryBatch.product_id == Product.id
+            ).filter(
+                InventoryBatch.quantity > 0,
+                InventoryBatch.expiration_date <= expiry_threshold,
+                InventoryBatch.expiration_date >= datetime.now()
+            ).order_by(
+                InventoryBatch.expiration_date.asc()
+            ).all()
+            
+            inventory_data = []
+            total_value = 0
+            
+            for batch, product_name, category in batches:
+                days_until_expiry = (batch.expiration_date - datetime.now()).days
+                urgency = 'CRITICAL' if days_until_expiry <= 7 else 'HIGH' if days_until_expiry <= 30 else 'MEDIUM'
+                unit_cost = float(batch.unit_cost) if batch.unit_cost else 0
+                batch_value = batch.quantity * unit_cost
+                
+                inventory_data.append({
+                    'product_name': product_name,
+                    'category': category,
+                    'batch_number': batch.batch_number,
+                    'quantity': batch.quantity,
+                    'expiration_date': batch.expiration_date.strftime('%Y-%m-%d'),
+                    'days_until_expiry': days_until_expiry,
+                    'urgency': urgency,
+                    'unit_cost': unit_cost,
+                    'batch_value': batch_value,
+                    'supplier': batch.supplier or 'N/A'
+                })
+                total_value += batch_value
+            
+            return jsonify({
+                'success': True,
+                'report_type': report_type,
+                'report_label': 'Expiring Batches (Next 90 Days)',
+                'inventory': inventory_data,
+                'total_value': total_value,
+                'is_batch_report': True
+            })
+        
+        # Regular inventory reports
         query = db.session.query(
+            Product.id,
             Product.name.label('product_name'),
             Product.category,
             Product.current_stock,
@@ -3319,6 +3462,10 @@ def inventory_report():
         
         query = query.order_by(Product.current_stock.asc())
         
+        # Add batch summary for regular reports
+        from models import InventoryBatch
+        from datetime import datetime
+        
         inventory_data = []
         total_value = 0
         
@@ -3326,12 +3473,36 @@ def inventory_report():
             unit_cost = float(item.unit_cost) if item.unit_cost else 0
             item_value = item.current_stock * unit_cost
             
+            # Get batch count and earliest expiration for this product
+            batch_info = db.session.query(
+                db.func.count(InventoryBatch.id).label('batch_count'),
+                db.func.min(InventoryBatch.expiration_date).label('earliest_expiry')
+            ).filter(
+                InventoryBatch.product_id == item.id,
+                InventoryBatch.quantity > 0
+            ).first()
+            
+            batch_count = batch_info.batch_count if batch_info else 0
+            earliest_expiry = batch_info.earliest_expiry
+            
+            days_until_expiry = None
+            if earliest_expiry:
+                # Ensure both are date objects for comparison
+                if isinstance(earliest_expiry, datetime):
+                    earliest_expiry_date = earliest_expiry.date()
+                else:
+                    earliest_expiry_date = earliest_expiry
+                days_until_expiry = (earliest_expiry_date - datetime.now().date()).days
+            
             inventory_data.append({
                 'product_name': item.product_name,
                 'category': item.category,
                 'current_stock': item.current_stock,
                 'unit_cost': unit_cost,
-                'total_value': item_value
+                'total_value': item_value,
+                'batch_count': batch_count,
+                'earliest_expiry': earliest_expiry_date.strftime('%Y-%m-%d') if earliest_expiry else None,
+                'days_until_expiry': days_until_expiry
             })
             total_value += item_value
         
@@ -3340,7 +3511,8 @@ def inventory_report():
             'report_type': report_type,
             'report_label': report_label,
             'inventory': inventory_data,
-            'total_value': total_value
+            'total_value': total_value,
+            'is_batch_report': False
         })
         
     except Exception as e:
@@ -3414,6 +3586,311 @@ def download_inventory_report():
         print(f"Error downloading inventory report: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# BATCH MANAGEMENT API ENDPOINTS (FIFO + Expiration Tracking)
+# ============================================================================
+
+@api_bp.route('/batches/<int:product_id>', methods=['GET'])
+@login_required
+def get_product_batches(product_id):
+    """Get all batches for a specific product."""
+    try:
+        from utils.batch_manager import BatchManager
+        
+        include_empty = request.args.get('include_empty', 'false').lower() == 'true'
+        include_expired = request.args.get('include_expired', 'false').lower() == 'true'
+        
+        batches = BatchManager.get_product_batches(
+            product_id, 
+            include_empty=include_empty,
+            include_expired=include_expired
+        )
+        
+        batch_data = []
+        total_quantity = 0
+        total_value = 0
+        
+        for batch in batches:
+            days_until_expiry = batch.days_until_expiry()
+            value = (batch.quantity * batch.unit_cost) if batch.unit_cost else 0
+            total_quantity += batch.quantity
+            total_value += value
+            
+            batch_data.append({
+                'id': batch.id,
+                'batch_number': batch.batch_number,
+                'quantity': batch.quantity,
+                'original_quantity': batch.original_quantity,
+                'expiration_date': batch.expiration_date.isoformat(),
+                'received_date': batch.received_date.isoformat(),
+                'days_until_expiry': days_until_expiry,
+                'urgency': batch.urgency_level(),
+                'is_expired': batch.is_expired,
+                'is_expiring_soon': batch.is_expiring_soon(),
+                'unit_cost': batch.unit_cost,
+                'total_value': value,
+                'supplier': batch.supplier,
+                'notes': batch.notes
+            })
+        
+        return jsonify({
+            'success': True,
+            'product_id': product_id,
+            'batches': batch_data,
+            'summary': {
+                'total_quantity': total_quantity,
+                'total_value': total_value,
+                'average_cost': total_value / total_quantity if total_quantity > 0 else 0,
+                'batch_count': len(batch_data)
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching product batches: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/batches/expiring', methods=['GET'])
+@login_required
+def get_expiring_batches():
+    """Get batches expiring within threshold days."""
+    try:
+        from utils.batch_manager import BatchManager
+        
+        days_threshold = int(request.args.get('days', 7))
+        product_id = request.args.get('product_id', type=int)
+        
+        alerts = BatchManager.check_expiring_batches(
+            days_threshold=days_threshold,
+            product_id=product_id
+        )
+        
+        # Group by urgency
+        critical = [a for a in alerts if a['urgency'] == 'CRITICAL']
+        high = [a for a in alerts if a['urgency'] == 'HIGH']
+        medium = [a for a in alerts if a['urgency'] == 'MEDIUM']
+        
+        return jsonify({
+            'success': True,
+            'expiring_batches': alerts,
+            'summary': {
+                'total_count': len(alerts),
+                'critical_count': len(critical),
+                'high_count': len(high),
+                'medium_count': len(medium),
+                'total_units_at_risk': sum(a['quantity'] for a in alerts),
+                'total_value_at_risk': sum(a['potential_loss'] for a in alerts if a['potential_loss'])
+            },
+            'by_urgency': {
+                'CRITICAL': critical,
+                'HIGH': high,
+                'MEDIUM': medium
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching expiring batches: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/batches/add', methods=['POST'])
+@login_required
+def add_batch():
+    """Add a new inventory batch."""
+    try:
+        from utils.batch_manager import BatchManager
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['product_id', 'quantity', 'expiration_date']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
+        
+        batch = BatchManager.add_batch(
+            product_id=data['product_id'],
+            quantity=data['quantity'],
+            expiration_date=data['expiration_date'],
+            received_date=data.get('received_date'),
+            batch_number=data.get('batch_number'),
+            unit_cost=data.get('unit_cost'),
+            supplier=data.get('supplier'),
+            notes=data.get('notes'),
+            user_id=current_user.id
+        )
+        
+        # Log activity
+        ActivityLogger.log(
+            current_user.id,
+            f"Added batch {batch.batch_number} for product {batch.product.name} ({batch.quantity} units)"
+        )
+        
+        # Trigger metrics update
+        trigger_metrics_broadcast()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Batch added successfully',
+            'batch': {
+                'id': batch.id,
+                'batch_number': batch.batch_number,
+                'quantity': batch.quantity,
+                'expiration_date': batch.expiration_date.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error adding batch: {str(e)}")
+        print(traceback.format_exc())
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/batches/<int:batch_id>/adjust', methods=['POST'])
+@login_required
+def adjust_batch(batch_id):
+    """Manually adjust batch quantity."""
+    try:
+        from utils.batch_manager import BatchManager
+        
+        data = request.get_json()
+        quantity_change = data.get('quantity_change')
+        reason = data.get('reason', 'Manual adjustment')
+        
+        if quantity_change is None:
+            return jsonify({'success': False, 'error': 'quantity_change is required'}), 400
+        
+        batch = BatchManager.adjust_batch_quantity(
+            batch_id=batch_id,
+            quantity_change=quantity_change,
+            reason=reason,
+            user_id=current_user.id
+        )
+        
+        # Log activity
+        ActivityLogger.log(
+            current_user.id,
+            f"Adjusted batch {batch.batch_number}: {'+' if quantity_change > 0 else ''}{quantity_change} units. Reason: {reason}"
+        )
+        
+        # Trigger metrics update
+        trigger_metrics_broadcast()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Batch adjusted successfully',
+            'batch': {
+                'id': batch.id,
+                'batch_number': batch.batch_number,
+                'quantity': batch.quantity
+            }
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        import traceback
+        print(f"Error adjusting batch: {str(e)}")
+        print(traceback.format_exc())
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/batches/<int:batch_id>/transactions', methods=['GET'])
+@login_required
+def get_batch_transactions(batch_id):
+    """Get transaction history for a batch."""
+    try:
+        from models import BatchTransaction
+        
+        transactions = BatchTransaction.query.filter_by(batch_id=batch_id).order_by(
+            BatchTransaction.created_at.desc()
+        ).all()
+        
+        trans_data = [{
+            'id': t.id,
+            'transaction_type': t.transaction_type,
+            'quantity_change': t.quantity_change,
+            'quantity_before': t.quantity_before,
+            'quantity_after': t.quantity_after,
+            'notes': t.notes,
+            'created_at': t.created_at.isoformat(),
+            'sale_id': t.sale_id
+        } for t in transactions]
+        
+        return jsonify({
+            'success': True,
+            'batch_id': batch_id,
+            'transactions': trans_data
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching batch transactions: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/batches/mark-expired', methods=['POST'])
+@login_required
+def mark_expired_batches():
+    """Mark batches that have passed expiration date as expired."""
+    try:
+        from utils.batch_manager import BatchManager
+        
+        count = BatchManager.mark_expired_batches()
+        
+        # Log activity
+        if count > 0:
+            ActivityLogger.log(
+                current_user.id,
+                f"Marked {count} batches as expired"
+            )
+        
+        # Trigger metrics update
+        trigger_metrics_broadcast()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Marked {count} batches as expired',
+            'count': count
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error marking expired batches: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/batches/cost-breakdown/<int:product_id>', methods=['GET'])
+@login_required
+def get_batch_cost_breakdown(product_id):
+    """Get cost breakdown by batch for COGS calculation."""
+    try:
+        from utils.batch_manager import BatchManager
+        
+        breakdown = BatchManager.get_batch_cost_breakdown(product_id)
+        
+        return jsonify({
+            'success': True,
+            'product_id': product_id,
+            **breakdown
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching cost breakdown: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 

@@ -6,7 +6,12 @@
 {% if can_edit %}
 <div class="product-management">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h3 style="margin: 0;">📦 Product Management</h3>
+        <div>
+            <h3 style="margin: 0;">📦 Product Management</h3>
+            <p style="margin: 4px 0 0; font-size: 0.85em; color: #6b7280;">
+                ⏰ FIFO inventory tracking with batch expiration management
+            </p>
+        </div>
         <button type="button" class="btn btn-primary" onclick="openProductModal()" style="padding: 6px 12px !important; font-size: 13px !important; font-weight: 500; white-space: nowrap;">
             ➕ Add New Product
         </button>
@@ -29,19 +34,33 @@
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(102,126,234,0.2);">
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
             <span style="font-size: 2em;">📁</span>
-            <strong style="font-size: 1.2rem; font-weight: 600;">CSV Upload Guide</strong>
+            <strong style="font-size: 1.2rem; font-weight: 600;">CSV Upload Guide - Multiple Formats Supported</strong>
         </div>
-        <p style="margin: 8px 0; font-size: 0.95em; line-height: 1.6; opacity: 0.95;">
-            Upload a CSV file with columns: <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">product_name</code>, 
-            <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">quantity_sold</code>, 
-            <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">sale_price</code>, 
-            <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">sale_date</code>
-        </p>
-        <p style="margin: 8px 0 0; font-size: 0.88em; opacity: 0.9;">
-            💡 Optional: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">category</code>, 
-            <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">unit_cost</code>, 
-            <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">stock_after_sale</code>
-        </p>
+        
+        <div style="margin-bottom: 16px; padding: 12px; background: rgba(255,255,255,0.15); border-radius: 8px;">
+            <strong style="display: block; margin-bottom: 8px;">📊 Sales Data (unified_sales):</strong>
+            <p style="margin: 4px 0; font-size: 0.95em; line-height: 1.6;">
+                Columns: <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">product_name</code>, 
+                <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">quantity_sold</code>, 
+                <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">sale_price</code>, 
+                <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">sale_date</code>
+            </p>
+            <p style="margin: 4px 0 0; font-size: 0.85em; opacity: 0.9;">
+                💡 Optional: category, unit_cost, stock_after_sale | ⚡ Auto-deducts using FIFO batch system
+            </p>
+        </div>
+        
+        <div style="padding: 12px; background: rgba(255,255,255,0.15); border-radius: 8px;">
+            <strong style="display: block; margin-bottom: 8px;">📦 Inventory Batches (batches) - NEW:</strong>
+            <p style="margin: 4px 0; font-size: 0.95em; line-height: 1.6;">
+                Columns: <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">product_name</code>, 
+                <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">quantity</code>, 
+                <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">expiration_date</code>
+            </p>
+            <p style="margin: 4px 0 0; font-size: 0.85em; opacity: 0.9;">
+                💡 Optional: batch_number, received_date, unit_cost, supplier, notes | ⏰ Tracks expiration dates for FIFO management
+            </p>
+        </div>
     </div>
     
     <div class="data-controls">
@@ -99,12 +118,42 @@
                 </label>
                 <input type="number" id="modal-product-cost" step="0.01" min="0" style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px; transition: all 0.2s;" />
             </div>
-            <div class="form-group" id="modal-stock-group" style="margin-bottom: 28px;">
-                <label for="modal-product-stock" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #2d3748; font-size: 14px; margin-bottom: 8px;">
-                    <span style="font-size: 18px;">📊</span> Initial Stock
-                </label>
-                <input type="number" id="modal-product-stock" value="0" min="0" style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px; transition: all 0.2s;" />
+            <!-- Removed free-form initial stock input. Initial stock must be added as a batch with expiration date -->
+            
+            <!-- Batch Information Section (shown for new products) -->
+            <div id="batch-info-section" style="margin-bottom: 24px; padding: 16px; background: #f0f9ff; border: 2px dashed #3b82f6; border-radius: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                    <span style="font-size: 18px;">⏰</span>
+                    <strong style="color: #1e40af; font-size: 14px;">FIFO Batch Tracking (Required for initial stock)</strong>
+                </div>
+                <p style="font-size: 0.85em; color: #1e40af; margin-bottom: 12px;">Provide a batch with expiration date for any initial stock. Adding stock without expiration is no longer supported.</p>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="modal-batch-number" style="font-size: 13px; color: #374151; margin-bottom: 4px; display: block;">Batch Number</label>
+                    <input type="text" id="modal-batch-number" placeholder="Auto-generated if empty" style="width: 100%; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 14px;" />
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="modal-batch-quantity" style="font-size: 13px; color: #374151; margin-bottom: 4px; display: block;">Initial Batch Quantity *</label>
+                    <input type="number" id="modal-batch-quantity" value="0" min="0" style="width: 100%; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 14px;" />
+                </div>
+
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="modal-expiration-date" style="font-size: 13px; color: #374151; margin-bottom: 4px; display: block;">Expiration Date *</label>
+                    <input type="date" id="modal-expiration-date" style="width: 100%; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 14px;" />
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="modal-supplier" style="font-size: 13px; color: #374151; margin-bottom: 4px; display: block;">Supplier</label>
+                    <input type="text" id="modal-supplier" placeholder="Supplier name" style="width: 100%; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 14px;" />
+                </div>
+                
+                <div class="form-group">
+                    <label for="modal-batch-notes" style="font-size: 13px; color: #374151; margin-bottom: 4px; display: block;">Notes</label>
+                    <textarea id="modal-batch-notes" rows="2" placeholder="Optional notes about this batch" style="width: 100%; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 14px; resize: vertical;"></textarea>
+                </div>
             </div>
+            
             <div class="modal-footer" style="display: flex; gap: 12px; padding-top: 8px;">
                 <button type="button" class="btn btn-secondary" onclick="closeProductModal()" style="flex: 1; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; background: #f7fafc; color: #4a5568; border: 2px solid #e2e8f0; cursor: pointer; transition: all 0.2s;">Cancel</button>
                 <button type="submit" class="btn btn-primary" id="product-modal-submit" style="flex: 2; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">Save Product</button>
@@ -173,13 +222,95 @@
                 </label>
                 <input type="text" id="inventory-reason" placeholder="e.g., Received shipment, Damaged goods..." style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px; transition: all 0.2s;" />
             </div>
+            
+            <div style="padding: 12px; background: #fffbeb; border: 1px solid #fbbf24; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0; font-size: 0.85em; color: #92400e;">
+                    💡 <strong>Tip:</strong> For better tracking, use <strong>"Add Batch"</strong> button below to add inventory with expiration dates (FIFO system).
+                </p>
+            </div>
+            
             <div class="modal-footer" style="display: flex; gap: 12px; padding-top: 8px;">
                 <button type="button" class="btn btn-secondary" onclick="closeInventoryModal()" style="flex: 1; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; background: #f7fafc; color: #4a5568; border: 2px solid #e2e8f0; cursor: pointer; transition: all 0.2s;">Cancel</button>
+                <button type="button" class="btn" onclick="openAddBatchModal()" style="flex: 1; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);">⏰ Add Batch</button>
                 <button type="submit" class="btn btn-primary" style="flex: 2; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">Update Inventory</button>
             </div>
         </form>
     </div>
 </div>
+
+<!-- Add Batch Modal -->
+<div id="add-batch-modal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-bottom: none; padding: 28px 32px;">
+            <h3 style="color: white; font-size: 1.4rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 24px;">⏰</span> Add Inventory Batch
+            </h3>
+            <span class="modal-close" onclick="closeAddBatchModal()" style="color: white; opacity: 0.9; font-size: 28px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; transition: all 0.2s;">&times;</span>
+        </div>
+        <form id="add-batch-form" style="padding: 32px;">
+            <input type="hidden" id="batch-product-id" />
+            
+            <div class="form-group" style="margin-bottom: 20px; padding: 16px; background: #fef3c7; border-radius: 10px; border-left: 4px solid #f59e0b;">
+                <label style="font-size: 13px; color: #92400e; font-weight: 600; margin-bottom: 4px; display: block;">Product</label>
+                <strong id="batch-product-name" style="font-size: 16px; color: #b45309;"></strong>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="batch-quantity" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #2d3748; font-size: 14px; margin-bottom: 8px;">
+                    <span style="font-size: 18px;">📦</span> Quantity *
+                </label>
+                <input type="number" id="batch-quantity" min="1" required style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px;" />
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="batch-expiration" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #2d3748; font-size: 14px; margin-bottom: 8px;">
+                    <span style="font-size: 18px;">📅</span> Expiration Date *
+                </label>
+                <input type="date" id="batch-expiration" required style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px;" />
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="batch-number-input" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #2d3748; font-size: 14px; margin-bottom: 8px;">
+                    <span style="font-size: 18px;">🔢</span> Batch Number
+                </label>
+                <input type="text" id="batch-number-input" placeholder="Auto-generated if empty" style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px;" />
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="batch-unit-cost" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #2d3748; font-size: 14px; margin-bottom: 8px;">
+                    <span style="font-size: 18px;">💰</span> Unit Cost (₱)
+                </label>
+                <input type="number" id="batch-unit-cost" step="0.01" min="0" placeholder="Optional" style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px;" />
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="batch-supplier" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #2d3748; font-size: 14px; margin-bottom: 8px;">
+                    <span style="font-size: 18px;">🏭</span> Supplier
+                </label>
+                <input type="text" id="batch-supplier" placeholder="Supplier name" style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px;" />
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label for="batch-notes" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #2d3748; font-size: 14px; margin-bottom: 8px;">
+                    <span style="font-size: 18px;">📝</span> Notes
+                </label>
+                <textarea id="batch-notes" rows="3" placeholder="Optional notes about this batch" style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px; resize: vertical;"></textarea>
+            </div>
+            
+            <div style="padding: 12px; background: #dbeafe; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0; font-size: 0.85em; color: #1e40af;">
+                    💡 This batch will be tracked with FIFO (First-In-First-Out). Sales will automatically deduct from batches with the oldest expiration dates first.
+                </p>
+            </div>
+            
+            <div class="modal-footer" style="display: flex; gap: 12px; padding-top: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="closeAddBatchModal()" style="flex: 1; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; background: #f7fafc; color: #4a5568; border: 2px solid #e2e8f0; cursor: pointer; transition: all 0.2s;">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="flex: 2; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);">Add Batch</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}

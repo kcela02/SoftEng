@@ -1870,36 +1870,72 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.products && data.products.length > 0) {
-                    productsList.innerHTML = data.products.map(product => {
-                        const stock = product.current_stock || 0;
-                        let stockClass = 'high';
-                        if (stock < 10) stockClass = 'low';
-                        else if (stock < 50) stockClass = 'medium';
+                    // Fetch batch data for all products
+                    Promise.all(data.products.map(product => 
+                        fetch(`/api/batches/${product.id}`)
+                            .then(r => r.json())
+                            .then(batchData => ({ product, batches: batchData.batches || [] }))
+                            .catch(() => ({ product, batches: [] }))
+                    )).then(productsWithBatches => {
+                        productsList.innerHTML = productsWithBatches.map(({ product, batches }) => {
+                            const stock = product.current_stock || 0;
+                            let stockClass = 'high';
+                            if (stock < 10) stockClass = 'low';
+                            else if (stock < 50) stockClass = 'medium';
 
-                        return `
-                            <div class="product-item" data-product-id="${product.id}">
-                                <div class="product-info">
-                                    <div class="product-name">${product.name}</div>
-                                    <div class="product-meta">
-                                        <span>📁 ${product.category || 'Uncategorized'}</span>
-                                        <span>💰 ₱${parseFloat(product.unit_cost || 0).toFixed(2)}</span>
-                                        <span class="stock-badge ${stockClass}">📦 ${stock} units</span>
+                            // Count batches by urgency
+                            const expiredBatches = batches.filter(b => b.urgency_level === 'EXPIRED').length;
+                            const criticalBatches = batches.filter(b => b.urgency_level === 'CRITICAL').length;
+                            const highBatches = batches.filter(b => b.urgency_level === 'HIGH').length;
+                            const totalBatches = batches.length;
+
+                            let batchInfo = '';
+                            if (totalBatches > 0) {
+                                const urgentCount = expiredBatches + criticalBatches + highBatches;
+                                if (urgentCount > 0) {
+                                    batchInfo = `<div style="margin-top: 8px; padding: 8px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; font-size: 0.85em;">
+                                        <strong>⚠️ ${urgentCount} batch${urgentCount > 1 ? 'es' : ''} need attention:</strong>
+                                        ${expiredBatches > 0 ? ` 🔴 ${expiredBatches} expired` : ''}
+                                        ${criticalBatches > 0 ? ` 🔴 ${criticalBatches} critical (≤3 days)` : ''}
+                                        ${highBatches > 0 ? ` 🟠 ${highBatches} high (≤7 days)` : ''}
+                                    </div>`;
+                                } else {
+                                    batchInfo = `<div style="margin-top: 6px; font-size: 0.85em; color: #10b981;">
+                                        ✅ ${totalBatches} batch${totalBatches > 1 ? 'es' : ''} in good condition
+                                    </div>`;
+                                }
+                            }
+
+                            return `
+                                <div class="product-item" data-product-id="${product.id}">
+                                    <div class="product-info">
+                                        <div class="product-name">${product.name}</div>
+                                        <div class="product-meta">
+                                            <span>📁 ${product.category || 'Uncategorized'}</span>
+                                            <span>💰 ₱${parseFloat(product.unit_cost || 0).toFixed(2)}</span>
+                                            <span class="stock-badge ${stockClass}">📦 ${stock} units</span>
+                                            ${totalBatches > 0 ? `<span style="color: #6366f1;">⏰ ${totalBatches} batch${totalBatches > 1 ? 'es' : ''}</span>` : ''}
+                                        </div>
+                                        ${batchInfo}
+                                    </div>
+                                    <div class="product-actions">
+                                        ${totalBatches > 0 ? `<button class="btn-stock" onclick="viewBatchesModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
+                                            ⏰ Batches
+                                        </button>` : ''}
+                                        <button class="btn-stock" onclick="openInventoryModal(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${stock})">
+                                            📦 Update
+                                        </button>
+                                        <button class="btn-edit" onclick="openEditProductModal(${product.id})">
+                                            ✏️ Edit
+                                        </button>
+                                        <button class="btn-delete" onclick="openDeleteModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
+                                            🗑️ Delete
+                                        </button>
                                     </div>
                                 </div>
-                                <div class="product-actions">
-                                    <button class="btn-stock" onclick="openInventoryModal(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${stock})">
-                                        📦 Update
-                                    </button>
-                                    <button class="btn-edit" onclick="openEditProductModal(${product.id})">
-                                        ✏️ Edit
-                                    </button>
-                                    <button class="btn-delete" onclick="openDeleteModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
-                                        🗑️ Delete
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
+                            `;
+                        }).join('');
+                    });
                 } else {
                     productsList.innerHTML = `
                         <div style="text-align: center; padding: 60px 20px;">
@@ -1926,15 +1962,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const modal = document.getElementById('product-modal');
         const title = document.getElementById('product-modal-title');
         const form = document.getElementById('product-modal-form');
-        const stockGroup = document.getElementById('modal-stock-group');
         
         // Reset form
         form.reset();
         document.getElementById('modal-product-id').value = '';
         
+        // Get batch section elements (for new products only)
+        const batchQuantityInput = document.getElementById('modal-batch-quantity');
+        const expirationDateInput = document.getElementById('modal-expiration-date');
+        const batchNumberInput = document.getElementById('modal-batch-number');
+        const supplierInput = document.getElementById('modal-supplier');
+        const batchNotesInput = document.getElementById('modal-batch-notes');
+        
         if (productId) {
             title.textContent = 'Edit Product';
-            stockGroup.style.display = 'none'; // Hide stock field when editing
+            // Hide all batch-related fields when editing
+            const batchFields = [batchQuantityInput, expirationDateInput, batchNumberInput, supplierInput, batchNotesInput];
+            batchFields.forEach(field => {
+                if (field && field.closest('.form-group')) {
+                    field.closest('.form-group').style.display = 'none';
+                }
+            });
             currentEditingProductId = productId;
             
             // Load product data
@@ -1950,7 +1998,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         } else {
             title.textContent = 'Add New Product';
-            stockGroup.style.display = 'block';
+            // Show all batch-related fields for new products
+            const batchFields = [batchQuantityInput, expirationDateInput, batchNumberInput, supplierInput, batchNotesInput];
+            batchFields.forEach(field => {
+                if (field && field.closest('.form-group')) {
+                    field.closest('.form-group').style.display = 'block';
+                }
+            });
+            
+            // Set default expiration to 1 year from now
+            if (expirationDateInput) {
+                const oneYearLater = new Date();
+                oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+                expirationDateInput.value = oneYearLater.toISOString().split('T')[0];
+            }
+            
             currentEditingProductId = null;
         }
         
@@ -1972,7 +2034,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (productModalForm) {
         productModalForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const productId = document.getElementById('modal-product-id').value;
             const productData = {
                 name: document.getElementById('modal-product-name').value,
@@ -1980,15 +2042,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 unit_cost: document.getElementById('modal-product-cost').value
             };
 
-            // Only include stock for new products
-            if (!productId) {
-                productData.current_stock = document.getElementById('modal-product-stock').value;
+            // If creating a new product and initial batch quantity provided, require expiration date
+            const isNew = !productId;
+            let batchQuantity = 0;
+            let batchExpiration = '';
+            if (isNew) {
+                batchQuantity = parseInt(document.getElementById('modal-batch-quantity').value) || 0;
+                batchExpiration = document.getElementById('modal-expiration-date').value;
+                if (batchQuantity > 0 && !batchExpiration) {
+                    showNotification('Please provide an expiration date for the initial batch (required).', 'error');
+                    return;
+                }
             }
 
             try {
                 const url = productId ? `/api/products/${productId}` : '/api/products';
                 const method = productId ? 'PUT' : 'POST';
-                
+
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
@@ -1998,9 +2068,42 @@ document.addEventListener('DOMContentLoaded', function() {
                 const result = await response.json();
 
                 if (result.success) {
+                    // If creating new product with initial batch info, add the batch
+                    if (isNew && result.product && batchQuantity > 0) {
+                        const batchData = {
+                            product_id: result.product.id,
+                            quantity: batchQuantity,
+                            expiration_date: batchExpiration,
+                            batch_number: document.getElementById('modal-batch-number').value || null,
+                            unit_cost: document.getElementById('modal-product-cost').value || null,
+                            supplier: document.getElementById('modal-supplier').value || null,
+                            notes: document.getElementById('modal-batch-notes').value || null,
+                            user_id: window.currentUserId || null
+                        };
+
+                        try {
+                            const batchResponse = await fetch('/api/batches/add', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(batchData)
+                            });
+
+                            const batchResult = await batchResponse.json();
+                            if (batchResult.success) {
+                                showNotification(`${result.message} Batch added successfully!`, 'success');
+                            } else {
+                                showNotification(`${result.message} (but failed to add batch)`, 'error');
+                            }
+                        } catch (batchError) {
+                            console.error('Error adding batch:', batchError);
+                            showNotification('Product created but failed to add initial batch.', 'error');
+                        }
+                    } else {
+                        showNotification(result.message, 'success');
+                    }
+
                     closeProductModal();
                     loadProducts();
-                    showNotification(result.message, 'success');
                 } else {
                     showNotification(`Error: ${result.error}`, 'error');
                 }
@@ -3427,5 +3530,425 @@ if (document.getElementById('save-settings-btn')) {
     
     // Attach save button handler
     document.getElementById('save-settings-btn').addEventListener('click', saveUserPreferences);
+}
+
+// ============================================================================
+// BATCH MANAGEMENT & EXPIRATION TRACKING
+// ============================================================================
+
+/**
+ * Load expiring batches count for dashboard card
+ */
+function loadExpiringBatchesCount() {
+    fetch('/api/batches/expiring?days=30')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const batches = data.batches || [];
+                const expired = batches.filter(b => b.urgency_level === 'EXPIRED').length;
+                const critical = batches.filter(b => b.urgency_level === 'CRITICAL').length;
+                const high = batches.filter(b => b.urgency_level === 'HIGH').length;
+                const medium = batches.filter(b => b.urgency_level === 'MEDIUM').length;
+                
+                const total = expired + critical + high + medium;
+                
+                const countElem = document.getElementById('expiring-count');
+                const breakdownElem = document.getElementById('expiring-breakdown');
+                
+                if (countElem) {
+                    countElem.textContent = total;
+                }
+                
+                if (breakdownElem) {
+                    if (total > 0) {
+                        let parts = [];
+                        if (expired > 0) parts.push(`🔴 ${expired} expired`);
+                        if (critical > 0) parts.push(`🔴 ${critical} critical`);
+                        if (high > 0) parts.push(`🟠 ${high} high`);
+                        if (medium > 0) parts.push(`🟡 ${medium} medium`);
+                        breakdownElem.innerHTML = parts.join(' | ');
+                    } else {
+                        breakdownElem.innerHTML = 'No batches expiring soon ✅';
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading expiring batches:', error);
+            const countElem = document.getElementById('expiring-count');
+            if (countElem) countElem.textContent = '—';
+        });
+}
+
+/**
+ * Show expiring batches modal
+ */
+window.showExpiringBatchesModal = function() {
+    fetch('/api/batches/expiring?days=30')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const batches = data.batches || [];
+                
+                // Group by urgency
+                const grouped = {
+                    EXPIRED: batches.filter(b => b.urgency_level === 'EXPIRED'),
+                    CRITICAL: batches.filter(b => b.urgency_level === 'CRITICAL'),
+                    HIGH: batches.filter(b => b.urgency_level === 'HIGH'),
+                    MEDIUM: batches.filter(b => b.urgency_level === 'MEDIUM')
+                };
+                
+                let html = `
+                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="this.remove()">
+                        <div style="background: white; border-radius: 12px; max-width: 900px; width: 90%; max-height: 80vh; overflow-y: auto; padding: 0;" onclick="event.stopPropagation()">
+                            <div style="position: sticky; top: 0; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; z-index: 1;">
+                                <h2 style="margin: 0; font-size: 1.5em;">⏰ Expiring Stock Batches</h2>
+                                <p style="margin: 8px 0 0; opacity: 0.9; font-size: 0.95em;">Batches requiring immediate attention (30-day window)</p>
+                            </div>
+                            <div style="padding: 20px;">
+                `;
+                
+                // Add groups
+                const urgencyConfig = {
+                    EXPIRED: { icon: '🔴', label: 'EXPIRED', color: '#ef4444', bgColor: '#fee2e2' },
+                    CRITICAL: { icon: '🔴', label: 'CRITICAL (≤3 days)', color: '#dc2626', bgColor: '#fef2f2' },
+                    HIGH: { icon: '🟠', label: 'HIGH (≤7 days)', color: '#f59e0b', bgColor: '#fef3c7' },
+                    MEDIUM: { icon: '🟡', label: 'MEDIUM (≤14 days)', color: '#eab308', bgColor: '#fef9c3' }
+                };
+                
+                Object.keys(urgencyConfig).forEach(level => {
+                    const items = grouped[level];
+                    if (items.length > 0) {
+                        const config = urgencyConfig[level];
+                        html += `
+                            <div style="margin-bottom: 24px;">
+                                <h3 style="color: ${config.color}; font-size: 1.1em; margin-bottom: 12px;">
+                                    ${config.icon} ${config.label} (${items.length})
+                                </h3>
+                                <div style="display: grid; gap: 12px;">
+                        `;
+                        
+                        items.forEach(batch => {
+                            const daysLeft = batch.days_until_expiry;
+                            const daysText = daysLeft < 0 ? `${Math.abs(daysLeft)} days ago` : `${daysLeft} days left`;
+                            
+                            html += `
+                                <div style="background: ${config.bgColor}; border-left: 4px solid ${config.color}; padding: 12px; border-radius: 6px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                                        <div>
+                                            <strong style="font-size: 1.05em; color: #1f2937;">${batch.product_name}</strong>
+                                            <div style="margin-top: 4px; font-size: 0.9em; color: #6b7280;">
+                                                📦 Batch: ${batch.batch_number} | Qty: ${batch.quantity} units
+                                            </div>
+                                            <div style="margin-top: 4px; font-size: 0.85em; color: #6b7280;">
+                                                📅 Expires: ${batch.expiration_date} (${daysText})
+                                            </div>
+                                            ${batch.supplier ? `<div style="margin-top: 2px; font-size: 0.85em; color: #9ca3af;">🏭 ${batch.supplier}</div>` : ''}
+                                        </div>
+                                        <button onclick="viewBatchesModal(${batch.product_id}, '${batch.product_name.replace(/'/g, "\\'")}'); event.target.closest('[style*=fixed]').remove();" 
+                                                style="background: white; border: 1px solid ${config.color}; color: ${config.color}; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                                            View Product
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += `
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                
+                if (batches.length === 0) {
+                    html += `
+                        <div style="text-align: center; padding: 40px; color: #10b981;">
+                            <div style="font-size: 3em; margin-bottom: 12px;">✅</div>
+                            <p style="font-size: 1.1em; margin: 0;">All batches in good condition!</p>
+                            <p style="font-size: 0.9em; color: #6b7280; margin-top: 8px;">No batches expiring within the next 30 days</p>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                                <button onclick="this.closest('[style*=fixed]').remove()" style="width: 100%; padding: 12px; background: #e5e7eb; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 12px;">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', html);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading expiring batches:', error);
+            alert('Failed to load expiring batches');
+        });
+};
+
+/**
+ * View batches for a specific product
+ */
+window.viewBatchesModal = function(productId, productName) {
+    fetch(`/api/batches/${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const batches = data.batches || [];
+                
+                let html = `
+                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="this.remove()">
+                        <div style="background: white; border-radius: 12px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto; padding: 0;" onclick="event.stopPropagation()">
+                            <div style="position: sticky; top: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; z-index: 1;">
+                                <h2 style="margin: 0; font-size: 1.5em;">📦 ${productName} - Batch Inventory</h2>
+                                <p style="margin: 8px 0 0; opacity: 0.9;">FIFO Inventory Management - ${batches.length} batch${batches.length !== 1 ? 'es' : ''}</p>
+                            </div>
+                            <div style="padding: 20px;">
+                `;
+                
+                if (batches.length > 0) {
+                    // Sort by expiration date (oldest first - FIFO order)
+                    batches.sort((a, b) => new Date(a.expiration_date) - new Date(b.expiration_date));
+                    
+                    batches.forEach((batch, index) => {
+                        const urgencyColors = {
+                            EXPIRED: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
+                            CRITICAL: { bg: '#fef2f2', border: '#dc2626', text: '#991b1b' },
+                            HIGH: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+                            MEDIUM: { bg: '#fef9c3', border: '#eab308', text: '#854d0e' },
+                            OK: { bg: '#d1fae5', border: '#10b981', text: '#065f46' }
+                        };
+                        
+                        const colors = urgencyColors[batch.urgency_level] || urgencyColors.OK;
+                        const daysLeft = batch.days_until_expiry;
+                        const daysText = daysLeft < 0 ? `${Math.abs(daysLeft)} days ago` : `${daysLeft} days`;
+                        
+                        html += `
+                            <div style="background: ${colors.bg}; border-left: 4px solid ${colors.border}; padding: 14px; border-radius: 6px; margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 8px;">
+                                    <div style="flex: 1;">
+                                        <strong style="font-size: 1.05em; color: ${colors.text};">
+                                            #${index + 1} - ${batch.batch_number}
+                                        </strong>
+                                        <span style="margin-left: 12px; padding: 3px 8px; background: ${colors.border}; color: white; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
+                                            ${batch.urgency_level}
+                                        </span>
+                                    </div>
+                                    <div style="text-align: right; font-size: 1.2em; font-weight: bold; color: ${colors.text};">
+                                        ${batch.quantity} units
+                                    </div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.9em; color: #4b5563;">
+                                    <div>📅 <strong>Expires:</strong> ${batch.expiration_date}</div>
+                                    <div>⏰ <strong>${daysLeft >= 0 ? 'Time left' : 'Expired'}:</strong> ${daysText}</div>
+                                    ${batch.received_date ? `<div>📥 <strong>Received:</strong> ${batch.received_date}</div>` : ''}
+                                    ${batch.supplier ? `<div>🏭 <strong>Supplier:</strong> ${batch.supplier}</div>` : ''}
+                                    ${batch.unit_cost ? `<div>💰 <strong>Unit Cost:</strong> ₱${parseFloat(batch.unit_cost).toFixed(2)}</div>` : ''}
+                                </div>
+                                ${batch.notes ? `<div style="margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.5); border-radius: 4px; font-size: 0.85em; color: #6b7280;">
+                                    📝 ${batch.notes}
+                                </div>` : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    // Add FIFO explanation
+                    html += `
+                        <div style="margin-top: 20px; padding: 12px; background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; font-size: 0.9em; color: #1e40af;">
+                            <strong>📊 FIFO System:</strong> Sales automatically deduct from batches in order (oldest expiration first). 
+                            This ensures expired stock is minimized and inventory turnover is optimized.
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                            <div style="font-size: 3em; margin-bottom: 12px;">📦</div>
+                            <p style="font-size: 1.1em; margin: 0;">No batches found</p>
+                            <p style="font-size: 0.9em; margin-top: 8px;">Add inventory batches via CSV upload or manual entry</p>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                                <button onclick="this.closest('[style*=fixed]').remove()" style="width: 100%; padding: 12px; background: #e5e7eb; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 12px;">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', html);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading batches:', error);
+            alert('Failed to load batch information');
+        });
+};
+
+// Load expiring batches count when dashboard loads
+if (window.location.pathname.includes('admin') || window.location.pathname === '/') {
+    document.addEventListener('DOMContentLoaded', () => {
+        if (document.getElementById('expiring-count')) {
+            loadExpiringBatchesCount();
+            // Refresh every 5 minutes
+            setInterval(loadExpiringBatchesCount, 300000);
+        }
+    });
+}
+
+// ============================================================================
+// BATCH MANAGEMENT MODALS
+// ============================================================================
+
+/**
+ * Open add batch modal from inventory modal
+ */
+window.openAddBatchModal = function(prefillQuantity) {
+    const productId = document.getElementById('inventory-product-id') ? document.getElementById('inventory-product-id').value : null;
+    const productName = document.getElementById('inventory-product-name') ? document.getElementById('inventory-product-name').textContent : '';
+    
+    if (!productId) {
+        alert('Product ID not found');
+        return;
+    }
+    
+    // Close inventory modal
+    closeInventoryModal();
+    
+    // Open batch modal
+    document.getElementById('batch-product-id').value = productId;
+    document.getElementById('batch-product-name').textContent = productName;
+
+    // If a prefill quantity provided, set it
+    if (typeof prefillQuantity !== 'undefined' && prefillQuantity !== null) {
+        const q = parseInt(prefillQuantity) || 0;
+        document.getElementById('batch-quantity').value = q;
+    }
+
+    // Set default expiration date to 1 year from now if empty
+    const oneYearLater = new Date();
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+    if (!document.getElementById('batch-expiration').value) {
+        document.getElementById('batch-expiration').value = oneYearLater.toISOString().split('T')[0];
+    }
+
+    document.getElementById('add-batch-modal').classList.add('show');
+};
+
+/**
+ * Close add batch modal
+ */
+window.closeAddBatchModal = function() {
+    document.getElementById('add-batch-modal').classList.remove('show');
+    document.getElementById('add-batch-form').reset();
+};
+
+/**
+ * Submit add batch form
+ */
+const addBatchForm = document.getElementById('add-batch-form');
+if (addBatchForm) {
+    addBatchForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const batchData = {
+            product_id: parseInt(document.getElementById('batch-product-id').value),
+            quantity: parseInt(document.getElementById('batch-quantity').value),
+            expiration_date: document.getElementById('batch-expiration').value,
+            batch_number: document.getElementById('batch-number-input').value || null,
+            unit_cost: document.getElementById('batch-unit-cost').value || null,
+            supplier: document.getElementById('batch-supplier').value || null,
+            notes: document.getElementById('batch-notes').value || null
+        };
+        
+        try {
+            const response = await fetch('/api/batches/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(batchData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                closeAddBatchModal();
+                if (typeof loadProducts === 'function') {
+                    loadProducts();
+                }
+                showNotification(`✅ Batch added successfully! Batch #${result.batch.batch_number}`, 'success');
+            } else {
+                showNotification(`❌ Error: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error adding batch:', error);
+            showNotification(`❌ Error adding batch: ${error.message}`, 'error');
+        }
+    });
+}
+
+/**
+ * Helper to show notifications
+ */
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 16px 24px;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10001;
+        font-size: 14px;
+        font-weight: 500;
+        max-width: 400px;
+        animation: slideIn 0.3s ease-out;
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 4 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
+}
+
+// Add CSS animations for notifications
+if (!document.getElementById('notification-styles')) {
+    const style = document.createElement('style');
+    style.id = 'notification-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
