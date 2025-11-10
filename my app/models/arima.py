@@ -34,6 +34,7 @@ def forecast_arima(db_conn, product_id, days_ahead=7, order=(5,1,0)):
         forecast_result = model_fit.get_forecast(steps=days_ahead, alpha=0.2)
         predictions = forecast_result.predicted_mean
         conf_int = forecast_result.conf_int()
+
         # 3. Calculate model performance metrics (on training data)
         fitted_values = model_fit.fittedvalues
         residuals = ts - fitted_values

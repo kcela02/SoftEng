@@ -1,12 +1,7 @@
 """
 Populate ForecastSnapshot table from Forecast table with generated_at dates
 """
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from datetime import datetime, timedelta
-from app import create_app
 from models import db, Forecast, ForecastSnapshot, Sale
 from sqlalchemy import func
 
@@ -104,7 +99,9 @@ def populate_snapshots_from_rolling_forecasts():
     
     return snapshots_created, snapshots_with_actuals
 
+
 if __name__ == '__main__':
+    from app import create_app
     app = create_app()
     with app.app_context():
         populate_snapshots_from_rolling_forecasts()

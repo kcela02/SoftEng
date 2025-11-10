@@ -71,7 +71,7 @@
             </h4>
             <p style="color: #6b7280; font-size: 0.85em; margin-bottom: 15px;">
                 Shows actual sales up to today and forecasted sales for remaining days of the week.
-                <br><strong>Green:</strong> Actual | <strong>Orange (Dashed):</strong> Forecast
+                <br><strong>Green:</strong> Actual | <strong>Blue:</strong> Forecast
             </p>
             <div id="daily-forecast-chart-container" style="position: relative; height: 350px;">
                 <canvas id="daily-forecast-chart"></canvas>
@@ -85,7 +85,7 @@
             </h4>
             <p style="color: #6b7280; font-size: 0.85em; margin-bottom: 15px;">
                 Shows actual total sales for completed weeks and forecasted totals for upcoming weeks.
-                <br><strong>Green (Solid):</strong> Actual | <strong>Orange (Striped):</strong> Forecast
+                <br><strong>Green:</strong> Actual | <strong>Blue:</strong> Forecast
             </p>
             <div id="weekly-forecast-chart-container" style="position: relative; height: 350px;">
                 <canvas id="weekly-forecast-chart"></canvas>
@@ -133,7 +133,7 @@
 </div>
 
 <!-- 3. Forecast Accuracy Widget -->
-<div class="card" style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+<!--<div class="card" style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
     <h3 style="margin-top: 0; display: flex; align-items: center; gap: 10px;">
         🎯 Forecast Accuracy
     </h3>
@@ -182,9 +182,10 @@
             loadWeeklyForecast();
         }
         
-        if (typeof loadForecastAccuracy === 'function') {
-            loadForecastAccuracy();
-        }
+        // Forecast accuracy widget removed
+        // if (typeof loadForecastAccuracy === 'function') {
+        //     loadForecastAccuracy();
+        // }
         
         // Populate product selectors
         if (typeof populateProductSelectors === 'function') {

@@ -68,12 +68,6 @@
                         <div class="hint" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Low stock warnings</div>
                         <div class="change" id="change-alerts" style="display: none;"></div>
                     </div>
-                   <!-- <div class="card">
-                        <h3>Inventory Turnover</h3>
-                        <div class="metric" id="turnover-rate">Loading...</div>
-                        <div class="hint" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Not affected by date range</div>
-                        <div class="change" id="change-turnover" style="display: none;"></div>
-                    </div> -->
                 </div>
 
                 <!-- Period Comparison Section (NEW) -->
@@ -164,7 +158,7 @@
                         <h3>Sales Trend Analysis</h3>
                         <canvas id="trendChart"></canvas>
                     </div>
-                    <div class="chart-container">
+                    <div class="chart-container" id="monthly-chart-container">
                         <h3>Monthly Performance</h3>
                         <canvas id="monthlyChart"></canvas>
                     </div>
@@ -202,11 +196,30 @@
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <label for="ranking-period" style="font-weight: 500; color: #374151;">Period:</label>
                             <select id="ranking-period" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer;">
-                                <option value="7d">Last 7 Days</option>
+                                <option value="">- Select -</option>
+                                <option value="7d" selected>Last 7 Days</option>
                                 <option value="30d">Last 30 Days</option>
                                 <option value="90d">Last 90 Days</option>
                                 <option value="1y">Last Year</option>
                                 <option value="all">All Time</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="ranking-year" style="font-weight: 500; color: #374151;">Year:</label>
+                            <select id="ranking-year" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer; min-width: 110px;">
+                                <option value="">- Select -</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="ranking-month" style="font-weight: 500; color: #374151;">Month:</label>
+                            <select id="ranking-month" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer; min-width: 140px;">
+                                <option value="">- Select -</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label for="ranking-week" style="font-weight: 500; color: #374151;">Week:</label>
+                            <select id="ranking-week" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer; min-width: 120px;">
+                                <option value="">- Select -</option>
                             </select>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
@@ -421,33 +434,31 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="product-modal-title">Add Product</h3>
-                <span class="close" onclick="closeProductModal()">&times;</span>
+                <span class="modal-close" onclick="closeProductModal()">&times;</span>
             </div>
-            <div class="modal-body">
-                <form id="product-modal-form">
-                    <input type="hidden" id="modal-product-id" />
-                    <div class="form-group">
-                        <label for="modal-product-name">Product Name *</label>
-                        <input type="text" id="modal-product-name" required />
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-product-category">Category</label>
-                        <input type="text" id="modal-product-category" />
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-product-cost">Unit Cost (₱)</label>
-                        <input type="number" id="modal-product-cost" step="0.01" min="0" />
-                    </div>
-                    <div class="form-group" id="modal-stock-group">
-                        <label for="modal-product-stock">Initial Stock</label>
-                        <input type="number" id="modal-product-stock" value="0" min="0" />
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="product-modal-submit" onclick="document.getElementById('product-modal-form').dispatchEvent(new Event('submit'))">Save Product</button>
-            </div>
+            <form id="product-modal-form">
+                <input type="hidden" id="modal-product-id" />
+                <div class="form-group">
+                    <label for="modal-product-name">Product Name *</label>
+                    <input type="text" id="modal-product-name" required />
+                </div>
+                <div class="form-group">
+                    <label for="modal-product-category">Category</label>
+                    <input type="text" id="modal-product-category" />
+                </div>
+                <div class="form-group">
+                    <label for="modal-product-cost">Unit Cost (₱)</label>
+                    <input type="number" id="modal-product-cost" step="0.01" min="0" />
+                </div>
+                <div class="form-group" id="modal-stock-group">
+                    <label for="modal-product-stock">Initial Stock</label>
+                    <input type="number" id="modal-product-stock" value="0" min="0" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="product-modal-submit">Save Product</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -455,13 +466,13 @@
     <div id="delete-modal" class="modal">
         <div class="modal-content modal-small">
             <div class="modal-header">
-                <h3>Confirm Deletion</h3>
-                <span class="close" onclick="closeDeleteModal()">&times;</span>
+                <h3>⚠️ Confirm Deletion</h3>
+                <span class="modal-close" onclick="closeDeleteModal()">&times;</span>
             </div>
             <div class="modal-body">
                 <p id="delete-modal-message">Are you sure you want to delete this product?</p>
                 <p id="delete-modal-warning" class="warning-text" style="display: none;">
-                    This product has sales records. Deleting it may affect your reports.
+                    ⚠️ This product has sales records. Deleting it may affect your reports.
                 </p>
             </div>
             <div class="modal-footer">
@@ -475,12 +486,12 @@
     <div id="inventory-modal" class="modal">
         <div class="modal-content modal-small">
             <div class="modal-header">
-                <h3>Adjust Inventory</h3>
-                <span class="close" onclick="closeInventoryModal()">&times;</span>
+                <h3>📦 Adjust Inventory</h3>
+                <span class="modal-close" onclick="closeInventoryModal()">&times;</span>
             </div>
-            <div class="modal-body">
-                <form id="inventory-modal-form">
-                    <input type="hidden" id="inventory-product-id" />
+            <form id="inventory-modal-form">
+                <input type="hidden" id="inventory-product-id" />
+                <div class="modal-body">
                     <p><strong id="inventory-product-name"></strong></p>
                     <p>Current Stock: <strong id="inventory-current-stock">0</strong> units</p>
                     
@@ -507,12 +518,12 @@
                         <label for="inventory-reason">Reason (optional)</label>
                         <input type="text" id="inventory-reason" placeholder="e.g., Received shipment, Damaged goods" />
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeInventoryModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary" onclick="document.getElementById('inventory-modal-form').dispatchEvent(new Event('submit'))">Adjust Stock</button>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeInventoryModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Adjust Stock</button>
+                </div>
+            </form>
         </div>
     </div>
 {% endblock %}

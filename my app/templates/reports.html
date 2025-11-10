@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -13,7 +13,7 @@
         <header class="header">
             <div class="header-content">
                 <div class="logo">
-                    <h1>📊 Predictive Sales Dashboard</h1>
+                    <h1> Predictive Sales Dashboard</h1>
                 </div>
                 <nav class="nav">
                     <a href="{{ url_for('main.dashboard') }}" class="nav-link">Dashboard</a>
@@ -29,147 +29,115 @@
 
         <main class="main-content">
             <div class="container" style="max-width: 1400px; padding: 20px;">
-                <h2 style="margin-bottom: 10px;">📈 Reports & Analytics</h2>
+                <h2 style="margin-bottom: 10px;"> Reports & Analytics</h2>
                 <p style="color: #666; margin-bottom: 30px;">Download comprehensive reports and insights about your business performance.</p>
                 
-                <!-- Report Cards Grid -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
-                    <!-- Sales Report -->
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">📈 Sales Report</h3>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"> Sales Report</h3>
                             <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Detailed sales transactions and trends</p>
                         </div>
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Time Period:</label>
-                            <select class="form-control" style="width: 100%;">
-                                <option>Last 7 days</option>
-                                <option>Last 30 days</option>
-                                <option>Last 90 days</option>
-                                <option>This year</option>
-                                <option>All time</option>
+                            <select id="sales-report-period" class="form-control" style="width: 100%;">
+                                <option value="7d">Last 7 days</option>
+                                <option value="30d">Last 30 days</option>
+                                <option value="90d">Last 90 days</option>
+                                <option value="1y">This year</option>
+                                <option value="all">All time</option>
                             </select>
                         </div>
-                        <button class="btn btn-primary" style="width: 100%;" onclick="alert('Sales report generation coming soon!')">📥 Download Report</button>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="openSalesReportModal()">View Report</button>
                     </div>
 
-                    <!-- Forecast Accuracy -->
-                    <div class="card">
-                        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">🎯 Forecast Accuracy</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Review prediction accuracy over time</p>
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Analysis Period:</label>
-                            <select class="form-control" style="width: 100%;">
-                                <option>Last 7 days</option>
-                                <option>Last 30 days</option>
-                                <option>Last 90 days</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='{{ url_for('main.dashboard') }}'; sessionStorage.setItem('activeTab', 'forecasting');">📊 View Analysis</button>
-                    </div>
-
-                    <!-- Inventory Report -->
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">📦 Inventory Report</h3>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"> Inventory Report</h3>
                             <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Stock levels and movements</p>
                         </div>
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Report Type:</label>
-                            <select class="form-control" style="width: 100%;">
-                                <option>Current Stock Levels</option>
-                                <option>Low Stock Items</option>
-                                <option>Stock Movement History</option>
-                                <option>Restock Recommendations</option>
+                            <select id="inventory-report-type" class="form-control" style="width: 100%;">
+                                <option value="current">Current Stock Levels</option>
+                                <option value="low">Low Stock Items</option>
+                                <option value="all">All Inventory</option>
                             </select>
                         </div>
-                        <button class="btn btn-primary" style="width: 100%;" onclick="alert('Inventory report generation coming soon!')">📥 Generate Report</button>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="openInventoryReportModal()">View Report</button>
                     </div>
 
-                    <!-- Product Performance -->
-                    <div class="card">
-                        <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">⭐ Product Performance</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Top and bottom performers</p>
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Metric:</label>
-                            <select class="form-control" style="width: 100%;">
-                                <option>Revenue</option>
-                                <option>Units Sold</option>
-                                <option>Profit Margin</option>
-                                <option>Growth Rate</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='{{ url_for('main.dashboard') }}'; sessionStorage.setItem('activeTab', 'products');">📊 View Details</button>
-                    </div>
-
-                    <!-- Import History -->
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 18px;">📁 Import History</h3>
+                            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 18px;"> Import History</h3>
                             <p style="color: #374151; font-size: 14px; margin: 0;">CSV upload and processing logs</p>
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <p style="font-size: 14px; color: #64748b; margin: 0;">View all CSV imports and their status</p>
+                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Show Records:</label>
+                            <select id="import-history-limit" class="form-control" style="width: 100%;">
+                                <option value="10">Last 10 imports</option>
+                                <option value="25">Last 25 imports</option>
+                                <option value="50">Last 50 imports</option>
+                                <option value="all">All imports</option>
+                            </select>
                         </div>
-                        <button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='{{ url_for('main.dashboard') }}'; sessionStorage.setItem('activeTab', 'products');">📋 View Import Logs</button>
-                    </div>
-
-                    <!-- Alerts Summary -->
-                    <div class="card">
-                        <div style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 18px;">🔔 Alerts Summary</h3>
-                            <p style="color: #374151; font-size: 14px; margin: 0;">Active and resolved alerts</p>
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <p style="font-size: 14px; color: #64748b; margin: 0;">Review low stock and restock alerts</p>
-                        </div>
-                        <button class="btn btn-primary" style="width: 100%;" onclick="window.location.href='{{ url_for('main.dashboard') }}';">🚨 View Alerts</button>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="openImportHistoryModal()">View Import Logs</button>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
+    <div id="salesReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0; color: #1f2937;"> Sales Report</h2>
+                <button onclick="closeSalesReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+            </div>
+            <div style="padding: 20px; overflow-y: auto; flex: 1;">
+                <div id="salesReportContent">Loading...</div>
+            </div>
+            <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
+                <button onclick="downloadSalesReport()" class="btn btn-primary">Download CSV</button>
+                <button onclick="closeSalesReportModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="inventoryReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0; color: #1f2937;"> Inventory Report</h2>
+                <button onclick="closeInventoryReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+            </div>
+            <div style="padding: 20px; overflow-y: auto; flex: 1;">
+                <div id="inventoryReportContent">Loading...</div>
+            </div>
+            <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
+                <button onclick="downloadInventoryReport()" class="btn btn-primary">Download CSV</button>
+                <button onclick="closeInventoryReportModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="importHistoryModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0; color: #1f2937;"> Import History</h2>
+                <button onclick="closeImportHistoryModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+            </div>
+            <div style="padding: 20px; overflow-y: auto; flex: 1;">
+                <div id="importHistoryContent">Loading...</div>
+            </div>
+            <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
+                <button onclick="closeImportHistoryModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='utils.js') }}"></script>
     <script>
-        // Load quick stats
-        document.addEventListener('DOMContentLoaded', function() {
-            // Fetch metrics
-            fetch('/api/metrics?period=30d')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.total_revenue) {
-                        document.getElementById('report-total-sales').textContent = '$' + data.total_revenue.toLocaleString();
-                    }
-                    if (data.total_sales) {
-                        document.getElementById('report-products-sold').textContent = data.total_sales.toLocaleString();
-                    }
-                })
-                .catch(err => console.error('Error loading metrics:', err));
-
-            // Fetch forecast accuracy
-            fetch('/api/forecast-accuracy?days_back=7')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.overall_accuracy !== undefined) {
-                        document.getElementById('report-accuracy').textContent = data.overall_accuracy + '%';
-                    }
-                })
-                .catch(err => console.error('Error loading accuracy:', err));
-
-            // Fetch products count
-            fetch('/api/products')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.products) {
-                        document.getElementById('report-active-products').textContent = data.products.length;
-                    }
-                })
-                .catch(err => console.error('Error loading products:', err));
-        });
+function openSalesReportModal(){const e=document.getElementById("sales-report-period").value,t=document.getElementById("salesReportModal"),o=document.getElementById("salesReportContent");t.style.display="block",o.innerHTML='<div style="text-align: center; padding: 40px;"><p>Loading sales data...</p></div>',fetch("/api/sales-report?period="+e).then(e=>e.json()).then(e=>{if(e.sales&&e.sales.length>0){let t='<div style="margin-bottom: 20px;"><h3 style="color: #374151; margin: 0 0 5px 0;">Period: '+(e.period_label||period)+'</h3><p style="color: #6b7280; margin: 0;">Total Sales: '+(e.total_sales||e.sales.length)+" | Total Revenue: "+formatPHP(e.total_revenue||0)+'</p></div><div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 14px;"><thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;"><th style="padding: 12px; text-align: left;">Date</th><th style="padding: 12px; text-align: left;">Product</th><th style="padding: 12px; text-align: right;">Quantity</th><th style="padding: 12px; text-align: right;">Price</th><th style="padding: 12px; text-align: right;">Revenue</th></tr></thead><tbody>';e.sales.forEach(e=>{t+='<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px;">'+new Date(e.date).toLocaleDateString()+'</td><td style="padding: 10px;">'+e.product_name+'</td><td style="padding: 10px; text-align: right;">'+e.quantity+'</td><td style="padding: 10px; text-align: right;">'+formatPHP(e.price)+'</td><td style="padding: 10px; text-align: right; font-weight: 500;">'+formatPHP(e.revenue)+"</td></tr>"}),t+="</tbody></table></div>",o.innerHTML=t}else o.innerHTML='<div style="text-align: center; padding: 40px; color: #6b7280;"><p>No sales data found for the selected period.</p></div>'}).catch(e=>{console.error("Error loading sales report:",e),o.innerHTML='<div style="text-align: center; padding: 40px; color: #ef4444;"><p>Error loading sales report. Please try again.</p></div>'})}function closeSalesReportModal(){document.getElementById("salesReportModal").style.display="none"}function downloadSalesReport(){const e=document.getElementById("sales-report-period").value;window.location.href="/api/sales-report/download?period="+e}function openInventoryReportModal(){const e=document.getElementById("inventory-report-type").value,t=document.getElementById("inventoryReportModal"),o=document.getElementById("inventoryReportContent");t.style.display="block",o.innerHTML='<div style="text-align: center; padding: 40px;"><p>Loading inventory data...</p></div>',fetch("/api/inventory-report?type="+e).then(e=>e.json()).then(e=>{if(e.inventory&&e.inventory.length>0){let t='<div style="margin-bottom: 20px;"><h3 style="color: #374151; margin: 0 0 5px 0;">Report: '+(e.report_label||type)+'</h3><p style="color: #6b7280; margin: 0;">Total Products: '+e.inventory.length+" | Total Inventory Value: "+formatPHP(e.total_value||0)+'</p></div><div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 14px;"><thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;"><th style="padding: 12px; text-align: left;">Product</th><th style="padding: 12px; text-align: left;">Category</th><th style="padding: 12px; text-align: right;">Current Stock</th><th style="padding: 12px; text-align: right;">Unit Cost</th><th style="padding: 12px; text-align: right;">Total Value</th><th style="padding: 12px; text-align: center;">Status</th></tr></thead><tbody>';e.inventory.forEach(e=>{const o=e.current_stock<=10?'<span style="background: #fee2e2; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Low Stock</span>':e.current_stock<=50?'<span style="background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Medium</span>':'<span style="background: #d1fae5; color: #059669; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Good</span>';t+='<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px;">'+e.product_name+'</td><td style="padding: 10px;">'+(e.category||"N/A")+'</td><td style="padding: 10px; text-align: right;">'+e.current_stock+'</td><td style="padding: 10px; text-align: right;">'+formatPHP(e.unit_cost||0)+'</td><td style="padding: 10px; text-align: right; font-weight: 500;">'+formatPHP(e.current_stock*(e.unit_cost||0))+'</td><td style="padding: 10px; text-align: center;">'+o+"</td></tr>"}),t+="</tbody></table></div>",o.innerHTML=t}else o.innerHTML='<div style="text-align: center; padding: 40px; color: #6b7280;"><p>No inventory data found.</p></div>'}).catch(e=>{console.error("Error loading inventory report:",e),o.innerHTML='<div style="text-align: center; padding: 40px; color: #ef4444;"><p>Error loading inventory report. Please try again.</p></div>'})}function closeInventoryReportModal(){document.getElementById("inventoryReportModal").style.display="none"}function downloadInventoryReport(){const e=document.getElementById("inventory-report-type").value;window.location.href="/api/inventory-report/download?type="+e}function openImportHistoryModal(){const e=document.getElementById("import-history-limit").value,t=document.getElementById("importHistoryModal"),o=document.getElementById("importHistoryContent");t.style.display="block",o.innerHTML='<div style="text-align: center; padding: 40px;"><p>Loading import history...</p></div>';const i="all"===e?"/api/list-imports":"/api/list-imports?limit="+e;fetch(i).then(e=>e.json()).then(e=>{if(e.imports&&e.imports.length>0){let t='<div style="margin-bottom: 20px;"><h3 style="color: #374151; margin: 0 0 5px 0;">Import History</h3><p style="color: #6b7280; margin: 0;">Total Imports: '+e.imports.length+'</p></div><div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 14px;"><thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;"><th style="padding: 12px; text-align: left;">Date</th><th style="padding: 12px; text-align: left;">Filename</th><th style="padding: 12px; text-align: center;">Status</th><th style="padding: 12px; text-align: right;">Processed</th><th style="padding: 12px; text-align: right;">Skipped</th><th style="padding: 12px; text-align: right;">Failed</th><th style="padding: 12px; text-align: left;">Error Message</th></tr></thead><tbody>';e.imports.forEach(e=>{let o="";o="success"===e.status?'<span style="background: #d1fae5; color: #059669; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Success</span>':"partial"===e.status?'<span style="background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Partial</span>':'<span style="background: #fee2e2; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Failed</span>';const i=e.error_message?e.error_message.length>50?e.error_message.substring(0,50)+"...":e.error_message:"-";t+='<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px;">'+new Date(e.upload_date).toLocaleString()+'</td><td style="padding: 10px; font-weight: 500;">'+e.filename+'</td><td style="padding: 10px; text-align: center;">'+o+'</td><td style="padding: 10px; text-align: right; color: #059669;">'+(e.rows_processed||0)+'</td><td style="padding: 10px; text-align: right; color: #d97706;">'+(e.rows_skipped||0)+'</td><td style="padding: 10px; text-align: right; color: #dc2626;">'+(e.rows_failed||0)+'</td><td style="padding: 10px; color: #6b7280; font-size: 13px;">'+i+"</td></tr>"}),t+="</tbody></table></div>",o.innerHTML=t}else o.innerHTML='<div style="text-align: center; padding: 40px; color: #6b7280;"><p>No import history found.</p></div>'}).catch(e=>{console.error("Error loading import history:",e),o.innerHTML='<div style="text-align: center; padding: 40px; color: #ef4444;"><p>Error loading import history. Please try again.</p></div>'})}function closeImportHistoryModal(){document.getElementById("importHistoryModal").style.display="none"}window.onclick=function(e){const t=document.getElementById("salesReportModal"),o=document.getElementById("inventoryReportModal"),i=document.getElementById("importHistoryModal");e.target===t&&(t.style.display="none"),e.target===o&&(o.style.display="none"),e.target===i&&(i.style.display="none")};
     </script>
 </body>
 </html>

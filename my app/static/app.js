@@ -181,9 +181,10 @@ function initializePeriodFilters() {
         currentPeriod = savedPeriod;
     }
     
-    // Set active button
+    // Set active button - remove all active classes first
     const periodButtons = document.querySelectorAll('.period-btn');
     periodButtons.forEach(btn => {
+        btn.classList.remove('active'); // Remove all active classes first
         if (btn.dataset.period === currentPeriod) {
             btn.classList.add('active');
         }
@@ -472,6 +473,8 @@ async function fetchWeeklyForecast() {
 function getStatusBadge(status, color) {
     const badges = {
         'CRITICAL': `<span style="background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🔴 CRITICAL</span>`,
+        'HIGH': `<span style="background: #fed7aa; color: #9a3412; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🟠 HIGH</span>`,
+        'MEDIUM': `<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🟡 MEDIUM</span>`,
         'LOW': `<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🟡 LOW</span>`,
         'OK': `<span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🟢 OK</span>`
     };
@@ -655,12 +658,23 @@ function quickRestock(productId, quantity) {
 
 
 function updateDashboardWithData(data) {
+    // Hide monthly chart for 7-day period
+    const monthlyChartContainer = document.getElementById('monthly-chart-container');
+    if (monthlyChartContainer) {
+        if (currentPeriod === '7d') {
+            monthlyChartContainer.style.display = 'none';
+        } else {
+            monthlyChartContainer.style.display = 'block';
+        }
+    }
+    
     // Update metric cards
     const totalUnits = document.getElementById('total-units');
     const totalRevenue = document.getElementById('total-revenue');
     const totalInventoryValue = document.getElementById('total-inventory-value');
     const accuracy = document.getElementById('accuracy');
     const alertsCount = document.getElementById('alerts-count');
+    const turnoverRateEl = document.getElementById('turnover-rate');
     const fakeBanner = document.getElementById('fake-data-banner');
     const fakeCount = document.getElementById('fake-data-count');
 
@@ -669,6 +683,7 @@ function updateDashboardWithData(data) {
     if (totalInventoryValue) totalInventoryValue.textContent = formatPHP(data.total_inventory_value || 0);
     if (accuracy) accuracy.textContent = data.accuracy;
     if (alertsCount) alertsCount.textContent = data.alerts;
+    if (turnoverRateEl && typeof data.turnover_rate !== 'undefined') turnoverRateEl.textContent = Number(data.turnover_rate || 0).toFixed(2);
 
     // Synthetic data banner
     if (fakeBanner) {
@@ -1379,7 +1394,7 @@ function initializeCharts() {
                 plugins: {
                     title: {
                         display: true,
-                            text: 'Monthly Sales Performance (Last 6 Months)',
+                            text: 'Monthly Sales Performance',
                             font: {
                                 size: 14,
                                 weight: 'bold'
@@ -1510,6 +1525,13 @@ function initializeCharts() {
             if (monthlyChart) {
                 monthlyChart.data.labels = data.monthly_labels;
                 monthlyChart.data.datasets[0].data = data.monthly_data;
+                
+                // Update chart title dynamically based on actual data
+                if (data.monthly_labels && data.monthly_labels.length > 0) {
+                    const monthCount = data.monthly_labels.length;
+                    monthlyChart.options.plugins.title.text = `Monthly Sales Performance (Last ${monthCount} Month${monthCount !== 1 ? 's' : ''})`;
+                }
+                
                 monthlyChart.update();
             }
         })
@@ -1571,14 +1593,12 @@ function updateChartsWithForecast(forecastResult) {
         trendChart.update();
     }
 
-    // Update metric cards
+    // Update metric cards (removed accuracy)
     const totalActual = document.getElementById('total-actual');
-    const accuracy = document.getElementById('accuracy');
     const turnover = document.getElementById('turnover-rate');
     const alertsCount = document.getElementById('alerts-count');
 
     if (totalActual) totalActual.textContent = forecastResult.total_sales;
-    if (accuracy) accuracy.textContent = forecastResult.accuracy + '%';
     if (turnover) turnover.textContent = forecastResult.turnover.toFixed(2);
     if (alertsCount) alertsCount.textContent = forecastResult.alerts_count;
 }
@@ -1622,15 +1642,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const formData = new FormData();
             formData.append('file', file);
-            // include selected data type (supports unified_sales)
-            const dataTypeSelect = document.getElementById('data-type-select');
-            const dataType = dataTypeSelect ? dataTypeSelect.value : 'sales';
-            formData.append('data_type', dataType);
+            // Always use unified_sales format (data type selector removed from UI)
+            formData.append('data_type', 'unified_sales');
 
             try {
-                importStatus.innerHTML = '<div style="color: #007bff; padding: 10px; background: #e7f3ff; border-radius: 4px;"><strong>⏳ Processing CSV...</strong><br/><small>This may take several minutes if generating forecasts. Please wait...</small></div>';
+                importStatus.innerHTML = `
+                    <div style="color: #007bff; padding: 15px; background: #e7f3ff; border-radius: 8px; border-left: 4px solid #007bff; box-shadow: 0 2px 8px rgba(0,123,255,0.2); animation: pulse 2s infinite;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 20px; height: 20px; border: 3px solid #007bff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <div>
+                                <strong style="font-size: 1.1em;">⏳ Uploading & Processing CSV...</strong><br/>
+                                <small style="opacity: 0.9;">Please do not close this page. This may take several minutes if generating forecasts.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <style>
+                        @keyframes spin { to { transform: rotate(360deg); } }
+                        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
+                    </style>
+                `;
                 uploadCsvBtn.disabled = true;
-                uploadCsvBtn.textContent = 'Processing...';
+                uploadCsvBtn.textContent = '⏳ Uploading...';
+                uploadCsvBtn.style.cursor = 'not-allowed';
+                uploadCsvBtn.style.opacity = '0.6';
                 
                 const response = await fetch('/api/upload-csv', {
                     method: 'POST',
@@ -1670,6 +1704,8 @@ document.addEventListener('DOMContentLoaded', function() {
             } finally {
                 uploadCsvBtn.disabled = false;
                 uploadCsvBtn.textContent = 'Import CSV';
+                uploadCsvBtn.style.cursor = 'pointer';
+                uploadCsvBtn.style.opacity = '1';
             }
         });
     }
@@ -1845,22 +1881,22 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="product-info">
                                     <div class="product-name">${product.name}</div>
                                     <div class="product-meta">
-                                            <span>${product.category || 'Uncategorized'}</span>
-                                            <span>₱${parseFloat(product.unit_cost || 0).toFixed(2)}</span>
-                                            <span class="stock-badge ${stockClass}">${stock} units</span>
-                                        </div>
+                                        <span>📁 ${product.category || 'Uncategorized'}</span>
+                                        <span>💰 ₱${parseFloat(product.unit_cost || 0).toFixed(2)}</span>
+                                        <span class="stock-badge ${stockClass}">📦 ${stock} units</span>
                                     </div>
-                                    <div class="product-actions">
-                                        <button class="btn-stock" onclick="openInventoryModal(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${stock})">
-                                            Update
-                                        </button>
-                                        <button class="btn-edit" onclick="openEditProductModal(${product.id})">
-                                            Edit
-                                        </button>
-                                        <button class="btn-delete" onclick="openDeleteModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
-                                            Delete
-                                        </button>
-                                    </div>
+                                </div>
+                                <div class="product-actions">
+                                    <button class="btn-stock" onclick="openInventoryModal(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${stock})">
+                                        📦 Update
+                                    </button>
+                                    <button class="btn-edit" onclick="openEditProductModal(${product.id})">
+                                        ✏️ Edit
+                                    </button>
+                                    <button class="btn-delete" onclick="openDeleteModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
+                                        🗑️ Delete
+                                    </button>
+                                </div>
                             </div>
                         `;
                     }).join('');
@@ -2061,18 +2097,12 @@ document.addEventListener('DOMContentLoaded', function() {
         inventoryModalForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const submitBtn = this.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Updating...';
-            }
-            
-            try {
-                const productId = document.getElementById('inventory-product-id').value;
-                const quantity = parseInt(document.getElementById('inventory-quantity').value);
-                const operation = document.getElementById('inventory-operation').value;
-                const reason = document.getElementById('inventory-reason').value;
+            const productId = document.getElementById('inventory-product-id').value;
+            const quantity = parseInt(document.getElementById('inventory-quantity').value);
+            const operation = document.querySelector('input[name="inventory-operation"]:checked').value;
+            const reason = document.getElementById('inventory-reason').value;
 
+            try {
                 const response = await fetch('/api/inventory/adjust', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2089,18 +2119,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.success) {
                     closeInventoryModal();
                     loadProducts();
-                    showNotification(`Stock updated successfully! New stock: ${result.product.current_stock} units`, 'success');
+                    showNotification(`Stock updated! New stock: ${result.product.current_stock} units`, 'success');
                 } else {
                     showNotification(`Error: ${result.error}`, 'error');
                 }
             } catch (error) {
                 showNotification(`Error: ${error.message}`, 'error');
-            } finally {
-                const submitBtn = inventoryModalForm.querySelector('button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Adjust Inventory';
-                }
             }
         });
     }
@@ -2207,6 +2231,103 @@ document.addEventListener('DOMContentLoaded', function() {
         openEditProductModal(productId);
     };
 
+    // ======= Available periods for dropdowns (Top Products + Synchronized Views) =======
+    async function fetchAvailablePeriods() {
+        try {
+            const res = await fetch('/api/available-periods');
+            const data = await res.json();
+            if (!data.success) return null;
+            return data;
+        } catch (e) { return null; }
+    }
+
+    function populateTopProductsPeriodDropdowns(periods) {
+        const ySel = document.getElementById('ranking-year');
+        const mSel = document.getElementById('ranking-month');
+        const wSel = document.getElementById('ranking-week');
+        if (!ySel || !mSel || !wSel) return;
+
+        // Helper: clear and add default option
+        const resetSelect = (sel, placeholder) => {
+            sel.innerHTML = '';
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = placeholder;
+            sel.appendChild(opt);
+        };
+
+        resetSelect(ySel, '- Select -');
+        (periods?.years || []).forEach(yr => {
+            const opt = document.createElement('option');
+            opt.value = yr;
+            opt.textContent = yr;
+            ySel.appendChild(opt);
+        });
+
+        const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+        function refreshMonths() {
+            resetSelect(mSel, '- Select -');
+            resetSelect(wSel, '- Select -');
+            const yr = ySel.value;
+            if (!yr) return; // No year selected
+            const months = periods?.monthsByYear?.[yr] || [];
+            months.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = monthNames[m-1] || `Month ${m}`;
+                mSel.appendChild(opt);
+            });
+        }
+
+        function refreshWeeks() {
+            resetSelect(wSel, '- Select -');
+            const yr = ySel.value;
+            const m = mSel.value;
+            if (!yr || !m) return;
+            const key = `${yr}-${String(m).padStart(2,'0')}`;
+            const weeks = periods?.weeksByYearMonth?.[key] || [];
+            weeks.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w;
+                opt.textContent = `Week ${w}`;
+                wSel.appendChild(opt);
+            });
+        }
+
+        ySel.onchange = () => { 
+            // Clear period dropdown when year is selected
+            const periodSel = document.getElementById('ranking-period');
+            if (ySel.value && periodSel) {
+                periodSel.value = '';
+            }
+            refreshMonths(); 
+            refreshWeeks(); 
+            loadTopProducts(); 
+        };
+        mSel.onchange = () => { 
+            // Clear period dropdown when month is selected
+            const periodSel = document.getElementById('ranking-period');
+            if (mSel.value && periodSel) {
+                periodSel.value = '';
+            }
+            refreshWeeks(); 
+            loadTopProducts(); 
+        };
+        wSel.onchange = () => {
+            // Clear period dropdown when week is selected
+            const periodSel = document.getElementById('ranking-period');
+            if (wSel.value && periodSel) {
+                periodSel.value = '';
+            }
+            loadTopProducts();
+        };
+
+        // Initial state
+        refreshMonths();
+        refreshWeeks();
+    }
+
     // Top Products Chart
     function loadTopProducts() {
         const canvas = document.getElementById('topProductsChart');
@@ -2214,8 +2335,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const period = document.getElementById('ranking-period')?.value || '7d';
         const metric = document.getElementById('ranking-metric')?.value || 'revenue';
+        const year = document.getElementById('ranking-year')?.value || '';
+        const month = document.getElementById('ranking-month')?.value || '';
+        const week = document.getElementById('ranking-week')?.value || '';
 
-        fetch(`/api/top-products?limit=10&period=${period}&metric=${metric}`)
+        const params = new URLSearchParams({ limit: '10', metric });
+        // If any calendar filter set, they override the period window
+        if (year || month || week) {
+            if (year) params.set('year', year);
+            if (month) params.set('month', month);
+            if (week) params.set('week', week);
+        } else {
+            params.set('period', period);
+        }
+
+        fetch(`/api/top-products?${params.toString()}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.products) {
@@ -2231,9 +2365,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         '7d': 'Last 7 Days',
                         '30d': 'Last 30 Days',
                         '90d': 'Last 90 Days',
-                        '1y': 'Last Year',
-                        'all': 'All Time'
+                        '1y': 'Last Year'
                     };
+
+                    // Build dynamic title based on filters
+                    let titleSuffix = '';
+                    if (year || month || week) {
+                        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                        const parts = [];
+                        if (year) parts.push(year);
+                        if (month) parts.push(monthNames[(parseInt(month)-1)||0]);
+                        if (week) parts.push(`Week ${week}`);
+                        titleSuffix = parts.join(' • ');
+                    } else {
+                        titleSuffix = periodLabels[period] || period;
+                    }
 
                     const ctx = canvas.getContext('2d');
                     topProductsChart = new Chart(ctx, {
@@ -2257,7 +2403,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 },
                                 title: {
                                     display: true,
-                                    text: `Top 10 Products by ${metric === 'revenue' ? 'Revenue' : 'Quantity'} - ${periodLabels[period] || period}`,
+                                    text: `Top 10 Products by ${metric === 'revenue' ? 'Revenue' : 'Quantity'} - ${titleSuffix}`,
                                     font: {
                                         size: 16,
                                         weight: 'bold'
@@ -2306,9 +2452,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners for ranking controls
     const rankingPeriod = document.getElementById('ranking-period');
     const rankingMetric = document.getElementById('ranking-metric');
+    const rankingYear = document.getElementById('ranking-year');
+    const rankingMonth = document.getElementById('ranking-month');
+    const rankingWeek = document.getElementById('ranking-week');
     
     if (rankingPeriod) {
-        rankingPeriod.addEventListener('change', loadTopProducts);
+        rankingPeriod.addEventListener('change', function() {
+            // Clear calendar filters when period is selected
+            if (rankingPeriod.value) {
+                const rankingYear = document.getElementById('ranking-year');
+                const rankingMonth = document.getElementById('ranking-month');
+                const rankingWeek = document.getElementById('ranking-week');
+                if (rankingYear) rankingYear.value = '';
+                if (rankingMonth) rankingMonth.value = '';
+                if (rankingWeek) rankingWeek.value = '';
+            }
+            loadTopProducts();
+        });
     }
     
     if (rankingMetric) {
@@ -2375,7 +2535,11 @@ document.addEventListener('DOMContentLoaded', function() {
         loadProducts();
     }
     if (document.getElementById('topProductsChart')) {
-        loadTopProducts();
+        // Populate Year/Month/Week from available periods
+        fetchAvailablePeriods().then(periods => {
+            if (periods) populateTopProductsPeriodDropdowns(periods);
+            loadTopProducts();
+        });
     }
     
     // Load products into forecast dropdown

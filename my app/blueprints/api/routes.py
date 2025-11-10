@@ -243,76 +243,47 @@ def get_metrics():
     else:
         accuracy = 0.0
     
-    # Count alerts (products with low stock - less than 15 units)
-    alerts = db.session.query(db.func.count(Product.id)).filter(Product.current_stock < 15).scalar() or 0
+    # Count active alerts (CRITICAL + HIGH severity only)
+    alerts = Alert.query.filter(
+        Alert.is_active == True,
+        Alert.is_acknowledged == False,
+        Alert.severity.in_(['CRITICAL', 'HIGH'])
+    ).count()
     
-    # Period comparison calculations (respect current filter or preset window)
+    # Period comparison calculations (current 7 days vs previous 7 days)
+    seven_days_ago = today - timedelta(days=6)
+    fourteen_days_ago = today - timedelta(days=13)
+    
+    # Current period revenue (last 7 days)
+    current_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
+        Sale.sale_date >= seven_days_ago
+    ).scalar() or 0
+    
+    # Previous period revenue (7-14 days ago)
+    previous_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
+        Sale.sale_date >= fourteen_days_ago,
+        Sale.sale_date < seven_days_ago
+    ).scalar() or 0
+    
+    # Current period units (last 7 days)
+    current_units = db.session.query(db.func.sum(Sale.quantity)).filter(
+        Sale.sale_date >= seven_days_ago
+    ).scalar() or 0
+    
+    # Previous period units (7-14 days ago)
+    previous_units = db.session.query(db.func.sum(Sale.quantity)).filter(
+        Sale.sale_date >= fourteen_days_ago,
+        Sale.sale_date < seven_days_ago
+    ).scalar() or 0
+    
+    # Calculate percentage changes (only if previous period has data)
     revenue_change = None
-    units_change = None
-    current_revenue = 0
-    previous_revenue = 0
-    current_units = 0
-    previous_units = 0
-
-    # Determine comparison windows
-    if filter_start and filter_end:
-        # Use the same window length as the current filter
-        window_days = (filter_end - filter_start).days
-        current_start = filter_start
-        current_end = filter_end
-        prev_start = current_start - timedelta(days=window_days)
-        prev_end = current_start
-    else:
-        # Use preset periods when provided, otherwise skip comparison for 'all'
-        period_map = {
-            '7d': 7,
-            '30d': 30,
-            '3m': 90,
-            '6m': 180,
-            '1y': 365,
-        }
-        window_days = period_map.get(period)
-        if window_days:
-            current_start = today - timedelta(days=window_days-1)
-            current_end = today + timedelta(days=1)
-            prev_start = current_start - timedelta(days=window_days)
-            prev_end = current_start
-        else:
-            current_start = None
-            current_end = None
-            prev_start = None
-            prev_end = None
-
-    if current_start and current_end and prev_start and prev_end:
-        # Current period revenue/units
-        current_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-            Sale.sale_date >= current_start,
-            Sale.sale_date < current_end
-        ).scalar() or 0
-
-        current_units = db.session.query(db.func.sum(Sale.quantity)).filter(
-            Sale.sale_date >= current_start,
-            Sale.sale_date < current_end
-        ).scalar() or 0
-
-        # Previous period revenue/units
-        previous_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-            Sale.sale_date >= prev_start,
-            Sale.sale_date < prev_end
-        ).scalar() or 0
-
-        previous_units = db.session.query(db.func.sum(Sale.quantity)).filter(
-            Sale.sale_date >= prev_start,
-            Sale.sale_date < prev_end
-        ).scalar() or 0
-
-        # Calculate percentage changes (only if previous period has data)
-        if previous_revenue > 0:
-            revenue_change = ((current_revenue - previous_revenue) / previous_revenue) * 100
-        if previous_units > 0:
-            units_change = ((current_units - previous_units) / previous_units) * 100
+    if previous_revenue > 0:
+        revenue_change = ((current_revenue - previous_revenue) / previous_revenue) * 100
     
-    # (percentage changes calculated above)
+    units_change = None
+    if previous_units > 0:
+        units_change = ((current_units - previous_units) / previous_units) * 100
     
     # Get daily data for date range (for dashboard trend chart)
     # If custom date range, use that; otherwise use current month
@@ -383,9 +354,9 @@ def get_metrics():
         chart_labels.append(date.strftime('%m/%d'))
     
     # Get next 7 days for forecasts (future dates)
-    today_date = datetime.now().date()
+    today = datetime.now().date()
     for i in range(7):
-        future_date = today_date + timedelta(days=i+1)
+        future_date = today + timedelta(days=i+1)
         day_forecast = db.session.query(db.func.sum(Forecast.predicted_quantity)).filter(
             db.func.date(Forecast.forecast_date) == future_date
         ).scalar() or 0
@@ -421,9 +392,10 @@ def get_metrics():
             monthly_labels.append(month_date.strftime('%b'))
             monthly_data.append(float(month_sales))
     
-    # Month-over-Month Comparison (current month vs last month)
-    # Use datetime object (today was defined at top as datetime.now())
-    current_month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # Month-over-Month Comparison (DYNAMIC: same day range)
+    # Today is Nov 10, so compare Nov 1-10 vs Oct 1-10
+    current_month_start = today.replace(day=1)
+    current_day_of_month = today.day  # e.g., 10 for Nov 10
     
     # Last month calculation
     if current_month_start.month == 1:
@@ -431,26 +403,39 @@ def get_metrics():
     else:
         last_month_start = current_month_start.replace(month=current_month_start.month - 1)
     
-    # Current month revenue
+    # Calculate the end date for last month comparison (same day of month)
+    # If current day doesn't exist in last month (e.g., Jan 31 -> Feb 31), use last day of that month
+    try:
+        last_month_end = last_month_start.replace(day=current_day_of_month)
+    except ValueError:
+        # Day doesn't exist in that month, use last day of the month
+        if last_month_start.month == 12:
+            last_month_end = last_month_start.replace(year=last_month_start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            last_month_end = last_month_start.replace(month=last_month_start.month + 1, day=1) - timedelta(days=1)
+    
+    # Current month revenue (from start of month to today)
     current_month_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-        Sale.sale_date >= current_month_start
+        Sale.sale_date >= current_month_start,
+        Sale.sale_date <= today
     ).scalar() or 0
     
-    # Last month revenue
+    # Last month revenue (same day range)
     last_month_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
         Sale.sale_date >= last_month_start,
-        Sale.sale_date < current_month_start
+        Sale.sale_date <= last_month_end
     ).scalar() or 0
     
-    # Current month units
+    # Current month units (from start of month to today)
     current_month_units = db.session.query(db.func.sum(Sale.quantity)).filter(
-        Sale.sale_date >= current_month_start
+        Sale.sale_date >= current_month_start,
+        Sale.sale_date <= today
     ).scalar() or 0
     
-    # Last month units
+    # Last month units (same day range)
     last_month_units = db.session.query(db.func.sum(Sale.quantity)).filter(
         Sale.sale_date >= last_month_start,
-        Sale.sale_date < current_month_start
+        Sale.sale_date <= last_month_end
     ).scalar() or 0
     
     # Calculate month-over-month percentage changes
@@ -462,24 +447,30 @@ def get_metrics():
     if last_month_units > 0:
         month_units_change = ((current_month_units - last_month_units) / last_month_units) * 100
     
-    # Year-over-Year Comparison (current month vs same month last year)
+    # Year-over-Year Comparison (DYNAMIC: same day range last year)
+    # Today is Nov 10, 2025, so compare Nov 1-10, 2025 vs Nov 1-10, 2024
     year_ago_month_start = current_month_start.replace(year=current_month_start.year - 1)
     
-    if current_month_start.month == 12:
-        year_ago_month_end = year_ago_month_start.replace(year=year_ago_month_start.year + 1, month=1)
-    else:
-        year_ago_month_end = year_ago_month_start.replace(month=year_ago_month_start.month + 1)
+    # Calculate the end date for last year comparison (same day of current month)
+    try:
+        year_ago_end = year_ago_month_start.replace(day=current_day_of_month)
+    except ValueError:
+        # Day doesn't exist in that month (e.g., leap year issue)
+        if year_ago_month_start.month == 12:
+            year_ago_end = year_ago_month_start.replace(year=year_ago_month_start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            year_ago_end = year_ago_month_start.replace(month=year_ago_month_start.month + 1, day=1) - timedelta(days=1)
     
-    # Same month last year revenue
+    # Same period last year revenue
     year_ago_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
         Sale.sale_date >= year_ago_month_start,
-        Sale.sale_date < year_ago_month_end
+        Sale.sale_date <= year_ago_end
     ).scalar() or 0
     
-    # Same month last year units
+    # Same period last year units
     year_ago_units = db.session.query(db.func.sum(Sale.quantity)).filter(
         Sale.sale_date >= year_ago_month_start,
-        Sale.sale_date < year_ago_month_end
+        Sale.sale_date <= year_ago_end
     ).scalar() or 0
     
     # Calculate year-over-year percentage changes
@@ -491,8 +482,15 @@ def get_metrics():
     if year_ago_units > 0:
         year_units_change = ((current_month_units - year_ago_units) / year_ago_units) * 100
     
+    # Inventory turnover (simple: revenue / inventory value) guarded against division by zero
+    turnover_rate = 0.0
+    if total_inventory_value and total_inventory_value > 0:
+        try:
+            turnover_rate = float(total_revenue) / float(total_inventory_value)
+        except Exception:
+            turnover_rate = 0.0
+
     return jsonify({
-        # Return numeric total_revenue; front-end formats it
         'total_revenue': float(total_revenue),
         'total_units_sold': int(total_units_sold),
         'total_products': total_products,
@@ -502,6 +500,7 @@ def get_metrics():
         'fake_sales_count': int(fake_sales_count),
         'accuracy': round(accuracy, 1),  # Return as number, not string with %
         'alerts': alerts,
+        'turnover_rate': round(turnover_rate, 2),
         
         # 7-day period comparison (existing)
         'revenue_change': round(revenue_change, 1) if revenue_change is not None else None,
@@ -1334,7 +1333,22 @@ def upload_csv_file():
 @login_required
 def list_imports():
     """Get list of previously imported CSV files."""
-    imports = ImportLog.query.order_by(ImportLog.upload_date.desc()).limit(50).all()
+    # Get limit parameter from query string
+    limit_param = request.args.get('limit', '50')
+    
+    # Build query
+    query = ImportLog.query.order_by(ImportLog.upload_date.desc())
+    
+    # Apply limit if not 'all'
+    if limit_param != 'all':
+        try:
+            limit = int(limit_param)
+            query = query.limit(limit)
+        except ValueError:
+            # Default to 50 if invalid
+            query = query.limit(50)
+    
+    imports = query.all()
     
     import_list = []
     for imp in imports:
@@ -1728,23 +1742,66 @@ def get_inventory_history():
 @api_bp.route('/top-products', methods=['GET'])
 @login_required
 def get_top_products():
-    """Get top-selling products by revenue or quantity."""
+    """Get top-selling products by revenue or quantity.
+
+    Query params:
+      - limit: number of products to return (default 10)
+      - metric: 'revenue' or 'quantity'
+      - period: preset window: 7d, 30d, 90d, 1y, all
+      - year, month, week: optional calendar filters; if provided, these override 'period'
+        week is week number within month (1-5) using 7-day buckets starting on the 1st.
+    """
     limit = request.args.get('limit', 10, type=int)
     period = request.args.get('period', '7d')
     metric = request.args.get('metric', 'revenue')
-    
-    # Calculate date filter
-    if period == '7d':
-        start_date = datetime.now() - timedelta(days=7)
-    elif period == '30d':
-        start_date = datetime.now() - timedelta(days=30)
-    elif period == '90d':
-        start_date = datetime.now() - timedelta(days=90)
-    elif period == '1y':
-        start_date = datetime.now() - timedelta(days=365)
+    # Calendar filters (override period if provided)
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+    week = request.args.get('week', type=int)
+
+    # Calculate date filter window
+    start_date = None
+    end_date = None
+
+    if year:
+        # If year is provided, restrict to that year
+        start_date = datetime(year, 1, 1)
+        end_date = datetime(year + 1, 1, 1)
+        if month and 1 <= month <= 12:
+            # Narrow to month
+            start_date = datetime(year, month, 1)
+            if month == 12:
+                end_date = datetime(year + 1, 1, 1)
+            else:
+                end_date = datetime(year, month + 1, 1)
+            if week and 1 <= week <= 5:
+                # 7-day buckets within month, Week 1 starts on day 1
+                week_start_day = (week - 1) * 7 + 1
+                # Guard against overflow
+                try:
+                    start_date = datetime(year, month, week_start_day)
+                except ValueError:
+                    # Invalid week start -> clamp to end of month
+                    from calendar import monthrange
+                    start_date = datetime(year, month, monthrange(year, month)[1])
+                from calendar import monthrange
+                last_day = monthrange(year, month)[1]
+                week_end_day = min(week * 7, last_day)
+                end_date = datetime(year, month, week_end_day) + timedelta(days=1)
     else:
-        start_date = None
-    
+        # Preset period relative to now
+        if period == '7d':
+            start_date = datetime.now() - timedelta(days=7)
+        elif period == '30d':
+            start_date = datetime.now() - timedelta(days=30)
+        elif period == '90d':
+            start_date = datetime.now() - timedelta(days=90)
+        elif period == '1y':
+            start_date = datetime.now() - timedelta(days=365)
+        else:
+            start_date = None
+            end_date = None
+
     # Build query
     if metric == 'revenue':
         query = db.session.query(
@@ -1766,9 +1823,11 @@ def get_top_products():
         )
     
     query = query.join(Sale, Product.id == Sale.product_id)
-    
+
     if start_date:
         query = query.filter(Sale.sale_date >= start_date)
+    if end_date:
+        query = query.filter(Sale.sale_date < end_date)
     
     query = query.group_by(Product.id, Product.name, Product.category)
     
@@ -1797,6 +1856,74 @@ def get_top_products():
         'metric': metric,
         'total': len(top_products)
     })
+
+
+@api_bp.route('/available-periods', methods=['GET'])
+@login_required
+def get_available_periods():
+    """Return available years, months, and weeks that have either actual sales or forecast data.
+
+    Response structure:
+      {
+        "years": [2022, 2023, ...],
+        "monthsByYear": {"2022": [1,2,...]},
+        "weeksByYearMonth": {"2022-01": [1,2,3,4]},
+      }
+    """
+    try:
+        from sqlalchemy import extract
+
+        years = set()
+        months_by_year = {}
+        weeks_by_year_month = {}
+
+        # Collect from sales
+        sales_results = db.session.query(
+            extract('year', Sale.sale_date).label('y'),
+            extract('month', Sale.sale_date).label('m'),
+            func.count(Sale.id)
+        ).group_by('y', 'm').all()
+
+        for y, m, _ in sales_results:
+            yi = int(y)
+            mi = int(m)
+            years.add(yi)
+            months_by_year.setdefault(str(yi), set()).add(mi)
+
+        # Collect from forecasts (use forecast_date)
+        forecast_results = db.session.query(
+            extract('year', Forecast.forecast_date).label('y'),
+            extract('month', Forecast.forecast_date).label('m'),
+            func.count(Forecast.id)
+        ).group_by('y', 'm').all()
+
+        for y, m, _ in forecast_results:
+            yi = int(y)
+            mi = int(m)
+            years.add(yi)
+            months_by_year.setdefault(str(yi), set()).add(mi)
+
+        # Build weeks per (year, month) where there is data
+        from calendar import monthrange
+        for y_str, months in months_by_year.items():
+            yi = int(y_str)
+            for mi in sorted(months):
+                last_day = monthrange(yi, mi)[1]
+                num_weeks = (last_day + 6) // 7  # ceil(last_day/7)
+                key = f"{yi}-{mi:02d}"
+                weeks_by_year_month[key] = list(range(1, max(1, min(5, num_weeks)) + 1))
+
+        return jsonify({
+            'success': True,
+            'years': sorted(list(years)),
+            'monthsByYear': {k: sorted(list(v)) for k, v in months_by_year.items()},
+            'weeksByYearMonth': weeks_by_year_month
+        })
+    except Exception as e:
+        import traceback
+        print(f"Error in /available-periods: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @api_bp.route('/recent-activity', methods=['GET'])
@@ -1909,45 +2036,52 @@ def get_weekly_forecast():
         products = Product.query.all()
         
         for product in products:
-            # Get 7-day forecast for this product
+            # Get multi-horizon forecasts (1-day, 7-day, 30-day)
+            forecast_1d = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=1)
             forecast_7d = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=7)
+            forecast_30d = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=30)
             
             if forecast_7d is not None:
-                # Calculate restock status
+                # Calculate restock status using SAME LOGIC as dashboard alerts
                 current_stock = product.current_stock or 0
-                predicted_demand = forecast_7d.predicted_quantity
+                predicted_demand_7d = forecast_7d.predicted_quantity
                 
-                # Determine urgency
-                if current_stock < predicted_demand * 0.5:
+                # Multi-horizon urgency calculation (matches dashboard)
+                if forecast_1d and current_stock < forecast_1d.predicted_quantity:
                     status = 'CRITICAL'
-                    status_color = '#ef4444'  # Red
-                elif current_stock < predicted_demand:
-                    status = 'LOW'
-                    status_color = '#f59e0b'  # Orange
+                    status_color = '#ef4444'  # Red - stock won't last 1 day
+                elif current_stock < predicted_demand_7d:
+                    status = 'HIGH'
+                    status_color = '#f59e0b'  # Orange - stock won't last 7 days
+                elif forecast_30d and current_stock < forecast_30d.predicted_quantity:
+                    status = 'MEDIUM'
+                    status_color = '#eab308'  # Yellow - stock won't last 30 days
                 else:
                     status = 'OK'
-                    status_color = '#10b981'  # Green
+                    status_color = '#10b981'  # Green - sufficient stock
                 
                 forecast_data.append({
                     'product_id': product.id,
                     'product_name': product.name,
                     'current_stock': current_stock,
-                    'predicted_7d': round(predicted_demand, 1),
+                    'predicted_7d': round(predicted_demand_7d, 1),
                     'status': status,
                     'status_color': status_color,
-                    'reorder_recommended': current_stock < predicted_demand
+                    'reorder_recommended': current_stock < predicted_demand_7d
                 })
         
-        # Sort by urgency (CRITICAL first, then LOW, then OK)
-        status_priority = {'CRITICAL': 0, 'LOW': 1, 'OK': 2}
-        forecast_data.sort(key=lambda x: status_priority.get(x['status'], 3))
+        # Sort by urgency (CRITICAL first, then HIGH, then MEDIUM, then OK)
+        status_priority = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'OK': 3}
+        forecast_data.sort(key=lambda x: status_priority.get(x['status'], 4))
         
         return jsonify({
             'success': True,
             'forecasts': forecast_data,
             'total_products': len(forecast_data),
             'critical_count': sum(1 for f in forecast_data if f['status'] == 'CRITICAL'),
-            'low_count': sum(1 for f in forecast_data if f['status'] == 'LOW'),
+            'high_count': sum(1 for f in forecast_data if f['status'] == 'HIGH'),
+            'medium_count': sum(1 for f in forecast_data if f['status'] == 'MEDIUM'),
+            'low_count': sum(1 for f in forecast_data if f['status'] in ['CRITICAL', 'HIGH']),  # Legacy: sum of CRITICAL + HIGH
             'forecast_date': today.isoformat()
         })
     except Exception as e:
@@ -2289,10 +2423,13 @@ def get_enhanced_restock_alerts():
         # Sort by severity (CRITICAL first)
         alerts_data.sort(key=lambda x: x['severity'], reverse=True)
         
+        # Filter to show only CRITICAL and HIGH alerts (to avoid overcrowding dashboard)
+        critical_high_alerts = [a for a in alerts_data if a['urgency'] in ['CRITICAL', 'HIGH']]
+        
         return jsonify({
             'success': True,
-            'alerts': alerts_data,
-            'total_alerts': len(alerts_data),
+            'alerts': critical_high_alerts,  # Only CRITICAL + HIGH
+            'total_alerts': len(critical_high_alerts),
             'critical_count': sum(1 for a in alerts_data if a['urgency'] == 'CRITICAL'),
             'high_count': sum(1 for a in alerts_data if a['urgency'] == 'HIGH'),
             'medium_count': sum(1 for a in alerts_data if a['urgency'] == 'MEDIUM')
@@ -2401,8 +2538,8 @@ def get_synchronized_daily_forecast():
         else:
             # Current or future week - use today as basis
             basis_date = today
-            forecast_start = today + timedelta(days=1)  # Tomorrow
-            forecast_end = week_end  # Only show forecasts for the selected week
+            forecast_start = today  # Include today in forecast
+            forecast_end = week_end  # Show forecasts up to and including the last day of week
             is_historical_view = False
         
         # Show ONLY the selected week (7 days), not historical context
@@ -2413,8 +2550,8 @@ def get_synchronized_daily_forecast():
             func.date(Sale.sale_date).label('date'),
             func.sum(Sale.quantity).label('quantity')
         ).filter(
-            Sale.sale_date >= week_start,  # Only from week start
-            Sale.sale_date <= (week_end if is_historical_view else basis_date)  # To week end or today
+            func.date(Sale.sale_date) >= week_start,  # Only from week start
+            func.date(Sale.sale_date) <= (week_end if is_historical_view else basis_date)  # Up to week end (historical) or today (current)
         )
         
         # Filter by product if specific product selected
@@ -2422,6 +2559,10 @@ def get_synchronized_daily_forecast():
             actual_sales_query = actual_sales_query.filter(Sale.product_id == product_id)
         
         actual_sales = actual_sales_query.group_by(func.date(Sale.sale_date)).all()
+        
+        print(f"[DEBUG /forecast/daily] Actual sales query returned {len(actual_sales)} rows")
+        if len(actual_sales) > 0:
+            print(f"[DEBUG /forecast/daily] First actual sale: date={actual_sales[0].date}, qty={actual_sales[0].quantity}")
         
         # Get year-over-year data (same period last year)
         last_year_start = history_start.replace(year=history_start.year - 1)
@@ -2441,18 +2582,33 @@ def get_synchronized_daily_forecast():
         
         yoy_sales = yoy_sales_query.group_by(func.date(Sale.sale_date)).all()
         
-        # Format actual data
+        # Format actual data - ENSURE CONTINUOUS DATES (fill gaps with 0)
         actual_data = []
         day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
+        # Create a dictionary of sales by date for quick lookup
+        sales_by_date = {}
         for sale in actual_sales:
             sale_date = sale.date if isinstance(sale.date, datetime) else datetime.strptime(str(sale.date), '%Y-%m-%d').date()
+            if isinstance(sale_date, datetime):
+                sale_date = sale_date.date()
+            sales_by_date[sale_date] = float(sale.quantity)
+        
+        print(f"[DEBUG /forecast/daily] sales_by_date has {len(sales_by_date)} entries")
+        print(f"[DEBUG /forecast/daily] sales_by_date keys: {list(sales_by_date.keys())[:5]}")
+        
+        # Fill in all dates from week_start to basis_date (or week_end if historical)
+        end_date_for_actual = week_end if is_historical_view else min(basis_date, week_end)
+        current_date = week_start
+        while current_date <= end_date_for_actual:
+            sales_value = sales_by_date.get(current_date, 0.0)  # Default to 0 if no sales
             actual_data.append({
-                'date': sale_date.isoformat(),
-                'sales': float(sale.quantity),
-                'day_name': day_names[sale_date.weekday()],
-                'week_label': 'Current Week' if sale_date >= week_start else f'-{((week_start - sale_date).days // 7)} weeks'
+                'date': current_date.isoformat(),
+                'sales': sales_value,
+                'day_name': day_names[current_date.weekday()],
+                'week_label': 'Current Week' if current_date >= week_start else f'-{((week_start - current_date).days // 7)} weeks'
             })
+            current_date += timedelta(days=1)
         
         # Format year-over-year data
         yoy_data = []
@@ -2473,7 +2629,7 @@ def get_synchronized_daily_forecast():
         # DEBUG: Log query parameters
         print(f"[DEBUG /forecast/daily] product_id={product_id}, aggregate_all={aggregate_all}")
         print(f"[DEBUG /forecast/daily] week_start={week_start}, week_end={week_end}")
-        print(f"[DEBUG /forecast/daily] basis_date={basis_date}, forecast_start={forecast_start if is_historical_view else basis_date + timedelta(days=1)}, forecast_end={forecast_end}")
+        print(f"[DEBUG /forecast/daily] basis_date={basis_date}, forecast_start={forecast_start}, forecast_end={forecast_end}")
         print(f"[DEBUG /forecast/daily] is_historical_view={is_historical_view}")
         
         if aggregate_all:
@@ -2488,12 +2644,12 @@ def get_synchronized_daily_forecast():
                     func.sum(Forecast.confidence_upper).label('conf_upper')
                 ).filter(
                     Forecast.aggregation_level == 'daily',
-                    Forecast.forecast_date >= forecast_start,
-                    Forecast.forecast_date <= forecast_end,
+                    func.date(Forecast.forecast_date) >= forecast_start,
+                    func.date(Forecast.forecast_date) <= forecast_end,
                     Forecast.generated_at < week_start  # Only forecasts generated before this week
                 ).group_by(func.date(Forecast.forecast_date)).order_by(func.date(Forecast.forecast_date)).all()
             else:
-                # Current/Future: Show forecasts after today
+                # Current/Future: Show forecasts from forecast_start through the end of the selected week
                 forecast_agg = db.session.query(
                     func.date(Forecast.forecast_date).label('date'),
                     func.sum(Forecast.predicted_quantity).label('quantity'),
@@ -2501,21 +2657,36 @@ def get_synchronized_daily_forecast():
                     func.sum(Forecast.confidence_upper).label('conf_upper')
                 ).filter(
                     Forecast.aggregation_level == 'daily',
-                    Forecast.forecast_date > basis_date,
-                    Forecast.forecast_date <= forecast_end
+                    func.date(Forecast.forecast_date) >= forecast_start,
+                    func.date(Forecast.forecast_date) <= week_end  # Include all days through Sunday
                 ).group_by(func.date(Forecast.forecast_date)).order_by(func.date(Forecast.forecast_date)).all()
             
             print(f"[DEBUG /forecast/daily] Aggregate query returned {len(forecast_agg)} results")
             
+            # Create a dictionary of forecasts by date for continuous filling
+            forecasts_by_date = {}
             for fc in forecast_agg:
                 fc_date = fc.date if isinstance(fc.date, datetime) else datetime.strptime(str(fc.date), '%Y-%m-%d').date()
+                if isinstance(fc_date, datetime):
+                    fc_date = fc_date.date()
+                forecasts_by_date[fc_date] = {
+                    'quantity': float(fc.quantity or 0),
+                    'conf_lower': float(fc.conf_lower or fc.quantity or 0),
+                    'conf_upper': float(fc.conf_upper or fc.quantity or 0)
+                }
+            
+            # Fill in all forecast dates from forecast_start to week_end
+            current_date = forecast_start
+            while current_date <= week_end:
+                fc_data = forecasts_by_date.get(current_date, {'quantity': 0, 'conf_lower': 0, 'conf_upper': 0})
                 forecast_data.append({
-                    'date': fc_date.isoformat(),
-                    'sales': float(fc.quantity or 0),
-                    'confidence_lower': float(fc.conf_lower or fc.quantity or 0),
-                    'confidence_upper': float(fc.conf_upper or fc.quantity or 0),
-                    'day_name': day_names[fc_date.weekday()]
+                    'date': current_date.isoformat(),
+                    'sales': fc_data['quantity'],
+                    'confidence_lower': fc_data['conf_lower'],
+                    'confidence_upper': fc_data['conf_upper'],
+                    'day_name': day_names[current_date.weekday()]
                 })
+                current_date += timedelta(days=1)
         else:
             # Single product forecasts
             if is_historical_view:
@@ -2523,17 +2694,17 @@ def get_synchronized_daily_forecast():
                 forecasts = Forecast.query.filter(
                     Forecast.product_id == product_id,
                     Forecast.aggregation_level == 'daily',
-                    Forecast.forecast_date >= forecast_start,
-                    Forecast.forecast_date <= forecast_end,
+                    func.date(Forecast.forecast_date) >= forecast_start,
+                    func.date(Forecast.forecast_date) <= forecast_end,
                     Forecast.generated_at < week_start  # Only forecasts generated before this week
                 ).order_by(Forecast.forecast_date).all()
             else:
-                # Current/Future: Show forecasts after today
+                # Current/Future: Show forecasts from forecast_start through the end of the selected week
                 forecasts = Forecast.query.filter(
                     Forecast.product_id == product_id,
                     Forecast.aggregation_level == 'daily',
-                    Forecast.forecast_date > basis_date,
-                    Forecast.forecast_date <= forecast_end
+                    func.date(Forecast.forecast_date) >= forecast_start,
+                    func.date(Forecast.forecast_date) <= week_end  # Include all days through Sunday
                 ).order_by(Forecast.forecast_date).all()
             
             print(f"[DEBUG /forecast/daily] Single product query returned {len(forecasts)} results")
@@ -2549,15 +2720,28 @@ def get_synchronized_daily_forecast():
                 print(f"[DEBUG /forecast/daily] Total forecasts for product {product_id}: {total_forecasts}")
                 print(f"[DEBUG /forecast/daily] Future forecasts for product {product_id}: {future_forecasts}")
             
+            # Create a dictionary of forecasts by date for continuous filling
+            forecasts_by_date = {}
             for fc in forecasts:
                 fc_date = fc.forecast_date.date() if isinstance(fc.forecast_date, datetime) else fc.forecast_date
+                forecasts_by_date[fc_date] = {
+                    'quantity': float(fc.predicted_quantity or 0),
+                    'conf_lower': float(fc.confidence_lower or fc.predicted_quantity or 0),
+                    'conf_upper': float(fc.confidence_upper or fc.predicted_quantity or 0)
+                }
+            
+            # Fill in all forecast dates from forecast_start to week_end
+            current_date = forecast_start
+            while current_date <= week_end:
+                fc_data = forecasts_by_date.get(current_date, {'quantity': 0, 'conf_lower': 0, 'conf_upper': 0})
                 forecast_data.append({
-                    'date': fc_date.isoformat(),
-                    'sales': float(fc.predicted_quantity or 0),
-                    'confidence_lower': float(fc.confidence_lower or fc.predicted_quantity or 0),
-                    'confidence_upper': float(fc.confidence_upper or fc.predicted_quantity or 0),
-                    'day_name': day_names[fc_date.weekday()]
+                    'date': current_date.isoformat(),
+                    'sales': fc_data['quantity'],
+                    'confidence_lower': fc_data['conf_lower'],
+                    'confidence_upper': fc_data['conf_upper'],
+                    'day_name': day_names[current_date.weekday()]
                 })
+                current_date += timedelta(days=1)
         
         # Calculate accuracy (compare yesterday's forecast vs actual)
         accuracy = None
@@ -2673,26 +2857,33 @@ def get_synchronized_weekly_forecast():
         forecast_data = []
         
         for week in weeks:
-            # For historical months, all weeks are "completed"
-            # For current/future months, check against today
-            is_completed_week = week['end'] < today if not is_historical_month else True
+            # Determine if this week should show actual sales or forecasts
+            # For historical months: Show BOTH actual sales AND historical forecasts (backtesting)
+            # For current/future months: Show actuals for completed weeks, forecasts for future weeks
+            is_completed_week = week['end'] < today
             
-            if is_completed_week:
-                # Completed week - get actual sales
+            # Get actual sales for weeks that have STARTED (even if not fully completed)
+            # This includes: completed weeks, current week, and all weeks in historical months
+            week_has_started = week['start'] <= today
+            
+            # ALWAYS add actual_data entry for EVERY week (continuous bars)
+            # This prevents gaps in the bar chart visualization
+            if week_has_started:
+                # Get actual sales for any week that has started
                 if aggregate_all:
                     total_sales = db.session.query(
                         func.sum(Sale.quantity)
                     ).filter(
-                        Sale.sale_date >= week['start'],
-                        Sale.sale_date <= week['end']
+                        func.date(Sale.sale_date) >= week['start'],
+                        func.date(Sale.sale_date) <= week['end']
                     ).scalar() or 0
                 else:
                     total_sales = db.session.query(
                         func.sum(Sale.quantity)
                     ).filter(
                         Sale.product_id == product_id,
-                        Sale.sale_date >= week['start'],
-                        Sale.sale_date <= week['end']
+                        func.date(Sale.sale_date) >= week['start'],
+                        func.date(Sale.sale_date) <= week['end']
                     ).scalar() or 0
                 
                 actual_data.append({
@@ -2702,60 +2893,93 @@ def get_synchronized_weekly_forecast():
                     'sales': float(total_sales)
                 })
             else:
-                # Future week - get forecast by aggregating DAILY forecasts
-                if aggregate_all:
-                    # Sum DAILY forecasts across all products for this week
-                    total_forecast_query = db.session.query(
-                        func.sum(Forecast.predicted_quantity).label('total'),
-                        func.sum(Forecast.confidence_lower).label('lower'),
-                        func.sum(Forecast.confidence_upper).label('upper')
-                    ).filter(
-                        Forecast.aggregation_level == 'daily',
-                        Forecast.forecast_date >= week['start'],
-                        Forecast.forecast_date <= week['end']
+                # Future week - add 0 to maintain continuous data structure
+                actual_data.append({
+                    'week': week['week'],
+                    'start': week['start'].isoformat(),
+                    'end': week['end'].isoformat(),
+                    'sales': 0
+                })
+            
+            # Get forecasts for comparison/planning:
+            # - Historical months: Show historical forecasts (made before the week) for backtesting
+            # - Current month: Show all forecasts (both for completed weeks comparison and future planning)
+            # This allows users to compare actual vs predicted for completed weeks
+            
+            # Always get forecasts for all weeks
+            if is_historical_month:
+                # Historical: Only use forecasts generated BEFORE the week started (backtesting)
+                generated_before = week['start']
+            else:
+                # Current/Future month: Use latest forecasts (no time filter)
+                generated_before = None
+            
+            # Get forecast by aggregating DAILY forecasts
+            if aggregate_all:
+                # Sum DAILY forecasts across all products for this week
+                total_forecast_query = db.session.query(
+                    func.sum(Forecast.predicted_quantity).label('total'),
+                    func.sum(Forecast.confidence_lower).label('lower'),
+                    func.sum(Forecast.confidence_upper).label('upper')
+                ).filter(
+                    Forecast.aggregation_level == 'daily',
+                    func.date(Forecast.forecast_date) >= week['start'],
+                    func.date(Forecast.forecast_date) <= week['end']
+                )
+                
+                # Add generated_at filter for historical backtesting
+                if generated_before:
+                    total_forecast_query = total_forecast_query.filter(
+                        Forecast.generated_at < generated_before
                     )
-                    
-                    result = total_forecast_query.first()
-                    total_forecast = result.total or 0
-                    total_lower = result.lower or 0
-                    total_upper = result.upper or 0
-                    
+                
+                result = total_forecast_query.first()
+                total_forecast = result.total or 0
+                total_lower = result.lower or 0
+                total_upper = result.upper or 0
+                
+                forecast_data.append({
+                    'week': week['week'],
+                    'start': week['start'].isoformat(),
+                    'end': week['end'].isoformat(),
+                    'sales': float(total_forecast),
+                    'confidence_lower': float(total_lower),
+                    'confidence_upper': float(total_upper)
+                })
+            else:
+                # Single product forecast - aggregate daily forecasts
+                forecast_query = db.session.query(
+                    func.sum(Forecast.predicted_quantity).label('total'),
+                    func.sum(Forecast.confidence_lower).label('lower'),
+                    func.sum(Forecast.confidence_upper).label('upper')
+                ).filter(
+                    Forecast.product_id == product_id,
+                    Forecast.aggregation_level == 'daily',
+                    func.date(Forecast.forecast_date) >= week['start'],
+                    func.date(Forecast.forecast_date) <= week['end']
+                )
+                
+                # Add generated_at filter for historical backtesting
+                if generated_before:
+                    forecast_query = forecast_query.filter(
+                        Forecast.generated_at < generated_before
+                    )
+                
+                result = forecast_query.first()
+                
+                if result and result.total:
                     forecast_data.append({
                         'week': week['week'],
                         'start': week['start'].isoformat(),
                         'end': week['end'].isoformat(),
-                        'sales': float(total_forecast),
-                        'confidence_lower': float(total_lower),
-                        'confidence_upper': float(total_upper)
+                        'sales': float(result.total or 0),
+                        'confidence_lower': float(result.lower or 0),
+                        'confidence_upper': float(result.upper or 0)
                     })
                 else:
-                    # Single product forecast - aggregate daily forecasts
-                    forecast_query = db.session.query(
-                        func.sum(Forecast.predicted_quantity).label('total'),
-                        func.sum(Forecast.confidence_lower).label('lower'),
-                        func.sum(Forecast.confidence_upper).label('upper')
-                    ).filter(
-                        Forecast.product_id == product_id,
-                        Forecast.aggregation_level == 'daily',
-                        Forecast.forecast_date >= week['start'],
-                        Forecast.forecast_date <= week['end']
-                    )
-                    
-                    result = forecast_query.first()
-                    
-                    if result and result.total:
-                        forecast_data.append({
-                            'week': week['week'],
-                            'start': week['start'].isoformat(),
-                            'end': week['end'].isoformat(),
-                            'sales': float(result.total or 0),
-                            'confidence_lower': float(result.lower or 0),
-                            'confidence_upper': float(result.upper or 0)
-                        })
-                    else:
-                        # No forecast available, add 0
-                        forecast_data.append({
-                            'week': week['week'],
+                    # No forecast available, add 0
+                    forecast_data.append({
+                        'week': week['week'],
                             'start': week['start'].isoformat(),
                             'end': week['end'].isoformat(),
                             'sales': 0,
@@ -2928,6 +3152,271 @@ def generate_fake_data_endpoint():
             'success': False,
             'error': f'Failed to generate fake data: {str(e)}'
         }), 500
+
+
+@api_bp.route('/sales-report', methods=['GET'])
+@login_required
+def sales_report():
+    """Get sales report data for the specified period."""
+    try:
+        period = request.args.get('period', '30d')
+        
+        # Calculate date range
+        end_date = datetime.now()
+        if period == '7d':
+            start_date = end_date - timedelta(days=7)
+            period_label = 'Last 7 Days'
+        elif period == '30d':
+            start_date = end_date - timedelta(days=30)
+            period_label = 'Last 30 Days'
+        elif period == '90d':
+            start_date = end_date - timedelta(days=90)
+            period_label = 'Last 90 Days'
+        elif period == '1y':
+            start_date = end_date - timedelta(days=365)
+            period_label = 'Last Year'
+        elif period == 'all':
+            start_date = datetime(2000, 1, 1)
+            period_label = 'All Time'
+        else:
+            start_date = end_date - timedelta(days=30)
+            period_label = 'Last 30 Days'
+        
+        # Query sales with product information
+        sales_query = db.session.query(
+            Sale.sale_date,
+            Product.name.label('product_name'),
+            Sale.quantity,
+            Sale.price,
+            (Sale.quantity * Sale.price).label('revenue')
+        ).join(Product, Sale.product_id == Product.id).filter(
+            Sale.sale_date >= start_date,
+            Sale.sale_date <= end_date
+        ).order_by(Sale.sale_date.desc())
+        
+        sales_data = []
+        total_revenue = 0
+        
+        for sale in sales_query.all():
+            revenue = float(sale.quantity * sale.price)
+            sales_data.append({
+                'date': sale.sale_date.strftime('%Y-%m-%d'),
+                'product_name': sale.product_name,
+                'quantity': sale.quantity,
+                'price': float(sale.price),
+                'revenue': revenue
+            })
+            total_revenue += revenue
+        
+        return jsonify({
+            'success': True,
+            'period': period,
+            'period_label': period_label,
+            'sales': sales_data,
+            'total_sales': len(sales_data),
+            'total_revenue': total_revenue
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error generating sales report: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': f'Failed to generate sales report: {str(e)}'
+        }), 500
+
+
+@api_bp.route('/sales-report/download', methods=['GET'])
+@login_required
+def download_sales_report():
+    """Download sales report as CSV."""
+    try:
+        period = request.args.get('period', '30d')
+        
+        # Calculate date range
+        end_date = datetime.now()
+        if period == '7d':
+            start_date = end_date - timedelta(days=7)
+        elif period == '30d':
+            start_date = end_date - timedelta(days=30)
+        elif period == '90d':
+            start_date = end_date - timedelta(days=90)
+        elif period == '1y':
+            start_date = end_date - timedelta(days=365)
+        elif period == 'all':
+            start_date = datetime(2000, 1, 1)
+        else:
+            start_date = end_date - timedelta(days=30)
+        
+        # Query sales
+        sales_query = db.session.query(
+            Sale.sale_date,
+            Product.name.label('product_name'),
+            Product.category,
+            Sale.quantity,
+            Sale.price,
+            (Sale.quantity * Sale.price).label('revenue')
+        ).join(Product, Sale.product_id == Product.id).filter(
+            Sale.sale_date >= start_date,
+            Sale.sale_date <= end_date
+        ).order_by(Sale.sale_date.desc())
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Date', 'Product', 'Category', 'Quantity', 'Price', 'Revenue'])
+        
+        for sale in sales_query.all():
+            writer.writerow([
+                sale.sale_date.strftime('%Y-%m-%d'),
+                sale.product_name,
+                sale.category or 'N/A',
+                sale.quantity,
+                f'{sale.price:.2f}',
+                f'{sale.quantity * sale.price:.2f}'
+            ])
+        
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'sales_report_{period}_{datetime.now().strftime("%Y%m%d")}.csv'
+        )
+        
+    except Exception as e:
+        import traceback
+        print(f"Error downloading sales report: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/inventory-report', methods=['GET'])
+@login_required
+def inventory_report():
+    """Get inventory report data."""
+    try:
+        report_type = request.args.get('type', 'current')
+        
+        # Base query
+        query = db.session.query(
+            Product.name.label('product_name'),
+            Product.category,
+            Product.current_stock,
+            Product.unit_cost
+        )
+        
+        # Apply filters based on report type
+        if report_type == 'low':
+            query = query.filter(Product.current_stock <= 50)
+            report_label = 'Low Stock Items'
+        elif report_type == 'current':
+            query = query.filter(Product.current_stock > 0)
+            report_label = 'Current Stock Levels'
+        else:  # all
+            report_label = 'All Inventory'
+        
+        query = query.order_by(Product.current_stock.asc())
+        
+        inventory_data = []
+        total_value = 0
+        
+        for item in query.all():
+            unit_cost = float(item.unit_cost) if item.unit_cost else 0
+            item_value = item.current_stock * unit_cost
+            
+            inventory_data.append({
+                'product_name': item.product_name,
+                'category': item.category,
+                'current_stock': item.current_stock,
+                'unit_cost': unit_cost,
+                'total_value': item_value
+            })
+            total_value += item_value
+        
+        return jsonify({
+            'success': True,
+            'report_type': report_type,
+            'report_label': report_label,
+            'inventory': inventory_data,
+            'total_value': total_value
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error generating inventory report: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': f'Failed to generate inventory report: {str(e)}'
+        }), 500
+
+
+@api_bp.route('/inventory-report/download', methods=['GET'])
+@login_required
+def download_inventory_report():
+    """Download inventory report as CSV."""
+    try:
+        report_type = request.args.get('type', 'current')
+        
+        # Base query
+        query = db.session.query(
+            Product.name.label('product_name'),
+            Product.category,
+            Product.current_stock,
+            Product.unit_cost
+        )
+        
+        # Apply filters
+        if report_type == 'low':
+            query = query.filter(Product.current_stock <= 50)
+        elif report_type == 'current':
+            query = query.filter(Product.current_stock > 0)
+        
+        query = query.order_by(Product.current_stock.asc())
+        
+        # Create CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Product', 'Category', 'Current Stock', 'Unit Cost', 'Total Value', 'Status'])
+        
+        for item in query.all():
+            unit_cost = float(item.unit_cost) if item.unit_cost else 0
+            total_value = item.current_stock * unit_cost
+            
+            if item.current_stock <= 10:
+                status = 'Low Stock'
+            elif item.current_stock <= 50:
+                status = 'Medium'
+            else:
+                status = 'Good'
+            
+            writer.writerow([
+                item.product_name,
+                item.category or 'N/A',
+                item.current_stock,
+                f'{unit_cost:.2f}',
+                f'{total_value:.2f}',
+                status
+            ])
+        
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'inventory_report_{report_type}_{datetime.now().strftime("%Y%m%d")}.csv'
+        )
+        
+    except Exception as e:
+        import traceback
+        print(f"Error downloading inventory report: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+
+
 
 
 
