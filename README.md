@@ -1,6 +1,6 @@
-# 📊 Predictive Sales & Restocking Dashboard System
+# Predictive Sales & Restocking Dashboard System
 
-## 📖 Description
+## Description
 The **Predictive Sales & Restocking Dashboard System** is a data-driven inventory management tool that leverages predictive algorithms to forecast product demand and optimize restocking schedules.  
 The system integrates sales history, seasonal trends, and market patterns to generate accurate restocking recommendations.  
 
@@ -9,7 +9,7 @@ The dashboard provides **real-time visualization** of sales performance, invento
 
 ---
 
-## 🎯 Objectives
+##  Objectives
 - Automate sales forecasting using simple forecasting algorithms with at least **80% prediction accuracy** for the store’s top 10 best-selling products.  
 - Optimize restocking schedules with an alert system that flags items projected to fall below a predefined stock threshold within the next 7 days.  
 - Enhance decision-making through a **dashboard** that provides clear visualization of sales trends and inventory status.  
@@ -18,7 +18,7 @@ The dashboard provides **real-time visualization** of sales performance, invento
 
 ---
 
-## 📌 Scopes
+##  Scopes
 - Process historical sales data manually uploaded via **CSV files**.  
 - Utilize **Linear Regression** or **Moving Average models** to predict product demand.  
 - Generate an **interactive, web-based dashboard** to represent sales trends, inventory levels, and demand forecasts.  
@@ -27,7 +27,7 @@ The dashboard provides **real-time visualization** of sales performance, invento
 
 ---
 
-## ⚠️ Limitations
+##  Limitations
 - Prediction accuracy depends on the **quality and completeness of historical data**.  
 - May not account for **sudden, unpredictable market disruptions** (e.g., natural disasters, sudden demand spikes).  
 - Less accurate for products with **highly erratic sales patterns**.  
@@ -36,7 +36,7 @@ The dashboard provides **real-time visualization** of sales performance, invento
 
 ---
 
-## 📂 Project Structure
+##  Project Structure
 ```
 predictive-dashboard/
 │
@@ -68,32 +68,32 @@ predictive-dashboard/
 
 ---
 
-## ⚙️ Installation & Setup
+##  Installation & Setup
 
-### 1️⃣ Clone the Repository
+###  Clone the Repository
 ```bash
 git clone https://github.com/your-username/predictive-dashboard.git
 cd predictive-dashboard
 ```
 
-### 2️⃣ Create Virtual Environment
+###  Create Virtual Environment
 ```bash
 python -m venv venv
 source venv/bin/activate   # On Mac/Linux
 venv\Scripts\activate      # On Windows
 ```
 
-### 3️⃣ Install Dependencies
+###  Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4️⃣ Database Setup
+###  Database Setup
 ```bash
 mysql -u root -p < data/schema.sql
 ```
 
-### 5️⃣ Run the Application
+###  Run the Application
 ```bash
 python app.py
 ```
@@ -102,7 +102,7 @@ The system will be available at **http://127.0.0.1:5000/**
 
 ---
 
-## 🖥️ Usage
+##  Usage
 - Upload **CSV sales data** via the dashboard.  
 - View **real-time charts** of sales, inventory, and forecasts.  
 - Receive **automated alerts** for low stock items.  
@@ -110,21 +110,20 @@ The system will be available at **http://127.0.0.1:5000/**
 
 ---
 
-## 👨‍💻 Developers
+##  Developers
 
 This project was developed as a **Capstone Project** by a team of four.  
 Below is a suggested profile template for contributors:  
 
-### Developer Template
 ```markdown
-### 👤 [Full Name]
-- 🎓 Role: [e.g., Backend Developer | Frontend Developer | Data Analyst | Project Manager]
-- 💻 Skills: [Python, Flask, MySQL, JavaScript, HTML/CSS, Machine Learning]
-- 🔗 GitHub: [github.com/username]
-- ✉️ Email: [your-email@example.com]
+###  [NA]
+-  Role: [, Backend Developer | Frontend Developer | Data Analyst | Project Manager]
+-  Skills: [Python, Flask, MySQL, JavaScript, HTML/CSS, Machine Learning]
+-  GitHub: [github.com/NAAAAA]
+-  Email: [NAAAemail@example.com]
 ```
 
 ---
 
-## 📜 License
+##  License
 This project is for **academic purposes only**. Not intended for commercial use.  
