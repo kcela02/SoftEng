@@ -65,21 +65,20 @@ def websocket_test():
     return render_template('websocket_test.html')
 
 
-@main_bp.route('/init-db-once', methods=['POST'])
+@main_bp.route('/init-db-once', methods=['POST', 'GET'])
 def init_db_once():
     """One-time database initialization endpoint (call once after deployment, then delete)"""
     import os
-    from models import db, User
-    
-    # Security: only allow this in production with a check
-    # This endpoint should only be called ONCE and should be deleted after
     
     try:
+        from models import db, User
+        
         # Create tables
         db.create_all()
         
         # Create default admin user if not exists
-        if not User.query.filter_by(username='admin').first():
+        existing_admin = User.query.filter_by(username='admin').first()
+        if not existing_admin:
             admin = User(username='admin', email='admin@example.com', role='admin')
             admin.set_password('admin123')
             db.session.add(admin)
@@ -98,9 +97,13 @@ def init_db_once():
                 'admin_created': False
             }, 200
     except Exception as e:
+        import traceback
         db.session.rollback()
+        error_trace = traceback.format_exc()
         return {
             'status': 'error',
-            'message': f'Initialization failed: {str(e)}'
+            'message': f'Initialization failed: {str(e)}',
+            'error_details': error_trace
         }, 500
+
 
