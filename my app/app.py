@@ -60,17 +60,19 @@ def create_app(config_name=None):
     from websocket_events import register_socketio_events
     register_socketio_events(socketio)
     
-    # Create database tables and default admin user
-    with app.app_context():
-        db.create_all()
-        
-        # Create default admin user if not exists
-        if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', email='admin@example.com', role='admin')
-            admin.set_password('admin123')
-            db.session.add(admin)
-            db.session.commit()
-            print("✅ Default admin user created (username: admin, password: admin123)")
+    # Create database tables and default admin user (only in development)
+    # In production, initialize database manually after first deployment
+    if config_name != 'production':
+        with app.app_context():
+            db.create_all()
+            
+            # Create default admin user if not exists
+            if not User.query.filter_by(username='admin').first():
+                admin = User(username='admin', email='admin@example.com', role='admin')
+                admin.set_password('admin123')
+                db.session.add(admin)
+                db.session.commit()
+                print("✅ Default admin user created (username: admin, password: admin123)")
     
     return app
 
