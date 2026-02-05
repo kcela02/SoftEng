@@ -49,7 +49,7 @@ def logout():
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    """Handle user registration"""
+    """Handle user registration - first user can register without login"""
     if request.method == 'POST':
         # Check if this is an AJAX request
         if request.is_json:
@@ -70,10 +70,15 @@ def register():
             flash('Username already exists')
             return redirect(url_for('auth.register'))
 
-        # Prevent privilege escalation: only an already authenticated admin can set roles
-        if not (current_user.is_authenticated and getattr(current_user, 'role', None) == 'admin'):
-            # Force plain registrations to 'user' role regardless of submitted value
-            role = 'user'
+        # Check if this is the first user - if so, make them admin
+        user_count = db.session.query(User).count()
+        if user_count == 0:
+            # First user becomes admin
+            role = 'admin'
+        else:
+            # Only existing admins can create other admins
+            if not (current_user.is_authenticated and getattr(current_user, 'role', None) == 'admin'):
+                role = 'user'
 
         user = User(username=username, email=email, role=role)
         user.set_password(password)

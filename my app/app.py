@@ -60,21 +60,9 @@ def create_app(config_name=None):
     from websocket_events import register_socketio_events
     register_socketio_events(socketio)
     
-    # Initialize database and create default admin user
+    # Initialize database tables
     with app.app_context():
         db.create_all()
-        
-        # Always try to create default admin user if not exists
-        if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', email='admin@example.com', role='admin')
-            admin.set_password('admin123')
-            db.session.add(admin)
-            try:
-                db.session.commit()
-                print("✅ Default admin user created (username: admin, password: admin123)")
-            except Exception as e:
-                db.session.rollback()
-                print(f"⚠️  Could not create admin user: {e}")
     
     return app
 
