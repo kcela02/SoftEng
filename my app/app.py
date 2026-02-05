@@ -36,7 +36,7 @@ def create_app(config_name=None):
     
     # Initialize SocketIO with CORS support
     global socketio
-    socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+    socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
     
     # Setup Flask-Login
     login_manager = LoginManager()
