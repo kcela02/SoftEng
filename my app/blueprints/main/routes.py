@@ -67,43 +67,41 @@ def websocket_test():
 
 @main_bp.route('/init-db-once', methods=['POST', 'GET'])
 def init_db_once():
-    """One-time database initialization endpoint (call once after deployment, then delete)"""
-    import os
-    
+    """One-time database initialization endpoint"""
     try:
         from models import db, User
         
-        # Create tables
+        # Create all tables
         db.create_all()
         
-        # Create default admin user if not exists
-        existing_admin = User.query.filter_by(username='admin').first()
-        if not existing_admin:
-            admin = User(username='admin', email='admin@example.com', role='admin')
-            admin.set_password('admin123')
-            db.session.add(admin)
-            db.session.commit()
-            return {
-                'status': 'success',
-                'message': 'Database initialized successfully',
-                'admin_created': True,
-                'username': 'admin',
-                'password': 'admin123'
-            }, 201
-        else:
-            return {
-                'status': 'success',
-                'message': 'Database already initialized',
-                'admin_created': False
-            }, 200
+        # Check if admin exists
+        admin_exists = db.session.query(User).filter_by(username='admin').first()
+        
+        if admin_exists:
+            return {'status': 'success', 'message': 'Admin already exists'}, 200
+        
+        # Create admin user
+        admin = User(
+            username='admin',
+            email='admin@example.com',
+            role='admin'
+        )
+        admin.set_password('admin123')
+        db.session.add(admin)
+        db.session.commit()
+        
+        return {
+            'status': 'success',
+            'message': 'Database initialized',
+            'username': 'admin',
+            'password': 'admin123'
+        }, 201
+        
     except Exception as e:
-        import traceback
-        db.session.rollback()
-        error_trace = traceback.format_exc()
         return {
             'status': 'error',
-            'message': f'Initialization failed: {str(e)}',
-            'error_details': error_trace
+            'error': str(e),
+            'type': type(e).__name__
         }, 500
 
 
