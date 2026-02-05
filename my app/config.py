@@ -41,6 +41,10 @@ class ProductionConfig(Config):
     if not SQLALCHEMY_DATABASE_URI:
         raise ValueError("DATABASE_URL environment variable must be set in production")
     
+    # Fix for Render: Replace postgres:// with postgresql://
+    if SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
+        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
+    
     # Security settings
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
