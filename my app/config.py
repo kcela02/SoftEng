@@ -34,7 +34,17 @@ class ProductionConfig(Config):
     TESTING = False
     # Override with secure settings
     SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError("SECRET_KEY environment variable must be set in production")
+    
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    if not SQLALCHEMY_DATABASE_URI:
+        raise ValueError("DATABASE_URL environment variable must be set in production")
+    
+    # Security settings
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
 
 
 class TestingConfig(Config):
