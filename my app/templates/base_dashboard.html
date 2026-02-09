@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Predictive Sales Dashboard{% endblock %}</title>
+    <title>{% block title %}VapeCrib Dashboard{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,7 +15,8 @@
         <header class="header">
             <div class="header-content">
                 <div class="logo">
-                    <h1>📊 Predictive Sales Dashboard</h1>
+                    <img src="{{ url_for('static', filename='vc_logo.png') }}" alt="VapeCrib Logo" class="nav-logo">
+                    <h1>VapeCrib Dashboard</h1>
                 </div>
                 <nav class="nav">
                     <a href="{{ url_for('main.dashboard') }}" class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}">Dashboard</a>

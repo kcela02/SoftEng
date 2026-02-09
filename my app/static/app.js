@@ -2511,7 +2511,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         size: 16,
                                         weight: 'bold'
                                     },
-                                    color: '#1f2937'
+                                    color: '#f5f5f5'
                                 }
                             },
                             scales: {

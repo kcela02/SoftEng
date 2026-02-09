@@ -1,7 +1,16 @@
 product_name,batch_number,quantity,expiration_date,received_date,unit_cost,supplier,notes
-Laptop,BATCH-20251110-001,50,2026-12-31,2025-11-10,500.00,Tech Supplier Inc,Initial inventory batch
-Monitor,BATCH-20251110-002,30,2026-06-30,2025-11-10,150.00,Display Co,27-inch displays
-Mouse,BATCH-20251110-003,100,2026-03-15,2025-11-10,15.00,Peripherals Ltd,Wireless mice
-Keyboard,BATCH-20251110-004,75,2026-09-20,2025-11-10,35.00,Peripherals Ltd,Mechanical keyboards
-Tablet,BATCH-20251110-005,25,2025-12-01,2025-11-10,300.00,Mobile Devices Inc,10-inch tablets - SHORT EXPIRY
-Headphones,BATCH-20251110-006,60,2026-05-15,2025-11-10,45.00,Audio Tech,Noise-cancelling
+Classic 500 Puff,BATCH-20251110-001,150,2027-12-31,2025-11-10,150.00,VapeCrib Distribution,Initial inventory batch
+Premium 2000 Puff,BATCH-20251110-002,80,2027-06-30,2025-11-10,280.00,VapeCrib Distribution,Premium disposable line
+Max 3000 Puff,BATCH-20251110-003,60,2027-09-15,2025-11-10,350.00,VapeCrib Distribution,Extended puff capacity
+Pod System Kit,BATCH-20251110-004,40,2026-12-01,2025-11-10,800.00,VapeCrib Distribution,Reusable pod system
+Replacement Pods (4-Pack),BATCH-20251110-005,120,2026-08-20,2025-11-10,200.00,VapeCrib Distribution,Compatible with all pod kits
+E-Liquid 30ml,BATCH-20251110-006,200,2027-03-15,2025-11-10,120.00,VapeCrib Distribution,Classic flavor bottled e-liquid
+E-Liquid 60ml Premium,BATCH-20251110-007,100,2027-05-20,2025-11-10,200.00,VapeCrib Distribution,Larger size premium quality
+E-Liquid 100ml Bulk,BATCH-20251110-008,60,2027-07-10,2025-11-10,300.00,VapeCrib Distribution,Bulk e-liquid value pack
+Coil Pack (10 pcs),BATCH-20251110-009,150,2026-11-30,2025-11-10,200.00,VapeCrib Distribution,Replacement coils
+Battery 18650,BATCH-20251110-010,200,2026-04-15,2025-11-10,80.00,VapeCrib Distribution,High capacity batteries
+Battery Charger,BATCH-20251110-011,60,2027-01-31,2025-11-10,250.00,VapeCrib Distribution,Dual battery charger
+Tank Glass Replacement,BATCH-20251110-012,120,2026-10-20,2025-11-10,150.00,VapeCrib Distribution,Pyrex glass tank tubes
+Carrying Case,BATCH-20251110-013,90,2027-02-28,2025-11-10,180.00,VapeCrib Distribution,Protective travel case
+Advanced Mod,BATCH-20251110-014,30,2027-01-15,2025-11-10,1800.00,VapeCrib Distribution,Advanced temperature control device
+Cleaning Kit,BATCH-20251110-015,80,2027-08-10,2025-11-10,100.00,VapeCrib Distribution,Complete maintenance kit

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings - Predictive Sales Dashboard</title>
+    <title>Settings - VapeCrib Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
@@ -12,7 +12,8 @@
         <header class="header">
             <div class="header-content">
                 <div class="logo">
-                    <h1>📊 Predictive Sales Dashboard</h1>
+                    <img src="{{ url_for('static', filename='vc_logo.png') }}" alt="VapeCrib Logo" class="nav-logo" style="height: 50px; margin-right: 10px;">
+                    <h1 style="margin: 0; display: inline;">VapeCrib Dashboard</h1>
                 </div>
                 <nav class="nav">
                     <a href="{{ url_for('main.dashboard') }}" class="nav-link">Dashboard</a>

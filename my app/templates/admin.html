@@ -12,9 +12,9 @@
 {% block content %}
                 
                 <!-- Date Range Filter (NEW) -->
-                <div class="filter-bar" style="background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                <div class="filter-bar" style="background: var(--color-primary); padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.6); margin-bottom: 20px; border: 1px solid var(--color-divider);">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                        <h3 style="margin: 0; color: #374151;">📅 Dashboard Time Period</h3>
+                        <h3 style="margin: 0; color: var(--color-text-primary);">📅 Dashboard Time Period</h3>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                             <button class="period-btn active" data-period="7d">Last 7 Days</button>
                             <button class="period-btn" data-period="30d">Last 30 Days</button>
@@ -22,10 +22,10 @@
                             <button class="period-btn" data-period="6m">Last 6 Months</button>
                             <button class="period-btn" data-period="1y">Last Year</button>
                             <button class="period-btn" data-period="all">All Time</button>
-                            <div style="border-left: 2px solid #e5e7eb; height: 30px; margin: 0 5px;"></div>
-                            <input type="date" id="custom-start-date" style="padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
-                            <span style="color: #6b7280;">to</span>
-                            <input type="date" id="custom-end-date" style="padding: 8px; border: 1px d5db; border-radius: 4px;">
+                            <div style="border-left: 2px solid var(--color-divider); height: 30px; margin: 0 5px;"></div>
+                            <input type="date" id="custom-start-date" style="padding: 8px; border: 1px solid var(--color-divider); border-radius: 4px; background: var(--color-primary); color: var(--color-text-primary);">
+                            <span style="color: var(--color-text-secondary);">to</span>
+                            <input type="date" id="custom-end-date" style="padding: 8px; border: 1px solid var(--color-divider); border-radius: 4px; background: var(--color-primary); color: var(--color-text-primary);">
                             <button class="btn btn-secondary" id="apply-custom-range" style="padding: 8px 16px;">Apply Custom Range</button>
                         </div>
                     </div>
@@ -42,47 +42,37 @@
                     <div class="card">
                         <h3>Total Sales Products</h3>
                         <div class="metric" id="total-units">Loading...</div>
-                        <div class="hint" id="total-units-period" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Last 7 days</div>
+                        <div class="hint" id="total-units-period" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Last 7 days</div>
                         <div class="change" id="change-units" style="display: none;"></div>
                     </div>
                     <div class="card">
                         <h3>Total Sales Revenue</h3>
                         <div class="metric" id="total-revenue">Loading...</div>
-                        <div class="hint" id="total-revenue-period" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Last 7 days</div>
+                        <div class="hint" id="total-revenue-period" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Last 7 days</div>
                         <div class="change" id="change-revenue" style="display: none;"></div>
                     </div>
-                        <div class="card">
-                            <h3>Total Inventory Value</h3>
-                            <div class="metric" id="total-inventory-value">Loading...</div>
-                            <div class="hint" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Current stock × Unit cost</div>
-                        </div>
+                    <div class="card">
+                        <h3>Total Inventory Value</h3>
+                        <div class="metric" id="total-inventory-value">Loading...</div>
+                        <div class="hint" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Current stock × Unit cost</div>
+                    </div>
                     <div class="card">
                         <h3>Forecast Accuracy</h3>
                         <div class="metric" id="accuracy">Loading...</div>
-                        <div class="hint" id="accuracy-period" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Based on selected period</div>
+                        <div class="hint" id="accuracy-period" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Based on selected period</div>
                         <div class="change" id="change-accuracy" style="display: none;"></div>
                     </div>
                     <div class="card">
                         <h3>Active Alerts</h3>
                         <div class="metric" id="alerts-count">Loading...</div>
-                        <div class="hint" style="font-size: 0.75em; color: #6b7280; margin-top: 5px;">Low stock warnings</div>
+                        <div class="hint" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Low stock warnings</div>
                         <div class="change" id="change-alerts" style="display: none;"></div>
-                    </div>
-                    <div class="card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
-                        <h3 style="color: white;">⏰ Expiring Stock</h3>
-                        <div class="metric" id="expiring-count" style="color: white;">Loading...</div>
-                        <div class="hint" style="font-size: 0.75em; color: rgba(255,255,255,0.9); margin-top: 5px;">
-                            <div id="expiring-breakdown">Batches expiring soon</div>
-                        </div>
-                        <button class="btn" style="margin-top: 10px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 6px 12px; font-size: 0.85em;" onclick="showExpiringBatchesModal()">
-                            View Details
-                        </button>
                     </div>
                 </div>
 
                 <!-- Period Comparison Section (NEW) -->
                 <div class="comparison-section" style="margin: 30px 0;">
-                    <h3 style="margin-bottom: 20px; color: #374151;">📊 Period Comparisons</h3>
+                    <h3 style="margin-bottom: 20px; color: var(--color-text-primary);">📊 Period Comparisons</h3>
                     
                     <div class="comparison-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
                         <!-- Month-over-Month Revenue -->
@@ -201,17 +191,17 @@
                 </div>
 
                 <!-- Top Products Section -->
-                <div class="top-products-section">
+                <div class="top-products-section" style="margin-top: 40px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="margin: 0;">📊 Sales Ranking - Top Products</h3>
-                        <button class="btn btn-secondary" id="export-top-products-btn" style="padding: 8px 16px; font-size: 0.9em; background: #667eea; color: white; border: 1px solid #667eea;">
+                        <h3 style="margin: 0; color: #f5f5f5;">📊 Sales Ranking - Top Products</h3>
+                        <button class="btn btn-secondary" id="export-top-products-btn" style="padding: 8px 16px; font-size: 0.9em; background: var(--color-accent); color: var(--color-text-primary); border: 1px solid var(--color-accent);">
                             📥 Export
                         </button>
                     </div>
                     <div class="controls" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <label for="ranking-period" style="font-weight: 500; color: #374151;">Period:</label>
-                            <select id="ranking-period" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer;">
+                            <label for="ranking-period" style="font-weight: 500; color: var(--color-text-primary);">Period:</label>
+                            <select id="ranking-period" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--color-divider); background: var(--color-primary); color: var(--color-text-primary); cursor: pointer;">
                                 <option value="">- Select -</option>
                                 <option value="7d" selected>Last 7 Days</option>
                                 <option value="30d">Last 30 Days</option>
@@ -221,32 +211,32 @@
                             </select>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <label for="ranking-year" style="font-weight: 500; color: #374151;">Year:</label>
-                            <select id="ranking-year" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer; min-width: 110px;">
+                            <label for="ranking-year" style="font-weight: 500; color: var(--color-text-primary);">Year:</label>
+                            <select id="ranking-year" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--color-divider); background: var(--color-primary); color: var(--color-text-primary); cursor: pointer; min-width: 110px;">
                                 <option value="">- Select -</option>
                             </select>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <label for="ranking-month" style="font-weight: 500; color: #374151;">Month:</label>
-                            <select id="ranking-month" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer; min-width: 140px;">
+                            <label for="ranking-month" style="font-weight: 500; color: var(--color-text-primary);">Month:</label>
+                            <select id="ranking-month" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--color-divider); background: var(--color-primary); color: var(--color-text-primary); cursor: pointer; min-width: 140px;">
                                 <option value="">- Select -</option>
                             </select>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <label for="ranking-week" style="font-weight: 500; color: #374151;">Week:</label>
-                            <select id="ranking-week" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer; min-width: 120px;">
+                            <label for="ranking-week" style="font-weight: 500; color: var(--color-text-primary);">Week:</label>
+                            <select id="ranking-week" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--color-divider); background: var(--color-primary); color: var(--color-text-primary); cursor: pointer; min-width: 120px;">
                                 <option value="">- Select -</option>
                             </select>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <label for="ranking-metric" style="font-weight: 500; color: #374151;">Metric:</label>
-                            <select id="ranking-metric" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: white; cursor: pointer;">
+                            <label for="ranking-metric" style="font-weight: 500; color: var(--color-text-primary);">Metric:</label>
+                            <select id="ranking-metric" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--color-divider); background: var(--color-primary); color: var(--color-text-primary); cursor: pointer;">
                                 <option value="revenue">Revenue (₱)</option>
                                 <option value="quantity">Quantity Sold</option>
                             </select>
                         </div>
                     </div>
-                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="background: var(--color-primary); padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.6);">
                         <canvas id="topProductsChart" style="max-height: 400px;"></canvas>
                     </div>
                 </div>

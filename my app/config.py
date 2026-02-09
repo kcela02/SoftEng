@@ -32,18 +32,22 @@ class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
     TESTING = False
-    # Override with secure settings
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    if not SECRET_KEY:
-        raise ValueError("SECRET_KEY environment variable must be set in production")
-    
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    if not SQLALCHEMY_DATABASE_URI:
-        raise ValueError("DATABASE_URL environment variable must be set in production")
-    
+    # Override with secure settings – validated lazily so importing this
+    # module in development mode doesn't raise errors.
+    SECRET_KEY = os.environ.get('SECRET_KEY', '')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', '')
+
     # Fix for Render: Replace postgres:// with postgresql://
-    if SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
+    if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
         SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
+
+    @classmethod
+    def init_app(cls, app):
+        """Validate required env vars when actually used in production."""
+        if not cls.SECRET_KEY:
+            raise ValueError("SECRET_KEY environment variable must be set in production")
+        if not cls.SQLALCHEMY_DATABASE_URI:
+            raise ValueError("DATABASE_URL environment variable must be set in production")
     
     # Security settings
     SESSION_COOKIE_SECURE = True
