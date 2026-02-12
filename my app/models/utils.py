@@ -38,18 +38,19 @@ def load_sales_data(db_conn, product_id=None, end_date=None):
         
         # Convert to DataFrame
         df = pd.DataFrame(results, columns=['sale_date', 'sales_quantity'])
-        
         # Ensure sale_date is datetime
         df['sale_date'] = pd.to_datetime(df['sale_date'])
-        
         # Set index and rename columns
         df = df.set_index('sale_date')
         df = df.rename(columns={'sales_quantity': 'y'})
-        
         # Reset index to make 'sale_date' a column named 'ds' (required by forecasting models)
         df = df.reset_index()
         df = df.rename(columns={'sale_date': 'ds'})
-        
+        # --- Data Cleaning: Remove zero or missing sales, fill missing dates ---
+        df = df[df['y'] > 0]
+        if not df.empty:
+            all_days = pd.date_range(df['ds'].min(), df['ds'].max())
+            df = df.set_index('ds').reindex(all_days).fillna(method='ffill').reset_index().rename(columns={'index': 'ds'})
         return df
         
     except Exception as e:
