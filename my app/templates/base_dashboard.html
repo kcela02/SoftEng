@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}VapeCrib Dashboard{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v={{ range(1, 99999) | random }}">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" crossorigin="anonymous"></script>
@@ -15,7 +15,7 @@
         <header class="header">
             <div class="header-content">
                 <div class="logo">
-                    <img src="{{ url_for('static', filename='vc_logo.png') }}" alt="VapeCrib Logo" class="nav-logo">
+                    <img src="{{ url_for('static', filename='vc_logo_round.png') }}" alt="VapeCrib Logo" class="nav-logo">
                     <h1>VapeCrib Dashboard</h1>
                 </div>
                 <nav class="nav">
@@ -33,10 +33,300 @@
         <main class="main-content">
             {% block content %}{% endblock %}
         </main>
+
+        <!-- Floating Action Button (FAB) -->
+        <div id="fab-container" class="fab-container {% if request.endpoint == 'main.settings' %}fab-hidden{% endif %}">
+            <button id="fab-main" class="fab-main" title="Controls">
+                <span class="fab-icon">⚙️</span>
+            </button>
+            <div id="fab-menu" class="fab-menu">
+                {% if current_user.role == 'admin' %}
+                <button class="fab-action" onclick="refreshAllForecasts()" title="Refresh Forecasts">
+                    <span class="fab-action-icon">🔄</span>
+                    <span class="fab-action-label">Refresh Forecasts</span>
+                </button>
+                <button class="fab-action" onclick="openManageUsersModal()" title="Manage Users">
+                    <span class="fab-action-icon">👥</span>
+                    <span class="fab-action-label">Manage Users</span>
+                </button>
+                {% endif %}
+                <button class="fab-action" onclick="showDownloadOptions()" title="Download App">
+                    <span class="fab-action-icon">📱</span>
+                    <span class="fab-action-label">Download App</span>
+                </button>
+            </div>
+        </div>
     </div>
 
+    <!-- Manage Users Modal (Admin Only) -->
+    {% if current_user.role == 'admin' %}
+    <div id="manage-users-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>👥 Manage Users</h3>
+                <span class="modal-close" onclick="closeModal('manage-users-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: #666; margin-bottom: 20px;">View and manage user accounts in the system.</p>
+                
+                <div id="users-loading" style="text-align: center; padding: 20px;">
+                    <p style="color: #64748b;">Loading users...</p>
+                </div>
+                
+                <div id="users-container" style="display: none;">
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Username</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Email</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Role</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Created</th>
+                                    <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <!-- Users will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="users-error" style="display: none; padding: 15px; background: #fee2e2; border-radius: 8px; color: #991b1b; margin-top: 15px;">
+                    <p id="users-error-message"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('manage-users-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
         <!-- Currency formatting utilities -->
-        <script src="{{ url_for('static', filename='utils.js') }}"></script>
+        <script src="{{ url_for('static', filename='utils.js') }}?v={{ range(1, 99999) | random }}"></script>
+        <script src="{{ url_for('static', filename='app.js') }}?v={{ range(1, 99999) | random }}"></script>
+
+    <script>
+        // Floating Action Button functionality
+        const fabMain = document.getElementById('fab-main');
+        const fabMenu = document.getElementById('fab-menu');
+        const fabContainer = document.getElementById('fab-container');
+
+        if (fabMain) {
+            fabMain.addEventListener('click', (e) => {
+                e.stopPropagation();
+                fabMain.classList.toggle('active');
+                fabMenu.classList.toggle('open');
+            });
+
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!fabContainer.contains(e.target)) {
+                    fabMain.classList.remove('active');
+                    fabMenu.classList.remove('open');
+                }
+            });
+
+            // Close menu when a FAB action is clicked
+            document.querySelectorAll('.fab-action').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    fabMain.classList.remove('active');
+                    fabMenu.classList.remove('open');
+                });
+            });
+        }
+
+        // Refresh all forecasts
+        async function refreshAllForecasts() {
+            const adminStatus = document.getElementById('admin-status');
+            const statusDiv = adminStatus || document.createElement('div');
+            
+            // Show status in settings if available
+            if (adminStatus) {
+                adminStatus.style.display = 'block';
+                adminStatus.style.background = '#3b82f6';
+                adminStatus.innerHTML = '<span>⏳ Refreshing forecasts...</span>';
+            } else {
+                alert('⏳ Refreshing forecasts...');
+            }
+            
+            try {
+                const response = await fetch('/api/admin/refresh-forecasts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    const message = `✅ Success! Refreshed ${data.count || 0} forecasts`;
+                    if (adminStatus) {
+                        adminStatus.style.background = '#10b981';
+                        adminStatus.innerHTML = `<span>${message}</span>`;
+                        setTimeout(() => {
+                            adminStatus.style.display = 'none';
+                        }, 5000);
+                    } else {
+                        alert(message);
+                    }
+                } else {
+                    const message = `❌ Error: ${data.error || 'Failed to refresh forecasts'}`;
+                    if (adminStatus) {
+                        adminStatus.style.background = '#ef4444';
+                        adminStatus.innerHTML = `<span>${message}</span>`;
+                        setTimeout(() => {
+                            adminStatus.style.display = 'none';
+                        }, 5000);
+                    } else {
+                        alert(message);
+                    }
+                }
+            } catch (error) {
+                const message = `❌ Error: ${error.message}`;
+                if (adminStatus) {
+                    adminStatus.style.background = '#ef4444';
+                    adminStatus.innerHTML = `<span>${message}</span>`;
+                    setTimeout(() => {
+                        adminStatus.style.display = 'none';
+                    }, 5000);
+                } else {
+                    alert(message);
+                }
+            }
+        }
+
+        // Open manage users modal
+        function openManageUsersModal() {
+            openModal('manage-users-modal');
+            loadUsers();
+        }
+
+        // Show download options
+        function showDownloadOptions() {
+            const options = {
+                'web': '🌐 Web version is already available',
+                'ios': '🍎 iOS app coming soon to Apple App Store',
+                'android': '🤖 Android app coming soon to Google Play Store'
+            };
+            
+            const choice = confirm('📱 Download Options:\n\nWeb: Already available\niOS: Coming soon\nAndroid: Coming soon\n\nClick OK to see more details or Cancel to close.');
+            
+            if (choice) {
+                alert('VapeCrib is available on:\n\n' + Object.values(options).join('\n'));
+            }
+        }
+
+        // Load users for manage users modal
+        function loadUsers() {
+            document.getElementById('users-loading').style.display = 'block';
+            document.getElementById('users-container').style.display = 'none';
+            document.getElementById('users-error').style.display = 'none';
+            
+            fetch('/api/admin/users')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('users-loading').style.display = 'none';
+                    
+                    if (data.success) {
+                        document.getElementById('users-container').style.display = 'block';
+                        const tbody = document.getElementById('users-table-body');
+                        tbody.innerHTML = '';
+                        
+                        data.users.forEach(user => {
+                            const row = document.createElement('tr');
+                            row.style.borderBottom = '1px solid #e5e7eb';
+                            
+                            const isCurrentUser = user.username === '{{ current_user.username }}';
+                            
+                            row.innerHTML = `
+                                <td style="padding: 12px;">${user.username}${isCurrentUser ? ' <span style="color: #3b82f6; font-size: 0.85em;">(You)</span>' : ''}</td>
+                                <td style="padding: 12px;">${user.email}</td>
+                                <td style="padding: 12px;">
+                                    <select onchange="changeUserRole(${user.id}, this.value)" 
+                                            style="padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: ${user.role === 'admin' ? '#4f46e5' : '#64748b'}; color: white; font-weight: 600;"
+                                            ${isCurrentUser ? 'disabled' : ''}>
+                                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                    </select>
+                                </td>
+                                <td style="padding: 12px; font-size: 0.9em; color: #64748b;">${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</td>
+                                <td style="padding: 12px; text-align: center;">
+                                    <button onclick="deleteUser(${user.id}, '${user.username}')" 
+                                            class="btn btn-danger" 
+                                            style="padding: 6px 12px; font-size: 0.85em; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                                            ${isCurrentUser ? 'disabled' : ''}>
+                                        Delete
+                                    </button>
+                                </td>
+                            `;
+                            
+                            tbody.appendChild(row);
+                        });
+                    } else {
+                        document.getElementById('users-error').style.display = 'block';
+                        document.getElementById('users-error-message').textContent = data.error || 'Failed to load users';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('users-loading').style.display = 'none';
+                    document.getElementById('users-error').style.display = 'block';
+                    document.getElementById('users-error-message').textContent = 'Error: ' + error.message;
+                });
+        }
+        
+        function changeUserRole(userId, newRole) {
+            if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
+                loadUsers(); // Reload to reset the dropdown
+                return;
+            }
+            
+            fetch(`/api/admin/users/${userId}/role`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({role: newRole})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('User role updated successfully!');
+                    loadUsers();
+                } else {
+                    alert('Error: ' + data.error);
+                    loadUsers();
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+                loadUsers();
+            });
+        }
+        
+        function deleteUser(userId, username) {
+            if (!confirm(`⚠️ Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            fetch(`/api/admin/users/${userId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    loadUsers();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        }
+    </script>
 
     {% block extra_scripts %}{% endblock %}
 </body>

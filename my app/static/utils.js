@@ -70,3 +70,75 @@ function parsePHP(phpString) {
     
     return isNaN(value) ? 0 : value;
 }
+
+/**
+ * Security: Redirect URL Validation
+ * Prevents open redirect vulnerabilities
+ */
+
+// Allowlist of safe redirect paths
+const ALLOWED_REDIRECT_PATHS = [
+    '/',
+    '/dashboard',
+    '/forecasting',
+    '/products',
+    '/reports',
+    '/settings',
+    '/websocket-test',
+    '/login',
+    '/logout',
+    '/register'
+];
+
+/**
+ * Check if a URL is safe for redirect
+ * @param {string} url - The URL to validate
+ * @returns {boolean} True if the URL is safe
+ */
+function isSafeRedirectUrl(url) {
+    if (!url) return false;
+    
+    try {
+        // Parse the URL
+        const urlObj = new URL(url, window.location.origin);
+        
+        // Check if it's the same origin
+        if (urlObj.origin !== window.location.origin) {
+            return false;
+        }
+        
+        // Strip trailing slash and check against allowlist
+        const path = urlObj.pathname.replace(/\/$/, '') || '/';
+        return ALLOWED_REDIRECT_PATHS.includes(path);
+    } catch (e) {
+        // If URL parsing fails, check if it's a relative path
+        if (url.startsWith('/')) {
+            const path = url.split('?')[0].split('#')[0].replace(/\/$/, '') || '/';
+            return ALLOWED_REDIRECT_PATHS.includes(path);
+        }
+        return false;
+    }
+}
+
+/**
+ * Get a safe redirect URL with fallback
+ * @param {string} url - The requested redirect URL
+ * @param {string} fallback - Fallback URL (default: '/dashboard')
+ * @returns {string} A safe URL to redirect to
+ */
+function getSafeRedirectUrl(url, fallback = '/dashboard') {
+    if (url && isSafeRedirectUrl(url)) {
+        return url;
+    }
+    return fallback;
+}
+
+/**
+ * Safely redirect to a URL after validation
+ * @param {string} url - The URL to redirect to
+ * @param {string} fallback - Fallback URL if validation fails
+ */
+function safeRedirect(url, fallback = '/dashboard') {
+    const safeUrl = getSafeRedirectUrl(url, fallback);
+    window.location.href = safeUrl;
+}

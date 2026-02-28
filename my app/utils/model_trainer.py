@@ -144,11 +144,23 @@ class ForecastingPipeline:
             days_to_monday = today.weekday()  # 0=Monday, 6=Sunday
             week_start = today - timedelta(days=days_to_monday)
             
-            # Clear old forecasts for this product starting from week_start
-            Forecast.query.filter(
+            # IMPORTANT: Only delete FUTURE forecasts (forecast_date > today)
+            # Preserve historical forecasts (forecast_date <= today) for accuracy tracking
+            # This allows the dashboard to compare "what we predicted" vs "what actually happened"
+            historical_count = Forecast.query.filter(
                 Forecast.product_id == product_id,
-                Forecast.forecast_date >= week_start
+                Forecast.aggregation_level == 'daily',
+                db.func.date(Forecast.forecast_date) <= today
+            ).count()
+            
+            # Delete only future forecasts for this product (preserve past ones)
+            deleted_count = Forecast.query.filter(
+                Forecast.product_id == product_id,
+                Forecast.aggregation_level == 'daily',
+                db.func.date(Forecast.forecast_date) > today
             ).delete()
+            
+            print(f"[FORECAST] Product {product_id}: Preserved {historical_count} historical forecasts, updated {deleted_count} future forecasts")
             
             # Generate DAILY forecasts for next 30 days starting from Monday of current week
             try:
@@ -288,27 +300,71 @@ class ForecastingPipeline:
     @staticmethod
     def get_latest_forecast(product_id, days_ahead=1):
         """
-        Get the most recent forecast for a product.
+        Get the forecast for a product for a specific time horizon.
+        
+        For days_ahead > 1, this returns the SUM of daily forecasts for the period.
+        For example, days_ahead=7 returns the sum of forecasts for days 1-7.
         
         Args:
             product_id: Product ID
             days_ahead: Number of days ahead (1, 7, or 30)
         
         Returns:
-            Forecast object or None
+            Forecast object with predicted_quantity as sum, or None if no forecasts exist
         """
         try:
-            target_date = datetime.now().date() + timedelta(days=days_ahead)
+            from models import Forecast as ForecastModel
             
-            forecast = Forecast.query.filter(
-                Forecast.product_id == product_id,
-                db.func.date(Forecast.forecast_date) == target_date
-            ).order_by(Forecast.created_at.desc()).first()
+            today = datetime.now().date()
             
-            return forecast
+            if days_ahead == 1:
+                # For 1-day forecast, get the specific day
+                target_date = today + timedelta(days=1)
+                forecast = ForecastModel.query.filter(
+                    ForecastModel.product_id == product_id,
+                    ForecastModel.aggregation_level == 'daily',
+                    db.func.date(ForecastModel.forecast_date) == target_date
+                ).order_by(ForecastModel.created_at.desc()).first()
+                
+                return forecast
+            else:
+                # For 7-day or 30-day forecast, sum up the daily forecasts
+                end_date = today + timedelta(days=days_ahead)
+                start_date = today + timedelta(days=1)  # Start from tomorrow
+                
+                # Get all daily forecasts in the range
+                forecasts = ForecastModel.query.filter(
+                    ForecastModel.product_id == product_id,
+                    ForecastModel.aggregation_level == 'daily',
+                    ForecastModel.forecast_date > start_date,
+                    ForecastModel.forecast_date <= end_date
+                ).all()
+                
+                if not forecasts:
+                    return None
+                
+                # Sum up the predicted quantities
+                total_quantity = sum(f.predicted_quantity for f in forecasts)
+                
+                # Return a mock forecast object with the summed quantity
+                # We'll use the most recent forecast's metadata
+                latest = forecasts[0]
+                
+                # Create a temporary forecast object with summed data
+                class ForecastAggregate:
+                    def __init__(self, product_id, predicted_quantity, model_used='LINEAR_REGRESSION'):
+                        self.product_id = product_id
+                        self.predicted_quantity = predicted_quantity
+                        self.model_used = model_used
+                        self.forecast_date = end_date
+                        self.created_at = datetime.utcnow()
+                
+                return ForecastAggregate(product_id, total_quantity, latest.model_used)
             
         except Exception as e:
             print(f"Error retrieving forecast: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
     
     @staticmethod

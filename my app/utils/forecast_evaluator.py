@@ -23,7 +23,13 @@ class ForecastEvaluator:
             Accuracy percentage (0-100), where 100% is perfect
         """
         try:
-            end_date = datetime.now().date()
+            # Use the last date with actual sales data instead of today
+            last_sale_date = db.session.query(func.max(Sale.sale_date)).scalar()
+            if not last_sale_date:
+                return 0.0
+            
+            # Convert to date if datetime
+            end_date = last_sale_date.date() if hasattr(last_sale_date, 'date') else last_sale_date
             start_date = end_date - timedelta(days=days_back)
             
             # Get all forecasts in the evaluation period
@@ -112,7 +118,12 @@ class ForecastEvaluator:
             Accuracy percentage (0-100)
         """
         try:
-            end_date = datetime.now().date()
+            # Use the last date with actual sales data
+            last_sale_date = db.session.query(func.max(Sale.sale_date)).scalar()
+            if not last_sale_date:
+                return 0.0
+            
+            end_date = last_sale_date.date() if hasattr(last_sale_date, 'date') else last_sale_date
             start_date = end_date - timedelta(days=days_back)
             
             # Get forecasts for this product

@@ -1,6 +1,7 @@
 # blueprints/main/routes.py
 from flask import render_template, redirect, url_for
 from flask_login import login_required, current_user
+from utils import get_safe_endpoint_url
 from . import main_bp
 
 
@@ -8,7 +9,7 @@ from . import main_bp
 def home():
     """Homepage - redirect to dashboard if authenticated"""
     if current_user.is_authenticated:
-        return redirect(url_for('main.dashboard'))
+        return redirect(get_safe_endpoint_url('main.dashboard'))
     return render_template('index.html')
 
 

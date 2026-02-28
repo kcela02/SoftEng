@@ -1,7 +1,7 @@
 # blueprints/api/routes.py
 from flask import request, jsonify, send_file
 from flask_login import login_required, current_user
-from models import db, User, Product, Sale, Inventory, Log, Forecast, ImportLog, Alert, ForecastSnapshot
+from models import db, User, Product, Sale, Inventory, Log, Forecast, ImportLog, Alert, ForecastSnapshot, InventoryBatch, BatchTransaction
 from models.regression import forecast_linear_regression
 from utils import ActivityLogger
 from utils.model_trainer import ForecastingPipeline
@@ -11,6 +11,29 @@ import pandas as pd
 import csv
 import io
 from . import api_bp
+
+
+# ============================================================================
+# API-Specific Error Handlers
+# ============================================================================
+# Handle unauthorized access with JSON instead of HTML redirect
+@api_bp.errorhandler(401)
+def api_unauthorized(error):
+    """Return JSON 401 for API requests instead of redirecting to login page."""
+    return jsonify({'success': False, 'error': 'Unauthorized - please log in'}), 401
+
+@api_bp.errorhandler(403)
+def api_forbidden(error):
+    """Return JSON 403 for API requests."""
+    return jsonify({'success': False, 'error': 'Forbidden - insufficient permissions'}), 403
+
+@api_bp.before_request
+def api_before_request():
+    """Validate that API calls are authenticated, return JSON errors."""
+    # This runs before every API request
+    # Flask-Login's @login_required will automatically check authentication
+    # but we need to ensure 401s return JSON structure
+    pass
 
 
 def trigger_metrics_broadcast():
@@ -243,12 +266,15 @@ def get_metrics():
     else:
         accuracy = 0.0
     
-    # Count active alerts (CRITICAL + HIGH severity only)
-    alerts = Alert.query.filter(
+    # Count active alerts from Alert table (optimized - single query instead of 72+)
+    # Alerts are created/updated by check_low_stock_and_alert() function
+    alerts_count = Alert.query.filter(
         Alert.is_active == True,
         Alert.is_acknowledged == False,
-        Alert.severity.in_(['CRITICAL', 'HIGH'])
+        Alert.severity.in_(['CRITICAL', 'HIGH', 'MEDIUM'])
     ).count()
+    
+    alerts = alerts_count
     
     # Period comparison calculations (current 7 days vs previous 7 days)
     seven_days_ago = today - timedelta(days=6)
@@ -285,7 +311,7 @@ def get_metrics():
     if previous_units > 0:
         units_change = ((current_units - previous_units) / previous_units) * 100
     
-    # Get daily data for date range (for dashboard trend chart)
+    # Get daily data for date range (for dashboard trend chart) - OPTIMIZED with GROUP BY
     # If custom date range, use that; otherwise use current month
     if filter_start and filter_end:
         chart_start = filter_start
@@ -297,70 +323,102 @@ def get_metrics():
     # Calculate number of days in the range
     num_days = (chart_end - chart_start).days + 1
     
-    monthly_daily_sales = []  # Actual sales for each day
-    monthly_daily_forecasts = []  # Forecasted revenue for each day
-    monthly_daily_labels = []  # Date labels
+    # OPTIMIZED: Fetch all daily sales in one query with GROUP BY
+    sales_by_date = {}
+    sales_results = db.session.query(
+        Sale.sale_date,
+        db.func.sum(Sale.quantity * Sale.price).label('revenue')
+    ).filter(
+        Sale.sale_date >= chart_start,
+        Sale.sale_date <= chart_end,
+        Sale.sale_date <= today.date()
+    ).group_by(Sale.sale_date).all()
     
-    # Get actual sales and forecasts for each day in the range
+    for sale_date, revenue in sales_results:
+        sales_by_date[sale_date.strftime('%Y-%m-%d')] = float(revenue or 0)
+    
+    # OPTIMIZED: Fetch all daily forecasts in one query with GROUP BY
+    avg_price = db.session.query(
+        db.func.avg(Sale.price)
+    ).filter(
+        Sale.sale_date >= chart_start,
+        Sale.sale_date <= chart_end
+    ).scalar() or 10.0
+    
+    forecasts_by_date = {}
+    forecast_results = db.session.query(
+        Forecast.forecast_date,
+        db.func.sum(Forecast.predicted_quantity).label('quantity')
+    ).filter(
+        Forecast.forecast_date >= chart_start.date(),
+        Forecast.forecast_date <= chart_end.date(),
+        Forecast.aggregation_level == 'daily'
+    ).group_by(Forecast.forecast_date).all()
+    
+    for forecast_date, quantity in forecast_results:
+        if quantity and quantity > 0:
+            forecasts_by_date[forecast_date.strftime('%Y-%m-%d')] = float(quantity * avg_price)
+    
+    # Build arrays by iterating through date range (now just lookups, no queries)
+    monthly_daily_sales = []
+    monthly_daily_forecasts = []
+    monthly_daily_labels = []
+    
     for day_offset in range(num_days):
         date = chart_start + timedelta(days=day_offset)
+        date_str = date.strftime('%Y-%m-%d')
         
-        # Create label
         monthly_daily_labels.append(date.strftime('%m/%d'))
         
-        # Get actual sales revenue (only if date has passed)
+        # Lookup actual sales (None if not found or date is in future)
         if date.date() <= today.date():
-            day_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-                db.func.date(Sale.sale_date) == date.date()
-            ).scalar() or 0
-            monthly_daily_sales.append(float(day_revenue))
+            monthly_daily_sales.append(sales_by_date.get(date_str, 0.0))
         else:
-            monthly_daily_sales.append(None)  # No actual sales for future days
+            monthly_daily_sales.append(None)
         
-        # Get forecast revenue (for all days that have forecasts)
-        # Get average price from recent sales and multiply by forecast quantity
-        avg_price_query = db.session.query(
-            db.func.avg(Sale.price)
-        ).filter(
-            Sale.sale_date >= chart_start
-        ).scalar() or 10.0  # Default price if no sales data
-        
-        day_forecast_quantity = db.session.query(
-            db.func.sum(Forecast.predicted_quantity)
-        ).filter(
-            db.func.date(Forecast.forecast_date) == date.date(),
-            Forecast.aggregation_level == 'daily'
-        ).scalar()
-        
-        if day_forecast_quantity and day_forecast_quantity > 0:
-            day_forecast_revenue = day_forecast_quantity * avg_price_query
-            monthly_daily_forecasts.append(float(day_forecast_revenue))
-        else:
-            monthly_daily_forecasts.append(None)  # No forecast available for this day
+        # Lookup forecast
+        monthly_daily_forecasts.append(forecasts_by_date.get(date_str))
     
-    # Get last 7 days of sales data for backwards compatibility
-    daily_sales = []
-    daily_forecasts = []
-    chart_labels = []
-    
-    # Get past 7 days for actual sales
+    # Get last 7 days of sales data for backwards compatibility - OPTIMIZED
     seven_days_ago = today - timedelta(days=6)
+    
+    # Fetch all 7 days in one query
+    last_7_days_sales = db.session.query(
+        Sale.sale_date,
+        db.func.sum(Sale.quantity * Sale.price).label('revenue')
+    ).filter(
+        Sale.sale_date >= seven_days_ago,
+        Sale.sale_date <= today
+    ).group_by(Sale.sale_date).all()
+    
+    sales_7d_map = {sale_date.strftime('%Y-%m-%d'): float(revenue) for sale_date, revenue in last_7_days_sales}
+    
+    daily_sales = []
+    chart_labels = []
     for i in range(7):
         date = seven_days_ago + timedelta(days=i)
-        day_sales = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-            db.func.date(Sale.sale_date) == date.date()
-        ).scalar() or 0
-        daily_sales.append(float(day_sales))
+        daily_sales.append(sales_7d_map.get(date.strftime('%Y-%m-%d'), 0.0))
         chart_labels.append(date.strftime('%m/%d'))
     
-    # Get next 7 days for forecasts (future dates)
-    today = datetime.now().date()
+    # Get next 7 days for forecasts (future dates) - OPTIMIZED
+    today_date = datetime.now().date()
+    future_start = today_date + timedelta(days=1)
+    future_end = today_date + timedelta(days=7)
+    
+    future_forecasts = db.session.query(
+        Forecast.forecast_date,
+        db.func.sum(Forecast.predicted_quantity).label('quantity')
+    ).filter(
+        Forecast.forecast_date >= future_start,
+        Forecast.forecast_date <= future_end
+    ).group_by(Forecast.forecast_date).all()
+    
+    forecast_7d_map = {forecast_date.strftime('%Y-%m-%d'): float(quantity) for forecast_date, quantity in future_forecasts}
+    
+    daily_forecasts = []
     for i in range(7):
-        future_date = today + timedelta(days=i+1)
-        day_forecast = db.session.query(db.func.sum(Forecast.predicted_quantity)).filter(
-            db.func.date(Forecast.forecast_date) == future_date
-        ).scalar() or 0
-        daily_forecasts.append(float(day_forecast))
+        future_date = today_date + timedelta(days=i+1)
+        daily_forecasts.append(forecast_7d_map.get(future_date.strftime('%Y-%m-%d'), 0.0))
     
     # Get monthly data - respect date filter if set, otherwise show last 6 months
     monthly_labels = []
@@ -1102,37 +1160,125 @@ def upload_csv_file():
                     errors.append(f"Row {idx + 2}: {str(e)}")
         
         elif data_type == 'unified_sales':
+            # STRICT VALIDATION: Pre-check that ALL products exist before processing
+            unknown_products = []
+            valid_product_map = {}  # Cache product lookups
+            
+            print(f"[CSV Upload] Starting strict validation for {len(df)} rows")
+            
             for idx, row in df.iterrows():
                 try:
                     product_name = str(row['product_name']).strip()
-
-                    # Find or create product by name
+                    
+                    # Skip empty/invalid names
+                    if not product_name or product_name.lower() == 'nan':
+                        continue
+                    
+                    # Check if we've already validated this product name
+                    if product_name in valid_product_map:
+                        continue
+                    
+                    # Look up product in database
                     product = Product.query.filter_by(name=product_name).first()
                     if not product:
-                        product = Product(
-                            name=product_name,
-                            category=str(row['category']).strip() if 'category' in row and pd.notna(row['category']) else None,
-                            unit_cost=float(row['unit_cost']) if 'unit_cost' in row and pd.notna(row['unit_cost']) else 0.0,
-                            current_stock=int(row['stock_after_sale']) if 'stock_after_sale' in row and pd.notna(row['stock_after_sale']) else 0
-                        )
-                        db.session.add(product)
-                        db.session.flush()  # ensure product.id is available
+                        unknown_products.append({
+                            'row': idx + 2,  # Excel row number (header = row 1)
+                            'product_name': product_name
+                        })
+                    else:
+                        # Cache the product for later use
+                        valid_product_map[product_name] = product
+                        
+                except Exception as e:
+                    # If we can't even read the product name, skip this row
+                    print(f"[CSV Upload] Error reading row {idx + 2}: {str(e)}")
+                    continue
+            
+            # If ANY unknown products found, reject the entire import with detailed report
+            if unknown_products:
+                # Get all existing product names for helpful suggestions
+                all_products = Product.query.with_entities(Product.name).all()
+                existing_names = [p.name for p in all_products]
+                
+                error_details = []
+                for unknown in unknown_products[:10]:  # Show first 10 to avoid overwhelming user
+                    row_num = unknown['row']
+                    product_name = unknown['product_name']
+                    
+                    # Try to find similar product names (simple contains check)
+                    suggestions = [name for name in existing_names if product_name.lower() in name.lower() or name.lower() in product_name.lower()]
+                    
+                    if suggestions:
+                        suggestion_text = f" (Did you mean: {', '.join(suggestions[:3])}?)"
+                    else:
+                        suggestion_text = ""
+                    
+                    error_details.append(f"Row {row_num}: '{product_name}'{suggestion_text}")
+                
+                if len(unknown_products) > 10:
+                    error_details.append(f"... and {len(unknown_products) - 10} more unknown products")
+                
+                error_msg = (
+                    f"⚠️ Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
+                    f"All products must exist in the system before importing sales.\n"
+                    f"Please add missing products manually or fix typos in your CSV.\n\n"
+                    f"Unknown Products:\n" + "\n".join(error_details)
+                )
+                
+                import_log.status = 'failed'
+                import_log.validation_errors = error_msg
+                import_log.rows_failed = len(unknown_products)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': False,
+                    'error': error_msg,
+                    'unknown_products': unknown_products,
+                    'total_unknown': len(unknown_products)
+                }), 400
+            
+            print(f"[CSV Upload] ✅ Validation passed - all {len(valid_product_map)} products exist")
+            
+            # ALL products validated - proceed with import
+            for idx, row in df.iterrows():
+                try:
+                    product_name = str(row['product_name']).strip()
+                    
+                    if not product_name or product_name.lower() == 'nan':
+                        rows_skipped += 1
+                        continue
+
+                    # Get product from cache (we already validated it exists)
+                    product = valid_product_map.get(product_name)
+                    if not product:
+                        # Should never happen after validation, but safety check
+                        product = Product.query.filter_by(name=product_name).first()
+                        if not product:
+                            rows_failed += 1
+                            errors.append(f"Row {idx + 2}: Product '{product_name}' not found")
+                            continue
 
                     # Parse sale fields
                     quantity = int(row['quantity_sold'])
                     price = float(row['sale_price'])
                     sale_date = pd.to_datetime(row['sale_date']) if 'sale_date' in row and pd.notna(row['sale_date']) else datetime.now()
+                    
+                    print(f"[CSV Upload] Processing row {idx + 1}: {product_name}, qty={quantity}, price={price}, date={sale_date}")
 
-                    # Check for duplicate sale (same product + sale_date)
+                    # Smart duplicate check: prevent duplicate file uploads but allow multiple legit transactions
+                    # Check for EXACT match (same product, quantity, price, and timestamp to the second)
                     existing_sale = Sale.query.filter_by(
                         product_id=product.id,
+                        quantity=quantity,
+                        price=price,
                         sale_date=sale_date
                     ).first()
                     if existing_sale:
+                        # This exact transaction already exists - likely duplicate upload
                         rows_skipped += 1
                         continue
 
-                    # Create sale record
+                    # Create sale record (allow multiple sales per product per date for historical data)
                     sale = Sale(
                         product_id=product.id,
                         quantity=quantity,
@@ -1183,9 +1329,84 @@ def upload_csv_file():
                     rows_processed += 1
                 except Exception as e:
                     rows_failed += 1
-                    errors.append(f"Row {idx + 2}: {str(e)}")
+                    error_msg = f"Row {idx + 2}: {str(e)}"
+                    errors.append(error_msg)
+                    print(f"[CSV Upload ERROR] {error_msg}")
+                    import traceback
+                    print(traceback.format_exc())
         
         elif data_type == 'batches':
+            # STRICT VALIDATION: Pre-check that ALL products exist before processing
+            unknown_products = []
+            valid_product_map = {}
+            
+            print(f"[CSV Upload] Starting strict validation for batches: {len(df)} rows")
+            
+            for idx, row in df.iterrows():
+                try:
+                    product_name = str(row['product_name']).strip()
+                    
+                    if not product_name or product_name.lower() == 'nan':
+                        continue
+                    
+                    if product_name in valid_product_map:
+                        continue
+                    
+                    product = Product.query.filter_by(name=product_name).first()
+                    if not product:
+                        unknown_products.append({
+                            'row': idx + 2,
+                            'product_name': product_name
+                        })
+                    else:
+                        valid_product_map[product_name] = product
+                        
+                except Exception as e:
+                    print(f"[CSV Upload] Error reading batch row {idx + 2}: {str(e)}")
+                    continue
+            
+            # Reject import if any unknown products found
+            if unknown_products:
+                all_products = Product.query.with_entities(Product.name).all()
+                existing_names = [p.name for p in all_products]
+                
+                error_details = []
+                for unknown in unknown_products[:10]:
+                    row_num = unknown['row']
+                    product_name = unknown['product_name']
+                    suggestions = [name for name in existing_names if product_name.lower() in name.lower() or name.lower() in product_name.lower()]
+                    
+                    if suggestions:
+                        suggestion_text = f" (Did you mean: {', '.join(suggestions[:3])}?)"
+                    else:
+                        suggestion_text = ""
+                    
+                    error_details.append(f"Row {row_num}: '{product_name}'{suggestion_text}")
+                
+                if len(unknown_products) > 10:
+                    error_details.append(f"... and {len(unknown_products) - 10} more unknown products")
+                
+                error_msg = (
+                    f"⚠️ Batch Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
+                    f"All products must exist before importing batches.\n"
+                    f"Please add missing products first.\n\n"
+                    f"Unknown Products:\n" + "\n".join(error_details)
+                )
+                
+                import_log.status = 'failed'
+                import_log.validation_errors = error_msg
+                import_log.rows_failed = len(unknown_products)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': False,
+                    'error': error_msg,
+                    'unknown_products': unknown_products,
+                    'total_unknown': len(unknown_products)
+                }), 400
+            
+            print(f"[CSV Upload] ✅ Batch validation passed - all {len(valid_product_map)} products exist")
+            
             # NEW: Process batch inventory with expiration tracking
             from utils.batch_manager import BatchManager
             
@@ -1193,17 +1414,14 @@ def upload_csv_file():
                 try:
                     product_name = str(row['product_name']).strip()
                     
-                    # Find product by name
-                    product = Product.query.filter_by(name=product_name).first()
+                    # Get product from cache (already validated)
+                    product = valid_product_map.get(product_name)
                     if not product:
-                        # Auto-create product if it doesn't exist
-                        product = Product(
-                            name=product_name,
-                            unit_cost=float(row['unit_cost']) if 'unit_cost' in row and pd.notna(row['unit_cost']) else 0.0,
-                            current_stock=0  # Will be updated by batch addition
-                        )
-                        db.session.add(product)
-                        db.session.flush()
+                        product = Product.query.filter_by(name=product_name).first()
+                        if not product:
+                            rows_failed += 1
+                            errors.append(f"Row {idx + 2}: Product '{product_name}' not found")
+                            continue
                     
                     quantity = int(row['quantity'])
                     expiration_date = str(row['expiration_date']).strip()
@@ -1265,98 +1483,106 @@ def upload_csv_file():
         
         # ==================== AUTOMATED FORECASTING PIPELINE ====================
         # Auto-regenerate forecasts if sales data was imported
-        retraining_stats = {'retrained': 0, 'skipped': 0, 'failed': 0}
+        retraining_stats = {'retrained': 0, 'skipped': 0, 'failed': 0, 'errors': []}
         daily_forecast_count = 0
         weekly_forecast_count = 0
         rolling_created = 0
         newly_forecasted_products = []
+        forecast_generation_attempted = False
         
         if data_type in ('sales', 'unified_sales') and rows_processed > 0:
-            try:
-                # Get ALL products with sales data and check which ones have sufficient data
-                products_with_sales = db.session.query(Product).join(
-                    Sale, Product.id == Sale.product_id
-                ).distinct().all()
+            forecast_generation_attempted = True
+            
+            # Get ALL products with sales data and check which ones have sufficient data
+            products_with_sales = db.session.query(Product).join(
+                Sale, Product.id == Sale.product_id
+            ).distinct().all()
+            
+            print(f"[CSV Upload] Checking {len(products_with_sales)} products for forecast eligibility...")
+            
+            if len(products_with_sales) == 0:
+                retraining_stats['errors'].append("⚠️ No products found with sales data. Cannot generate forecasts.")
+                print("[CSV Upload] No products with sales found")
+            
+            for product in products_with_sales:
+                # Check if product has enough sales data (minimum 7 days)
+                sales_count = Sale.query.filter_by(product_id=product.id).count()
                 
-                print(f"[CSV Upload] Checking {len(products_with_sales)} products for forecast eligibility...")
+                if sales_count < 7:
+                    print(f"[CSV Upload] Product {product.id} ({product.name}): {sales_count} sales - SKIPPED (need 7+)")
+                    retraining_stats['skipped'] += 1
+                    continue
                 
-                for product in products_with_sales:
-                    # Check if product has enough sales data (minimum 7 days)
-                    sales_count = Sale.query.filter_by(product_id=product.id).count()
-                    
-                    if sales_count < 7:
-                        print(f"[CSV Upload] Product {product.id} ({product.name}): {sales_count} sales - SKIPPED (need 7+)")
-                        retraining_stats['skipped'] += 1
-                        continue
-                    
-                    # Check if this product already has future forecasts
-                    existing_forecasts = Forecast.query.filter(
-                        Forecast.product_id == product.id,
-                        Forecast.forecast_date > datetime.now()
-                    ).count()
-                    
-                    try:
-                        # Generate multi-horizon forecasts for this product
-                        success = ForecastingPipeline.generate_multi_horizon_forecasts(
-                            product.id,
-                            horizons=[1, 7, 30]
-                        )
-                        
-                        if success:
-                            retraining_stats['retrained'] += 1
-                            if existing_forecasts == 0:
-                                # This is a newly forecasted product
-                                newly_forecasted_products.append(product.name)
-                            print(f"[CSV Upload] Product {product.id} ({product.name}): Forecasts generated ✓")
-                        else:
-                            retraining_stats['failed'] += 1
-                            print(f"[CSV Upload] Product {product.id} ({product.name}): Failed to generate forecasts")
-                    except Exception as e:
-                        retraining_stats['failed'] += 1
-                        print(f"[CSV Upload] Product {product.id} ({product.name}): Error - {str(e)}")
-                
-                # Count generated forecasts
-                from models import Forecast
-                today = datetime.now().date()
-                daily_forecast_count = Forecast.query.filter(
-                    Forecast.aggregation_level == 'daily',
-                    Forecast.forecast_date > today
+                # Check if this product already has future forecasts
+                existing_forecasts = Forecast.query.filter(
+                    Forecast.product_id == product.id,
+                    Forecast.forecast_date > datetime.now()
                 ).count()
-                weekly_forecast_count = Forecast.query.filter(
-                    Forecast.aggregation_level == 'weekly',
-                    Forecast.forecast_date > today
-                ).count()
-
-                # NEW: Foundation-based rolling retrain to backfill historical forecasts and enable accuracy
-                print("[CSV Upload] Starting rolling retrain for historical forecasts (this may take several minutes)...")
+                
                 try:
-                    # Determine up_to from uploaded data if sale_date available
-                    new_max_date = None
-                    if 'sale_date' in df.columns and pd.notna(df['sale_date']).any():
-                        try:
-                            new_max_date = pd.to_datetime(df['sale_date']).max()
-                        except Exception:
-                            new_max_date = None
-                    if new_max_date is None:
-                        new_max_date = datetime.now()
-
-                    rolling_created = ForecastingPipeline.rolling_retrain_all_products(
-                        foundation_days_large=365,
-                        foundation_days_small=90,
-                        horizon_days=30,
-                        step_days=1,
-                        up_to=new_max_date,
+                    # Generate multi-horizon forecasts for this product
+                    success = ForecastingPipeline.generate_multi_horizon_forecasts(
+                        product.id,
+                        horizons=[1, 7, 30]
                     )
-                    print(f"[CSV Upload] Rolling retrain completed: {rolling_created} historical forecasts created")
+                    
+                    if success:
+                        retraining_stats['retrained'] += 1
+                        if existing_forecasts == 0:
+                            # This is a newly forecasted product
+                            newly_forecasted_products.append(product.name)
+                        print(f"[CSV Upload] Product {product.id} ({product.name}): Forecasts generated ✓")
+                    else:
+                        retraining_stats['failed'] += 1
+                        error_msg = f"Product '{product.name}' (ID: {product.id}): Forecast generation returned False"
+                        retraining_stats['errors'].append(error_msg)
+                        print(f"[CSV Upload] {error_msg}")
                 except Exception as e:
-                    print(f"[CSV Upload] Rolling retrain failed: {str(e)}")
-                    # non-critical
-                    pass
-                
+                    retraining_stats['failed'] += 1
+                    error_msg = f"Product '{product.name}' (ID: {product.id}): {str(e)}"
+                    retraining_stats['errors'].append(error_msg)
+                    print(f"[CSV Upload] Product {product.id} ({product.name}): Error - {str(e)}")
+                    import traceback
+                    print(traceback.format_exc())
+            
+            # Count generated forecasts
+            today = datetime.now().date()
+            daily_forecast_count = Forecast.query.filter(
+                Forecast.aggregation_level == 'daily',
+                Forecast.forecast_date > today
+            ).count()
+            weekly_forecast_count = Forecast.query.filter(
+                Forecast.aggregation_level == 'weekly',
+                Forecast.forecast_date > today
+            ).count()
+
+            # NEW: Foundation-based rolling retrain to backfill historical forecasts and enable accuracy
+            print("[CSV Upload] Starting rolling retrain for historical forecasts (this may take several minutes)...")
+            try:
+                # Determine up_to from uploaded data if sale_date available
+                new_max_date = None
+                if 'sale_date' in df.columns and pd.notna(df['sale_date']).any():
+                    try:
+                        new_max_date = pd.to_datetime(df['sale_date']).max()
+                    except Exception:
+                        new_max_date = None
+                if new_max_date is None:
+                    new_max_date = datetime.now()
+
+                rolling_created = ForecastingPipeline.rolling_retrain_all_products(
+                    foundation_days_large=365,
+                    foundation_days_small=90,
+                    horizon_days=30,
+                    step_days=1,
+                    up_to=new_max_date,
+                )
+                print(f"[CSV Upload] Rolling retrain completed: {rolling_created} historical forecasts created")
             except Exception as e:
-                import traceback
-                print(f"Warning: Forecast generation failed: {str(e)}")
-                print(traceback.format_exc())
+                error_msg = f"Rolling retrain failed: {str(e)}"
+                retraining_stats['errors'].append(error_msg)
+                print(f"[CSV Upload] {error_msg}")
+                # non-critical, continue
+                pass
         
         # Trigger metrics update
         trigger_metrics_broadcast()
@@ -1370,12 +1596,28 @@ def upload_csv_file():
             rows_failed
         )
         
-        # Build success message
+        # Build success message with forecast status
         message = f'Import completed: {rows_processed} rows added'
+        warnings = []
+        
         if retraining_stats['retrained'] > 0:
             message += f", {retraining_stats['retrained']} products forecasted"
+        
+        # CRITICAL: Check if forecast generation was attempted but failed completely
+        if forecast_generation_attempted and retraining_stats['retrained'] == 0:
+            if retraining_stats['failed'] > 0:
+                warnings.append(f"⚠️ FORECAST GENERATION FAILED for all products! {retraining_stats['failed']} products had errors. Please re-upload the CSV or run manual forecast generation.")
+            elif retraining_stats['skipped'] > 0:
+                warnings.append(f"⚠️ No forecasts generated. All {retraining_stats['skipped']} products need more data (minimum 7 sales required).")
+            else:
+                warnings.append("⚠️ Forecast generation was attempted but no forecasts were created. Please check your data.")
+        
+        if retraining_stats['failed'] > 0:
+            warnings.append(f"⚠️ {retraining_stats['failed']} products failed to generate forecasts. Check errors below.")
+        
         if retraining_stats['skipped'] > 0:
             message += f" ({retraining_stats['skipped']} skipped - need more data)"
+        
         if daily_forecast_count > 0:
             message += f", {daily_forecast_count} total daily forecasts"
         if weekly_forecast_count > 0:
@@ -1384,6 +1626,10 @@ def upload_csv_file():
             message += f", {rolling_created} rolling forecasts backfilled"
         if newly_forecasted_products:
             message += f"\n✨ NEW products now being forecasted: {', '.join(newly_forecasted_products)}"
+        
+        # Add warnings to message
+        if warnings:
+            message += "\n\n" + "\n".join(warnings)
         
         return jsonify({
             'success': True,
@@ -1401,7 +1647,9 @@ def upload_csv_file():
             },
             'import_id': import_log.id,
             'status': import_log.status,
-            'errors': errors[:5] if errors else None
+            'errors': errors[:5] if errors else None,
+            'forecast_errors': retraining_stats['errors'][:10] if retraining_stats['errors'] else None,
+            'warnings': warnings if warnings else None
         })
         
     except Exception as e:
@@ -1670,7 +1918,16 @@ def get_product_by_id(product_id):
 @api_bp.route('/products/<int:product_id>', methods=['DELETE'])
 @login_required
 def delete_product(product_id):
-    """Admin/Manager only: Delete a product."""
+    """
+    Admin/Manager only: Delete a product with full cascade and confirmation.
+    
+    Query Parameters:
+        confirm: Boolean flag (must be 'true' to actually delete)
+    
+    Returns:
+        If confirm=false (default): Returns impact assessment
+        If confirm=true: Deletes product and all related data, logs action
+    """
     user_role = getattr(current_user, 'role', 'user')
     if user_role not in ('admin', 'manager'):
         return jsonify({'error': 'Unauthorized'}), 403
@@ -1679,35 +1936,117 @@ def delete_product(product_id):
     if not product:
         return jsonify({'error': 'Product not found'}), 404
     
+    # Check if this is a confirmation request
+    confirm = request.args.get('confirm', 'false').lower() == 'true'
+    
+    # Calculate impact
+    impact = {
+        'sales_records': Sale.query.filter_by(product_id=product_id).count(),
+        'forecasts': Forecast.query.filter_by(product_id=product_id).count(),
+        'historical_forecasts': Forecast.query.filter(
+            Forecast.product_id == product_id,
+            Forecast.aggregation_level == 'daily',
+            db.func.date(Forecast.forecast_date) <= datetime.now().date()
+        ).count(),
+        'future_forecasts': Forecast.query.filter(
+            Forecast.product_id == product_id,
+            Forecast.aggregation_level == 'daily',
+            db.func.date(Forecast.forecast_date) > datetime.now().date()
+        ).count(),
+        'forecasts_snapshots': db.session.query(db.func.count()).select_entity_from(
+            Forecast.__table__
+        ).filter(Forecast.product_id == product_id).scalar(),
+        'inventory_batches': InventoryBatch.query.filter_by(product_id=product_id).count(),
+        'alerts': Alert.query.filter_by(product_id=product_id).count(),
+        'inventory_records': Inventory.query.filter_by(product_id=product_id).count(),
+    }
+    
+    if not confirm:
+        # Return impact assessment WITHOUT deleting
+        return jsonify({
+            'success': True,
+            'action': 'confirm_required',
+            'product_id': product_id,
+            'product_name': product.name,
+            'product_category': product.category,
+            'impact_assessment': {
+                'warning': 'This action cannot be undone. All related data will be permanently deleted.',
+                'data_to_be_deleted': impact,
+                'alerts': [
+                    f"⚠️  Will delete {impact['sales_records']} sales records (history of transactions)",
+                    f"⚠️  Will delete {impact['future_forecasts']} FUTURE forecasts (predictions for upcoming days)",
+                    f"⚠️  Will delete {impact['historical_forecasts']} PAST forecasts (history of predictions for accuracy tracking)",
+                    f"⚠️  Will delete {impact['inventory_batches']} inventory batches if tracked",
+                    f"⚠️  Will delete {impact['alerts']} active alerts for this product",
+                ]
+            },
+            'next_step': 'Call this endpoint again with ?confirm=true to proceed with deletion',
+            'ui_recommendation': 'Show user a confirmation modal with the above warnings'
+        }), 200
+    
+    # User confirmed - proceed with deletion
     try:
         product_name = product.name
         product_category = product.category
         
-        # Delete related records first to avoid foreign key constraint errors
-        # Delete alerts related to this product
-        Alert.query.filter_by(product_id=product_id).delete()
+        # Log the deletion details
+        deletion_log = {
+            'product_id': product_id,
+            'product_name': product_name,
+            'category': product_category,
+            'deleted_at': datetime.now().isoformat(),
+            'impact': impact
+        }
         
-        # Delete forecasts related to this product
-        Forecast.query.filter_by(product_id=product_id).delete()
+        print(f"\n[DELETE_PRODUCT] Starting cascade delete for product {product_id} ({product_name})")
+        
+        # Delete related records first to avoid foreign key constraint errors
+        # Delete batch transactions first (referencing batches)
+        batch_ids = [batch.id for batch in InventoryBatch.query.filter_by(product_id=product_id).all()]
+        if batch_ids:
+            BatchTransaction.query.filter(BatchTransaction.batch_id.in_(batch_ids)).delete(synchronize_session=False)
+            print(f"  - Deleted {len(batch_ids)} batch transaction records")
+        
+        # Delete inventory batches
+        deleted_batches = InventoryBatch.query.filter_by(product_id=product_id).delete()
+        
+        # Delete alerts related to this product
+        deleted_alerts = Alert.query.filter_by(product_id=product_id).delete()
+        if deleted_alerts:
+            print(f"  - Deleted {deleted_alerts} alert records")
+        
+        # Delete forecasts related to this product (CRITICAL: This loses historical prediction data)
+        deleted_forecasts = Forecast.query.filter_by(product_id=product_id).delete()
+        if deleted_forecasts:
+            print(f"  ⚠️  Deleted {deleted_forecasts} forecast records (including {impact['historical_forecasts']} historical)")
         
         # Delete forecast snapshots related to this product
-        ForecastSnapshot.query.filter_by(product_id=product_id).delete()
+        deleted_snapshots = db.session.query(db.func.count()).select_entity_from(
+            Forecast.__table__
+        ).filter(Forecast.product_id == product_id).scalar()
         
         # Delete inventory records related to this product
-        Inventory.query.filter_by(product_id=product_id).delete()
+        deleted_inventory = Inventory.query.filter_by(product_id=product_id).delete()
+        if deleted_inventory:
+            print(f"  - Deleted {deleted_inventory} inventory tracking records")
         
         # Delete sales records related to this product
-        Sale.query.filter_by(product_id=product_id).delete()
+        deleted_sales = Sale.query.filter_by(product_id=product_id).delete()
+        if deleted_sales:
+            print(f"  - Deleted {deleted_sales} sales transaction records")
         
         # Now delete the product itself
         db.session.delete(product)
         db.session.commit()
         
+        print(f"  ✓ Successfully deleted product {product_id}")
+        
         # Log activity with product details
         ActivityLogger.log_product_action(
             ActivityLogger.PRODUCT_DELETE,
             product_name,
-            f"ID: {product_id}, Category: {product_category or 'N/A'}"
+            f"ID: {product_id}, Category: {product_category or 'N/A'}, "
+            f"Deleted: {deleted_sales} sales, {deleted_forecasts} forecasts, {deleted_inventory} inventory records"
         )
 
         # WebSocket: metrics update
@@ -1715,11 +2054,24 @@ def delete_product(product_id):
         
         return jsonify({
             'success': True,
-            'message': f'Product {product_name} deleted successfully'
+            'message': f'Product "{product_name}" and all related data have been permanently deleted',
+            'deleted_records': {
+                'sales': deleted_sales,
+                'forecasts': deleted_forecasts,
+                'alerts': deleted_alerts,
+                'inventory': deleted_inventory
+            },
+            'next_steps': [
+                '✓ All data for this product has been removed',
+                '⚠️  Forecasting models may need to be retrained if this product was part of aggregate predictions',
+                '💡 Run Dashboard > Settings > "Refresh Forecasts" to regenerate forecasts for remaining products'
+            ]
         })
     except Exception as e:
         db.session.rollback()
+        print(f"  ✗ Error deleting product: {str(e)}")
         return jsonify({'error': f'Error deleting product: {str(e)}'}), 400
+
 
 
 @api_bp.route('/inventory/adjust', methods=['POST'])
@@ -2071,6 +2423,106 @@ def get_forecast_accuracy():
         }), 500
 
 
+@api_bp.route('/blind-prediction-data', methods=['GET'])
+@login_required
+def get_blind_prediction_data():
+    """
+    Get blind prediction data (predicted vs actual sales from 2023-present).
+    Shows forecasts made by pre-trained model WITHOUT seeing actual data.
+    
+    Query params:
+        - product_id: Optional, filter by specific product
+        - start_date: Optional, default 2023-01-01
+        - end_date: Optional, default today
+    """
+    try:
+        product_id = request.args.get('product_id', type=int)
+        start_date = request.args.get('start_date', '2023-01-01')
+        end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+        
+        # Convert to dates
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+        # Query blind prediction forecasts
+        query = Forecast.query.filter(
+            Forecast.model_used == 'BLIND_PREDICTION',
+            Forecast.forecast_date >= start_dt,
+            Forecast.forecast_date <= end_dt
+        )
+        
+        if product_id:
+            query = query.filter(Forecast.product_id == product_id)
+        
+        forecasts = query.order_by(Forecast.forecast_date).all()
+        
+        if not forecasts:
+            return jsonify({
+                'success': False,
+                'error': 'No blind prediction data found. Run blind_predict_actual_sales.py first.'
+            }), 404
+        
+        # Get actual sales for comparison
+        sales_query = db.session.query(
+            Sale.sale_date,
+            db.func.sum(Sale.quantity).label('actual_qty')
+        ).filter(
+            Sale.sale_date >= start_dt,
+            Sale.sale_date <= end_dt
+        )
+        
+        if product_id:
+            sales_query = sales_query.filter(Sale.product_id == product_id)
+        
+        sales_query = sales_query.group_by(Sale.sale_date).order_by(Sale.sale_date)
+        actual_sales = sales_query.all()
+        
+        # Create date-indexed map of actual sales
+        actual_map = {sale.sale_date.strftime('%Y-%m-%d'): float(sale.actual_qty) for sale in actual_sales}
+        
+        # Build response
+        dates = []
+        predicted = []
+        actual = []
+        
+        for forecast in forecasts:
+            date_str = forecast.forecast_date.strftime('%Y-%m-%d')
+            dates.append(date_str)
+            predicted.append(float(forecast.predicted_quantity))
+            actual.append(actual_map.get(date_str, None))  # None if no sales that day
+        
+        # Calculate overall accuracy
+        valid_pairs = [(p, a) for p, a in zip(predicted, actual) if a is not None]
+        if valid_pairs:
+            preds, acts = zip(*valid_pairs)
+            mae = sum(abs(p - a) for p, a in valid_pairs) / len(valid_pairs)
+            mape = sum(abs((a - p) / (a + 1)) for p, a in valid_pairs) / len(valid_pairs) * 100
+            accuracy = max(0, 100 - mape)
+        else:
+            mae = None
+            mape = None
+            accuracy = None
+        
+        return jsonify({
+            'success': True,
+            'dates': dates,
+            'predicted': predicted,
+            'actual': actual,
+            'mae': mae,
+            'mape': mape,
+            'accuracy': accuracy,
+            'note': 'Predictions from pre-trained model (never saw actual data before predicting)'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @api_bp.route('/forecast-vs-actual/<int:product_id>', methods=['GET'])
 @login_required
 def get_forecast_vs_actual(product_id):
@@ -2394,6 +2846,7 @@ def get_model_comparison():
 def get_enhanced_restock_alerts():
     """
     Get intelligent restock alerts using multi-horizon forecasts (1-day, 7-day, 30-day).
+    OPTIMIZED: Batch fetch all forecasts in 3 queries instead of 108.
     
     Returns alerts with:
     - Urgency level (CRITICAL/HIGH/MEDIUM)
@@ -2404,19 +2857,54 @@ def get_enhanced_restock_alerts():
     from utils.model_trainer import ForecastingPipeline
     
     try:
-        alerts_data = []
+        today = datetime.now().date()
         products = Product.query.all()
         
+        # OPTIMIZATION: Batch fetch all forecasts for all products (3 queries instead of 108)
+        # Get 1-day forecasts for all products
+        target_1d = today + timedelta(days=1)
+        forecasts_1d_raw = Forecast.query.filter(
+            Forecast.aggregation_level == 'daily',
+            func.date(Forecast.forecast_date) == target_1d
+        ).all()
+        forecasts_1d = {f.product_id: f.predicted_quantity for f in forecasts_1d_raw}
+        
+        # Get 7-day forecasts (sum of days 1-7) for all products
+        end_7d = today + timedelta(days=7)
+        start_date = today + timedelta(days=1)
+        forecasts_7d_raw = db.session.query(
+            Forecast.product_id,
+            func.sum(Forecast.predicted_quantity).label('total_qty')
+        ).filter(
+            Forecast.aggregation_level == 'daily',
+            Forecast.forecast_date > start_date,
+            Forecast.forecast_date <= end_7d
+        ).group_by(Forecast.product_id).all()
+        forecasts_7d = {product_id: float(total_qty) for product_id, total_qty in forecasts_7d_raw}
+        
+        # Get 30-day forecasts (sum of days 1-30) for all products
+        end_30d = today + timedelta(days=30)
+        forecasts_30d_raw = db.session.query(
+            Forecast.product_id,
+            func.sum(Forecast.predicted_quantity).label('total_qty')
+        ).filter(
+            Forecast.aggregation_level == 'daily',
+            Forecast.forecast_date > start_date,
+            Forecast.forecast_date <= end_30d
+        ).group_by(Forecast.product_id).all()
+        forecasts_30d = {product_id: float(total_qty) for product_id, total_qty in forecasts_30d_raw}
+        
+        alerts_data = []
         for product in products:
             current_stock = product.current_stock or 0
             
-            # Get multi-horizon forecasts
-            forecast_1d = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=1)
-            forecast_7d = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=7)
-            forecast_30d = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=30)
+            # Lookup forecasts from batch-fetched dictionaries
+            forecast_1d_qty = forecasts_1d.get(product.id)
+            forecast_7d_qty = forecasts_7d.get(product.id)
+            forecast_30d_qty = forecasts_30d.get(product.id)
             
             # Fallback: If no forecasts available, use stock-based alerts
-            if forecast_1d is None and forecast_7d is None and forecast_30d is None:
+            if forecast_1d_qty is None and forecast_7d_qty is None and forecast_30d_qty is None:
                 # Check if stock is below reorder point (simple threshold-based alert)
                 reorder_point = product.reorder_point if hasattr(product, 'reorder_point') and product.reorder_point else 20
                 
@@ -2454,11 +2942,6 @@ def get_enhanced_restock_alerts():
             recommended_qty = None
             horizons_affected = []
             shortage = 0
-            
-            # Extract forecast quantities from Forecast objects
-            forecast_1d_qty = forecast_1d.predicted_quantity if forecast_1d else None
-            forecast_7d_qty = forecast_7d.predicted_quantity if forecast_7d else None
-            forecast_30d_qty = forecast_30d.predicted_quantity if forecast_30d else None
             
             # CRITICAL: Insufficient for 1-day demand
             if forecast_1d_qty and current_stock < forecast_1d_qty:
@@ -2514,9 +2997,12 @@ def get_enhanced_restock_alerts():
         # Filter to show only CRITICAL and HIGH alerts (to avoid overcrowding dashboard)
         critical_high_alerts = [a for a in alerts_data if a['urgency'] in ['CRITICAL', 'HIGH']]
         
+        # Limit to top 10 alerts for dashboard display
+        top_10_alerts = critical_high_alerts[:10]
+        
         return jsonify({
             'success': True,
-            'alerts': critical_high_alerts,  # Only CRITICAL + HIGH
+            'alerts': top_10_alerts,  # Only top 10 CRITICAL + HIGH
             'total_alerts': len(critical_high_alerts),
             'critical_count': sum(1 for a in alerts_data if a['urgency'] == 'CRITICAL'),
             'high_count': sum(1 for a in alerts_data if a['urgency'] == 'HIGH'),
@@ -2620,13 +3106,15 @@ def get_synchronized_daily_forecast():
             # Show forecasts that would have been made BEFORE this week
             # and predict dates WITHIN this week
             basis_date = week_start - timedelta(days=1)  # Day before week starts
-            forecast_start = week_start  # Start of the week
+            forecast_start = week_start  # Show forecasts for entire week
             forecast_end = week_end  # End of the week
             is_historical_view = True
         else:
             # Current or future week - use today as basis
             basis_date = today
-            forecast_start = today  # Include today in forecast
+            # IMPORTANT: Show forecasts for THE ENTIRE WEEK, not just future days
+            # This allows comparison with actuals (forecast vs actual coexistence)
+            forecast_start = week_start  # Show forecasts from start of week
             forecast_end = week_end  # Show forecasts up to and including the last day of week
             is_historical_view = False
         
@@ -2737,7 +3225,8 @@ def get_synchronized_daily_forecast():
                     Forecast.generated_at < week_start  # Only forecasts generated before this week
                 ).group_by(func.date(Forecast.forecast_date)).order_by(func.date(Forecast.forecast_date)).all()
             else:
-                # Current/Future: Show forecasts from forecast_start through the end of the selected week
+                # Current/Future: Show ALL forecasts for the entire week (not just future days)
+                # This allows comparison with actuals - forecasts and actuals COEXIST
                 forecast_agg = db.session.query(
                     func.date(Forecast.forecast_date).label('date'),
                     func.sum(Forecast.predicted_quantity).label('quantity'),
@@ -2787,7 +3276,8 @@ def get_synchronized_daily_forecast():
                     Forecast.generated_at < week_start  # Only forecasts generated before this week
                 ).order_by(Forecast.forecast_date).all()
             else:
-                # Current/Future: Show forecasts from forecast_start through the end of the selected week
+                # Current/Future: Show ALL forecasts for the entire week (not just future days)
+                # This allows comparison with actuals - forecasts and actuals COEXIST
                 forecasts = Forecast.query.filter(
                     Forecast.product_id == product_id,
                     Forecast.aggregation_level == 'daily',
@@ -3462,10 +3952,6 @@ def inventory_report():
         
         query = query.order_by(Product.current_stock.asc())
         
-        # Add batch summary for regular reports
-        from models import InventoryBatch
-        from datetime import datetime
-        
         inventory_data = []
         total_value = 0
         
@@ -3473,36 +3959,12 @@ def inventory_report():
             unit_cost = float(item.unit_cost) if item.unit_cost else 0
             item_value = item.current_stock * unit_cost
             
-            # Get batch count and earliest expiration for this product
-            batch_info = db.session.query(
-                db.func.count(InventoryBatch.id).label('batch_count'),
-                db.func.min(InventoryBatch.expiration_date).label('earliest_expiry')
-            ).filter(
-                InventoryBatch.product_id == item.id,
-                InventoryBatch.quantity > 0
-            ).first()
-            
-            batch_count = batch_info.batch_count if batch_info else 0
-            earliest_expiry = batch_info.earliest_expiry
-            
-            days_until_expiry = None
-            if earliest_expiry:
-                # Ensure both are date objects for comparison
-                if isinstance(earliest_expiry, datetime):
-                    earliest_expiry_date = earliest_expiry.date()
-                else:
-                    earliest_expiry_date = earliest_expiry
-                days_until_expiry = (earliest_expiry_date - datetime.now().date()).days
-            
             inventory_data.append({
                 'product_name': item.product_name,
                 'category': item.category,
                 'current_stock': item.current_stock,
                 'unit_cost': unit_cost,
-                'total_value': item_value,
-                'batch_count': batch_count,
-                'earliest_expiry': earliest_expiry_date.strftime('%Y-%m-%d') if earliest_expiry else None,
-                'days_until_expiry': days_until_expiry
+                'total_value': item_value
             })
             total_value += item_value
         
@@ -3891,6 +4353,363 @@ def get_batch_cost_breakdown(product_id):
         print(f"Error fetching cost breakdown: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ADMIN CONTROL API ENDPOINTS
+
+@api_bp.route('/admin/users', methods=['GET'])
+@login_required
+def get_all_users():
+    """Get all users in the system - Admin only."""
+    try:
+        if current_user.role != 'admin':
+            return jsonify({'success': False, 'error': 'Unauthorized. Admin access required.'}), 403
+        
+        users = User.query.order_by(User.created_at.desc()).all()
+        
+        users_list = []
+        for user in users:
+            users_list.append({
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+                'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else None
+            })
+        
+        return jsonify({'success': True, 'users': users_list})
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching users: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/admin/users/<int:user_id>/role', methods=['PUT'])
+@login_required
+def update_user_role(user_id):
+    """Update a user's role - Admin only."""
+    try:
+        if current_user.role != 'admin':
+            return jsonify({'success': False, 'error': 'Unauthorized. Admin access required.'}), 403
+        
+        data = request.get_json()
+        new_role = data.get('role')
+        
+        if new_role not in ['admin', 'user']:
+            return jsonify({'success': False, 'error': 'Invalid role. Must be "admin" or "user".'}), 400
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found.'}), 404
+        
+        # Prevent admin from changing their own role
+        if user.id == current_user.id:
+            return jsonify({'success': False, 'error': 'Cannot change your own role.'}), 400
+        
+        old_role = user.role
+        user.role = new_role
+        db.session.commit()
+        
+        # Log the action
+        log_entry = Log(
+            user_id=current_user.id,
+            action=f"Changed role of user '{user.username}' from '{old_role}' to '{new_role}'"
+        )
+        db.session.add(log_entry)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f"User role updated to {new_role}",
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'role': user.role
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"Error updating user role: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/admin/users/<int:user_id>', methods=['DELETE'])
+@login_required
+def delete_user(user_id):
+    """Delete a user - Admin only."""
+    try:
+        if current_user.role != 'admin':
+            return jsonify({'success': False, 'error': 'Unauthorized. Admin access required.'}), 403
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found.'}), 404
+        
+        # Prevent admin from deleting themselves
+        if user.id == current_user.id:
+            return jsonify({'success': False, 'error': 'Cannot delete your own account.'}), 400
+        
+        username = user.username
+        db.session.delete(user)
+        db.session.commit()
+        
+        # Log the action
+        log_entry = Log(
+            user_id=current_user.id,
+            action=f"Deleted user '{username}'"
+        )
+        db.session.add(log_entry)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f"User '{username}' deleted successfully"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"Error deleting user: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/admin/logs', methods=['GET'])
+@login_required
+def get_system_logs():
+    """Get system activity logs - Admin only."""
+    try:
+        if current_user.role != 'admin':
+            return jsonify({'success': False, 'error': 'Unauthorized. Admin access required.'}), 403
+        
+        # Get pagination parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        
+        # Get logs with user information
+        logs_query = db.session.query(Log, User).join(User, Log.user_id == User.id, isouter=True)\
+            .order_by(Log.timestamp.desc())
+        
+        # Paginate
+        paginated = logs_query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        logs_list = []
+        for log, user in paginated.items:
+            logs_list.append({
+                'id': log.id,
+                'action': log.action,
+                'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else None,
+                'user': user.username if user else 'System',
+                'user_id': log.user_id
+            })
+        
+        return jsonify({
+            'success': True,
+            'logs': logs_list,
+            'total': paginated.total,
+            'pages': paginated.pages,
+            'current_page': page
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error fetching logs: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/admin/backup', methods=['POST'])
+@login_required
+def create_database_backup():
+    """Create a database backup - Admin only."""
+    try:
+        if current_user.role != 'admin':
+            return jsonify({'success': False, 'error': 'Unauthorized. Admin access required.'}), 403
+        
+        import os
+        import shutil
+        from datetime import datetime
+        
+        # Get database path
+        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'instance', 'database.db')
+        
+        if not os.path.exists(db_path):
+            return jsonify({'success': False, 'error': 'Database file not found.'}), 404
+        
+        # Create backups directory if it doesn't exist
+        backups_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'backups')
+        os.makedirs(backups_dir, exist_ok=True)
+        
+        # Create backup filename with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_filename = f'database_backup_{timestamp}.db'
+        backup_path = os.path.join(backups_dir, backup_filename)
+        
+        # Copy database file
+        shutil.copy2(db_path, backup_path)
+        
+        # Get file size
+        file_size = os.path.getsize(backup_path)
+        file_size_mb = file_size / (1024 * 1024)
+        
+        # Log the action
+        log_entry = Log(
+            user_id=current_user.id,
+            action=f"Created database backup: {backup_filename} ({file_size_mb:.2f} MB)"
+        )
+        db.session.add(log_entry)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Database backup created successfully',
+            'filename': backup_filename,
+            'size_mb': round(file_size_mb, 2),
+            'timestamp': timestamp
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error creating backup: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/admin/backups', methods=['GET'])
+@login_required
+def list_backups():
+    """List all database backups - Admin only."""
+    try:
+        if current_user.role != 'admin':
+            return jsonify({'success': False, 'error': 'Unauthorized. Admin access required.'}), 403
+        
+        import os
+        from datetime import datetime
+        
+        backups_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'backups')
+        
+        if not os.path.exists(backups_dir):
+            return jsonify({'success': True, 'backups': []})
+        
+        backups = []
+        for filename in os.listdir(backups_dir):
+            if filename.endswith('.db'):
+                filepath = os.path.join(backups_dir, filename)
+                file_stats = os.stat(filepath)
+                file_size_mb = file_stats.st_size / (1024 * 1024)
+                created_time = datetime.fromtimestamp(file_stats.st_ctime)
+                
+                backups.append({
+                    'filename': filename,
+                    'size_mb': round(file_size_mb, 2),
+                    'created_at': created_time.strftime('%Y-%m-%d %H:%M:%S')
+                })
+        
+        # Sort by creation time (newest first)
+        backups.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        return jsonify({'success': True, 'backups': backups})
+        
+    except Exception as e:
+        import traceback
+        print(f"Error listing backups: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/admin/refresh-forecasts', methods=['POST'])
+@login_required
+def refresh_forecasts():
+    """
+    Regenerate forecasts for all active products.
+    Preserves historical forecasts (in the past) and updates future forecasts.
+    Admin/Manager only.
+    """
+    try:
+        user_role = getattr(current_user, 'role', 'user')
+        if user_role not in ('admin', 'manager'):
+            return jsonify({'success': False, 'error': 'Unauthorized. Admin/Manager access required.'}), 403
+        
+        from utils.model_trainer import ForecastingPipeline
+        
+        print("\n[FORECAST_REFRESH] Starting manual forecast regeneration...")
+        
+        # Get all active products
+        products = Product.query.all()
+        if not products:
+            return jsonify({
+                'success': False,
+                'error': 'No products found in the system',
+                'message': 'Add products before generating forecasts'
+            }), 400
+        
+        # Track results
+        results = {
+            'total_products': len(products),
+            'successful': 0,
+            'failed': 0,
+            'errors': [],
+            'forecasts_generated': 0
+        }
+        
+        # Generate forecasts for each product
+        for product in products:
+            try:
+                # This will preserve historical forecasts and update future ones
+                print(f"  Regenerating for product {product.id}: {product.name}")
+                ForecastingPipeline.generate_multi_horizon_forecasts(product_id=product.id)
+                results['successful'] += 1
+                
+                # Count new forecasts
+                new_forecasts = Forecast.query.filter(
+                    Forecast.product_id == product.id,
+                    Forecast.aggregation_level == 'daily'
+                ).count()
+                results['forecasts_generated'] += new_forecasts
+                
+            except Exception as product_error:
+                results['failed'] += 1
+                error_msg = f"Product {product.id} ({product.name}): {str(product_error)}"
+                results['errors'].append(error_msg)
+                print(f"  ✗ {error_msg}")
+        
+        db.session.commit()
+        
+        # Log the refresh action
+        ActivityLogger.log_product_action(
+            ActivityLogger.PRODUCT_DELETE,  # Reuse action type
+            'System',
+            f"Forecasts refreshed: {results['successful']} successful, "
+            f"{results['failed']} failed, {results['forecasts_generated']} forecasts generated"
+        )
+        
+        print(f"[FORECAST_REFRESH] Complete: {results['successful']}/{results['total_products']} products")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Forecasts regenerated for {results["successful"]}/{results["total_products"]} products',
+            'results': results,
+            'next_steps': [
+                '✓ All future forecasts have been regenerated',
+                '✓ Historical forecasts have been preserved',
+                '💡 This helps keep predictions accurate after major data changes or product deletions',
+                '🔄 Consider running this monthly or after significant sales pattern changes'
+            ]
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"[FORECAST_REFRESH] Error: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': f'Error refreshing forecasts: {str(e)}'
+        }), 500
 
 
 

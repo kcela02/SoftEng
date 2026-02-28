@@ -1,5 +1,5 @@
 // Modal functionality
-function openModal(modalId) {
+window.openModal = function(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.add('show');
@@ -14,7 +14,7 @@ function openModal(modalId) {
     }
 }
 
-function closeModal(modalId) {
+window.closeModal = function(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.remove('show');
@@ -104,6 +104,135 @@ function updateComparisonCard(currentId, previousId, changeId, currentValue, pre
     }
 }
 
+// Switch Monthly Chart View (Bar Chart vs Daily Trend Line)
+window.switchMonthlyView = function(viewType) {
+    console.log('switchMonthlyView called with:', viewType);
+    window.monthlyChartView = viewType;
+    
+    // Update button states
+    const monthlyBtn = document.getElementById('chart-view-monthly');
+    const dailyBtn = document.getElementById('chart-view-daily');
+    
+    console.log('Buttons found:', { monthlyBtn: !!monthlyBtn, dailyBtn: !!dailyBtn });
+    
+    if (monthlyBtn && dailyBtn) {
+        if (viewType === 'monthly') {
+            monthlyBtn.style.background = '#007bff';
+            monthlyBtn.style.color = 'white';
+            monthlyBtn.style.borderColor = '#007bff';
+            monthlyBtn.classList.add('active');
+            
+            dailyBtn.style.background = 'transparent';
+            dailyBtn.style.color = 'var(--color-text-primary)';
+            dailyBtn.style.borderColor = '#d1d5db';
+            dailyBtn.classList.remove('active');
+        } else {
+            dailyBtn.style.background = '#007bff';
+            dailyBtn.style.color = 'white';
+            dailyBtn.style.borderColor = '#007bff';
+            dailyBtn.classList.add('active');
+            
+            monthlyBtn.style.background = 'transparent';
+            monthlyBtn.style.color = 'var(--color-text-primary)';
+            monthlyBtn.style.borderColor = '#d1d5db';
+            monthlyBtn.classList.remove('active');
+        }
+    }
+    
+    // Update chart
+    console.log('monthlyChartData exists:', !!window.monthlyChartData);
+    if (window.monthlyChartData) {
+        updateMonthlyChartView(viewType);
+    } else {
+        console.warn('No chart data available yet. Please wait for data to load.');
+    }
+}
+
+// Update Monthly Chart View
+window.updateMonthlyChartView = function(viewType) {
+    console.log('updateMonthlyChartView called with:', viewType);
+    
+    if (!window.monthlyChart) {
+        console.error('monthlyChart not found');
+        return;
+    }
+    
+    if (!window.monthlyChartData) {
+        console.error('monthlyChartData not found');
+        return;
+    }
+    
+    const chartData = window.monthlyChartData;
+    console.log('Chart data:', chartData);
+    
+    if (viewType === 'monthly') {
+        // Bar Chart: Monthly aggregates
+        window.monthlyChart.config.type = 'bar';
+        window.monthlyChart.data.labels = chartData.monthly.labels;
+        window.monthlyChart.data.datasets = [{
+            label: 'Monthly Sales',
+            data: chartData.monthly.data,
+            backgroundColor: '#007bff',
+            borderColor: '#0056b3',
+            borderWidth: 1
+        }];
+        
+        window.monthlyChart.options.plugins.title.text = `Monthly Sales Performance (Last ${chartData.monthly.labels.length} Month${chartData.monthly.labels.length !== 1 ? 's' : ''})`;
+        window.monthlyChart.options.plugins.subtitle = {
+            display: true,
+            text: '📊 Aggregated revenue by month',
+            font: { size: 11 },
+            color: '#6b7280',
+            padding: { bottom: 10 }
+        };
+    } else {
+        // Line Chart: Daily actual sales trend (no forecast)
+        // Filter out null values (future dates) for clean historical view
+        const filteredData = [];
+        const filteredLabels = [];
+        
+        chartData.daily.labels.forEach((label, index) => {
+            const value = chartData.daily.data[index];
+            if (value !== null && value !== undefined) {
+                filteredLabels.push(label);
+                filteredData.push(value);
+            }
+        });
+        
+        console.log(`Filtered daily data: ${filteredData.length} days with actual sales`);
+        
+        window.monthlyChart.config.type = 'line';
+        window.monthlyChart.data.labels = filteredLabels;
+        window.monthlyChart.data.datasets = [{
+            label: 'Daily Sales',
+            data: filteredData,
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.15)',
+            borderWidth: 3,
+            tension: 0.3,
+            fill: true,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#28a745',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2
+        }];
+        
+        window.monthlyChart.options.plugins.title.text = `Daily Sales Trend (${filteredData.length} Days of Actual Revenue)`;
+        window.monthlyChart.options.plugins.subtitle = {
+            display: true,
+            text: '📈 Historical day-by-day sales performance (no predictions)',
+            font: { size: 11 },
+            color: '#6b7280',
+            padding: { bottom: 10 }
+        };
+    }
+    
+    console.log('Updating chart...');
+    window.monthlyChart.update();
+    console.log('Chart updated successfully');
+}
+
 // Close modal when clicking outside
 window.onclick = function(event) {
     const modals = document.querySelectorAll('.modal');
@@ -125,6 +254,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Initialize period filter functionality
     initializePeriodFilters();
     
+    // Initialize chart view toggle buttons
+    initializeChartViewToggle();
+    
     // Fetch forecast accuracy metrics
     fetchForecastAccuracy();
     
@@ -134,6 +266,28 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Fetch enhanced restock alerts
     fetchEnhancedRestockAlerts();
 });
+
+// Initialize Chart View Toggle Buttons
+function initializeChartViewToggle() {
+    const monthlyBtn = document.getElementById('chart-view-monthly');
+    const dailyBtn = document.getElementById('chart-view-daily');
+    
+    if (monthlyBtn && dailyBtn) {
+        console.log('Chart view toggle buttons found, attaching event listeners');
+        
+        monthlyBtn.addEventListener('click', function() {
+            console.log('Monthly button clicked');
+            window.switchMonthlyView('monthly');
+        });
+        
+        dailyBtn.addEventListener('click', function() {
+            console.log('Daily button clicked');
+            window.switchMonthlyView('daily');
+        });
+    } else {
+        console.log('Chart view toggle buttons not found on this page');
+    }
+}
 
 // Modal functionality
 function initializeModals() {
@@ -273,7 +427,7 @@ function loadDashboardData(period, dateRange = null) {
     }
     
     // Fetch and update dashboard
-    fetch(url)
+    fetch(url, { credentials: 'same-origin' })
         .then(response => response.json())
         .then(data => {
             updateDashboardWithData(data);
@@ -285,33 +439,45 @@ function loadDashboardData(period, dateRange = null) {
 }
 
 // Fetch and display forecast accuracy metrics
-async function fetchForecastAccuracy() {
+window.fetchForecastAccuracy = async function() {
+    console.log('[fetchForecastAccuracy] Starting fetch...');
     try {
-        const response = await fetch('/api/forecast-accuracy?days_back=7');
+        const response = await fetch('/api/forecast-accuracy?days_back=7', { credentials: 'same-origin' });
+        
+        console.log('[fetchForecastAccuracy] Response status:', response.status);
         
         if (!response.ok) {
             throw new Error('Failed to fetch accuracy data');
         }
         
         const data = await response.json();
+        console.log('[fetchForecastAccuracy] Data received:', data);
+        
+        // API returns data under data.accuracy nested object
+        const accuracyData = data.accuracy || data;
+        console.log('[fetchForecastAccuracy] Accuracy values:', accuracyData);
         
         // Update 1-day accuracy
-        updateAccuracyMetric('1d', data['1_day']);
+        updateAccuracyMetric('1d', accuracyData['1_day']);
         
         // Update 7-day accuracy
-        updateAccuracyMetric('7d', data['7_day']);
+        updateAccuracyMetric('7d', accuracyData['7_day']);
         
         // Update 30-day accuracy
-        updateAccuracyMetric('30d', data['30_day']);
+        updateAccuracyMetric('30d', accuracyData['30_day']);
         
         // Calculate overall average accuracy for summary card
-        const accuracyValues = [data['1_day'], data['7_day'], data['30_day']].filter(v => v !== null && v !== undefined);
+        const accuracyValues = [accuracyData['1_day'], accuracyData['7_day'], accuracyData['30_day']].filter(v => v !== null && v !== undefined && v > 0);
+        
+        console.log('[fetchForecastAccuracy] Valid accuracy values:', accuracyValues);
         
         const summaryAccuracyEl = document.getElementById('accuracy');
         if (summaryAccuracyEl && accuracyValues.length > 0) {
             const avgAccuracy = accuracyValues.reduce((sum, val) => sum + val, 0) / accuracyValues.length;
+            console.log('[fetchForecastAccuracy] Average accuracy:', avgAccuracy);
             summaryAccuracyEl.textContent = avgAccuracy.toFixed(1) + '%';
         } else if (summaryAccuracyEl) {
+            console.log('[fetchForecastAccuracy] No valid accuracy values, showing --');
             summaryAccuracyEl.textContent = '--';
         }
         
@@ -381,7 +547,7 @@ async function fetchWeeklyForecast() {
     console.log('Fetching weekly forecast data...');
     
     try {
-        const response = await fetch('/api/weekly-forecast');
+        const response = await fetch('/api/weekly-forecast', { credentials: 'same-origin' });
         
         console.log('Weekly forecast response:', response.status, response.statusText);
         
@@ -487,7 +653,7 @@ async function fetchEnhancedRestockAlerts() {
     console.log('Fetching enhanced restock alerts...');
     
     try {
-        const response = await fetch('/api/enhanced-restock-alerts');
+        const response = await fetch('/api/enhanced-restock-alerts', { credentials: 'same-origin' });
         
         console.log('Enhanced alerts response:', response.status, response.statusText);
         
@@ -543,81 +709,84 @@ function renderEnhancedAlerts(alerts, summary) {
         return;
     }
     
-    // Create header with summary
+    // Create compact header with summary
     let html = `
-        <div style="display: flex; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f9fafb; border-radius: 6px;">
-            <span style="flex: 1; text-align: center; padding: 8px; background: #fee2e2; color: #991b1b; border-radius: 4px; font-size: 0.85em; font-weight: 600;">
-                🔴 Critical: ${summary.critical_count || 0}
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+            <span style="flex: 1; text-align: center; padding: 6px; background: #fee2e2; color: #991b1b; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
+                🔴 ${summary.critical_count || 0}
             </span>
-            <span style="flex: 1; text-align: center; padding: 8px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 0.85em; font-weight: 600;">
-                🟡 High: ${summary.high_count || 0}
-            </span>
-            <span style="flex: 1; text-align: center; padding: 8px; background: #d1fae5; color: #065f46; border-radius: 4px; font-size: 0.85em; font-weight: 600;">
-                🟢 Medium: ${summary.medium_count || 0}
+            <span style="flex: 1; text-align: center; padding: 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
+                🟠 ${summary.high_count || 0}
             </span>
         </div>
     `;
     
-    // Render each alert
-    alerts.forEach(alert => {
+    // Render each alert in a more compact, scannable format
+    alerts.forEach((alert, index) => {
         const urgencyIcon = {
             'CRITICAL': '🔴',
-            'HIGH': '🟡',
-            'MEDIUM': '🟢'
+            'HIGH': '🟠',
+            'MEDIUM': '🟡'
         }[alert.urgency] || '⚠️';
         
         const bgColor = {
-            'CRITICAL': '#fef2f2',
-            'HIGH': '#fffbeb',
-            'MEDIUM': '#f0fdf4'
+            'CRITICAL': '#fee2e2',  // Darker red background
+            'HIGH': '#fef3c7',      // Darker amber background
+            'MEDIUM': '#dcfce7'     // Darker green background
         }[alert.urgency] || '#f9fafb';
+        
+        const textColor = {
+            'CRITICAL': '#7f1d1d',  // Darker red text
+            'HIGH': '#78350f',      // Darker amber text
+            'MEDIUM': '#15803d'     // Darker green text
+        }[alert.urgency] || '#374151';
         
         const borderColor = alert.urgency_color;
         
         html += `
-            <div class="alert-item" style="padding: 12px; margin-bottom: 10px; background: ${bgColor}; border-left: 4px solid ${borderColor}; border-radius: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                    <div>
-                        <div style="font-weight: 600; font-size: 1em; margin-bottom: 4px;">
-                            ${urgencyIcon} ${alert.urgency} - ${alert.product_name}
-                        </div>
-                        <div style="font-size: 0.85em; color: #6b7280;">
-                            ${alert.category} • Current Stock: <strong>${alert.current_stock}</strong>
-                        </div>
+            <div class="alert-item" style="padding: 12px; margin-bottom: 8px; background: ${bgColor}; border-left: 4px solid ${borderColor}; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                <!-- Header Row: Product Name & Urgency Badge -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="font-weight: 600; font-size: 0.95em; color: ${textColor};">
+                        ${urgencyIcon} ${alert.product_name}
                     </div>
-                    <span style="background: ${borderColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75em; font-weight: 600; white-space: nowrap;">
+                    <span style="background: ${borderColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.7em; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
                         ${alert.urgency}
                     </span>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; padding: 10px; background: white; border-radius: 4px;">
+                <!-- Stock Status Row -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.85em; color: ${textColor};">
+                    <span>
+                        <strong>Stock:</strong> ${alert.current_stock} units
+                    </span>
+                    <span>
+                        <strong style="color: ${borderColor};">Need:</strong> ${alert.shortage} more
+                    </span>
+                </div>
+                
+                <!-- Compact Forecast Row -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.7); border-radius: 4px; border: 1px solid rgba(0,0,0,0.05);">
                     <div style="text-align: center;">
-                        <div style="font-size: 0.75em; color: #9ca3af; margin-bottom: 2px;">1-Day Forecast</div>
-                        <div style="font-weight: 600; color: #374151;">${alert.forecasts['1_day'] || 'N/A'}</div>
+                        <div style="font-size: 0.7em; color: ${textColor}; margin-bottom: 2px; font-weight: 500;">1-Day</div>
+                        <div style="font-weight: 600; font-size: 0.85em; color: ${textColor};">${alert.forecasts['1_day'] || 'N/A'}</div>
                     </div>
                     <div style="text-align: center;">
-                        <div style="font-size: 0.75em; color: #9ca3af; margin-bottom: 2px;">7-Day Forecast</div>
-                        <div style="font-weight: 600; color: #374151;">${alert.forecasts['7_day'] || 'N/A'}</div>
+                        <div style="font-size: 0.7em; color: ${textColor}; margin-bottom: 2px; font-weight: 500;">7-Day</div>
+                        <div style="font-weight: 600; font-size: 0.85em; color: ${textColor};">${alert.forecasts['7_day'] || 'N/A'}</div>
                     </div>
                     <div style="text-align: center;">
-                        <div style="font-size: 0.75em; color: #9ca3af; margin-bottom: 2px;">30-Day Forecast</div>
-                        <div style="font-weight: 600; color: #374151;">${alert.forecasts['30_day'] || 'N/A'}</div>
+                        <div style="font-size: 0.7em; color: ${textColor}; margin-bottom: 2px; font-weight: 500;">30-Day</div>
+                        <div style="font-weight: 600; font-size: 0.85em; color: ${textColor};">${alert.forecasts['30_day'] || 'N/A'}</div>
                     </div>
                 </div>
                 
-                <div style="padding: 8px; background: white; border-radius: 4px; margin-bottom: 8px;">
-                    <div style="font-size: 0.85em; color: #374151;">
-                        <strong>Shortage:</strong> ${alert.shortage} units • 
-                        <strong>Horizons Affected:</strong> ${alert.horizons_affected.join(', ')}
+                <!-- Action Row: Recommended Order -->
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: ${{'CRITICAL': '#fecaca', 'HIGH': '#fde047', 'MEDIUM': '#86efac'}[alert.urgency] || '#e5e7eb'}; border-radius: 4px;">
+                    <div style="font-size: 0.85em; font-weight: 600; color: ${textColor};">
+                        📦 Order: <span style="font-size: 1.1em; font-weight: 700;">${alert.recommended_order_qty}</span> units
                     </div>
-                    ${alert.note ? `<div style="font-size: 0.8em; color: #6b7280; margin-top: 4px; font-style: italic;">ℹ️ ${alert.note}</div>` : ''}
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #e0e7ff; border-radius: 4px;">
-                    <div style="font-size: 0.9em; font-weight: 600; color: #3730a3;">
-                        📦 Recommended Order: <span style="font-size: 1.1em;">${alert.recommended_order_qty}</span> units
-                    </div>
-                    <button class="btn btn-primary" style="padding: 6px 14px; font-size: 0.85em; background: #4f46e5; border: none; cursor: pointer;" onclick="quickRestock(${alert.product_id}, ${alert.recommended_order_qty})">
+                    <button class="btn btn-primary" style="padding: 5px 12px; font-size: 0.8em; background: ${borderColor}; border: none; cursor: pointer; color: white; border-radius: 4px; font-weight: 600;" onclick="quickRestock(${alert.product_id}, ${alert.recommended_order_qty})">
                         Order Now
                     </button>
                 </div>
@@ -634,7 +803,7 @@ function quickRestock(productId, quantity) {
     const modal = document.getElementById('inventory-modal');
     if (modal) {
         // Find product details
-        fetch(`/api/product/${productId}`)
+        fetch(`/api/product/${productId}`, { credentials: 'same-origin' })
             .then(res => res.json())
             .then(data => {
                 if (data.success && data.product) {
@@ -681,8 +850,9 @@ function updateDashboardWithData(data) {
     if (totalUnits) totalUnits.textContent = (data.total_units_sold || 0).toLocaleString('en-PH') + ' units';
     if (totalRevenue) totalRevenue.textContent = formatPHP(data.total_revenue);
     if (totalInventoryValue) totalInventoryValue.textContent = formatPHP(data.total_inventory_value || 0);
-    if (accuracy) accuracy.textContent = data.accuracy;
-    if (alertsCount) alertsCount.textContent = data.alerts;
+    // Accuracy is managed by fetchForecastAccuracy() - don't overwrite it here
+    // if (accuracy) accuracy.textContent = (data.accuracy !== undefined && data.accuracy !== null) ? data.accuracy.toFixed(1) + '%' : 'N/A';
+    if (alertsCount) alertsCount.textContent = data.alerts !== undefined ? data.alerts : 0;
     if (turnoverRateEl && typeof data.turnover_rate !== 'undefined') turnoverRateEl.textContent = Number(data.turnover_rate || 0).toFixed(2);
 
     // Synthetic data banner
@@ -725,7 +895,7 @@ function updateDashboardWithData(data) {
     updateComparisonCard('current-year-units', 'last-year-units', 'year-units-change',
         data.current_month_units, data.year_ago_units, data.year_units_change, false);
 
-    // Update charts with monthly daily revenue data
+    // Update charts with monthly daily revenue data (actual vs forecast)
     if (window.trendChart && data.monthly_daily_labels && data.monthly_daily_sales) {
         const labels = data.monthly_daily_labels || [];
         const actualData = data.monthly_daily_sales || [];
@@ -737,10 +907,23 @@ function updateDashboardWithData(data) {
         window.trendChart.update();
     }
 
+    // Store monthly chart data and update based on current view
     if (window.monthlyChart && data.monthly_labels && data.monthly_data) {
-        window.monthlyChart.data.labels = data.monthly_labels;
-        window.monthlyChart.data.datasets[0].data = data.monthly_data;
-        window.monthlyChart.update();
+        // Store data for both views
+        window.monthlyChartData = {
+            monthly: {
+                labels: data.monthly_labels || [],
+                data: data.monthly_data || []
+            },
+            daily: {
+                labels: data.monthly_daily_labels || [],
+                data: data.monthly_daily_sales || []
+            }
+        };
+        
+        // Update chart using the current view type (preserve user's selection)
+        const currentView = window.monthlyChartView || 'monthly';
+        updateMonthlyChartView(currentView);
     }
 }
 
@@ -749,7 +932,7 @@ function updateDashboardWithData(data) {
 // Populate product selector for forecast visualization
 async function populateForecastProductSelector() {
     try {
-        const res = await fetch('/api/products');
+        const res = await fetch('/api/products', { credentials: 'same-origin' });
         const data = await res.json();
         
         if (data.success && data.products) {
@@ -789,7 +972,7 @@ async function loadForecastVisualization(productId) {
         container.style.display = 'block';
         
         // Fetch forecast visualization data
-        const res = await fetch(`/api/forecast-visualization?product_id=${productId}&days_back=30`);
+        const res = await fetch(`/api/forecast-visualization?product_id=${productId}&days_back=30`, { credentials: 'same-origin' });
         const data = await res.json();
         
         if (!data.success) {
@@ -1004,7 +1187,7 @@ function renderMultiHorizonChart(data) {
 // Load and render model comparison chart
 async function loadModelComparisonChart() {
     try {
-        const res = await fetch('/api/model-comparison');
+        const res = await fetch('/api/model-comparison', { credentials: 'same-origin' });
         const data = await res.json();
         
         if (!data.success || !data.models || data.models.length === 0) {
@@ -1119,83 +1302,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.add('show');
-        document.body.style.overflow = 'hidden'; // Prevent background scrolling
-        document.body.style.paddingRight = getScrollbarWidth() + 'px'; // Prevent layout shift
-        modal.setAttribute('aria-hidden', 'false');
-        // Focus management for accessibility
-        const firstInput = modal.querySelector('input');
-        if (firstInput) {
-            setTimeout(() => firstInput.focus(), 100);
-        }
-    }
-}
-
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('show');
-        setTimeout(() => {
-            document.body.style.overflow = 'auto'; // Restore scrolling
-            document.body.style.paddingRight = '0px'; // Restore layout
-            modal.setAttribute('aria-hidden', 'true');
-            // Clear any messages
-            const messagesDiv = modal.querySelector('.modal-body > div[id$="-messages"]');
-            if (messagesDiv) {
-                messagesDiv.innerHTML = '';
-            }
-            // Reset form
-            const form = modal.querySelector('form');
-            if (form) {
-                form.reset();
-            }
-        }, 300); // Wait for animation to complete
-    }
-}
-
-// Helper function to get scrollbar width
-function getScrollbarWidth() {
-    const scrollDiv = document.createElement('div');
-    scrollDiv.style.width = '100px';
-    scrollDiv.style.height = '100px';
-    scrollDiv.style.overflow = 'scroll';
-    scrollDiv.style.position = 'absolute';
-    scrollDiv.style.top = '-9999px';
-    document.body.appendChild(scrollDiv);
-    const scrollbarWidth = scrollDiv.offsetWidth - scrollDiv.clientWidth;
-    document.body.removeChild(scrollDiv);
-    return scrollbarWidth;
-}
-
-function switchModal(targetModalId) {
-    // Close all modals first
-    const modals = document.querySelectorAll('.modal');
-    modals.forEach(modal => {
-        modal.classList.remove('show');
-        setTimeout(() => {
-            modal.setAttribute('aria-hidden', 'true');
-            // Clear any messages
-            const messagesDiv = modal.querySelector('.modal-body > div[id$="-messages"]');
-            if (messagesDiv) {
-                messagesDiv.innerHTML = '';
-            }
-            // Reset form
-            const form = modal.querySelector('form');
-            if (form) {
-                form.reset();
-            }
-        }, 300);
-    });
-    // Open target modal
-    setTimeout(() => {
-        openModal(targetModalId);
-    }, 350);
-}
-
 async function handleLogin(event) {
     event.preventDefault();
 
@@ -1227,7 +1333,9 @@ async function handleLogin(event) {
         if (response.ok && result.success) {
             showMessage('login-messages', 'Login successful! Redirecting...', 'success');
             setTimeout(() => {
-                window.location.href = result.redirect || '/dashboard';
+                // Use safe redirect with validation
+                const redirectUrl = result.redirect || '/dashboard';
+                window.location.href = getSafeRedirectUrl(redirectUrl, '/dashboard');
             }, 1000);
         } else {
             showMessage('login-messages', result.message || 'Login failed', 'error');
@@ -1302,6 +1410,8 @@ let monthlyChart = null;
 // Expose charts to window for updates
 window.trendChart = null;
 window.monthlyChart = null;
+window.monthlyChartView = 'monthly'; // Track current view: 'monthly' or 'daily'
+window.monthlyChartData = null; // Store data for view switching
 
 // Chart initialization function
 function initializeCharts() {
@@ -1309,7 +1419,7 @@ function initializeCharts() {
     const labels = [];
     const emptyData = [];
 
-    // Trend Chart (Line Chart) - Monthly Actual vs Forecasted Revenue
+    // Trend Chart (Line Chart) - Forecast Validation: Actual vs Forecasted Revenue
     const trendCtx = document.getElementById('trendChart');
     if (trendCtx) {
         trendChart = new Chart(trendCtx.getContext('2d'), {
@@ -1320,53 +1430,91 @@ function initializeCharts() {
                     label: 'Actual Revenue',
                     data: emptyData,
                     borderColor: '#28a745',
-                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                    tension: 0.4,
+                    backgroundColor: 'rgba(40, 167, 69, 0.15)',
+                    tension: 0.3,
                     fill: true,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#28a745',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2
                 }, {
                     label: 'Forecasted Revenue',
                     data: emptyData,
                     borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                    tension: 0.4,
+                    backgroundColor: 'rgba(0, 123, 255, 0.15)',
+                    tension: 0.3,
                     fill: true,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#007bff',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    borderDash: [5, 5]
                 }]
             },
             options: {
                 responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
                 plugins: {
                     title: {
                         display: true,
-                            text: 'Monthly Revenue: Actual vs Forecast',
-                            font: {
-                                size: 14,
-                                weight: 'bold'
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + formatPHP(context.parsed.y);
+                        text: 'Forecast Validation: Actual vs Predicted Revenue',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    },
+                    subtitle: {
+                        display: true,
+                        text: '🎯 Compare predictions with actual sales to validate model accuracy',
+                        font: { size: 11 },
+                        color: '#6b7280',
+                        padding: { bottom: 10 }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + formatPHP(context.parsed.y);
+                            },
+                            afterBody: function(tooltipItems) {
+                                const idx = tooltipItems[0].dataIndex;
+                                const actual = tooltipItems[0].chart.data.datasets[0].data[idx];
+                                const forecast = tooltipItems[0].chart.data.datasets[1].data[idx];
+                                
+                                if (actual && forecast && actual > 0) {
+                                    const diff = forecast - actual;
+                                    const errorPct = Math.abs(diff / actual) * 100;
+                                    const accuracy = Math.max(0, 100 - errorPct);
+                                    return [
+                                        '',
+                                        '🎯 Prediction Accuracy: ' + accuracy.toFixed(1) + '%',
+                                        '   Difference: ' + (diff >= 0 ? '+' : '') + formatPHP(diff),
+                                        accuracy >= 90 ? '   ✓ Excellent!' : (accuracy >= 80 ? '   ✓ Good' : '   ⚠ Needs improvement')
+                                    ];
                                 }
+                                return [];
                             }
+                        }
                     }
                 },
                 scales: {
                     y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return formatPHP(value);
-                                }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Revenue (₱)'
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return formatPHP(value);
                             }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Revenue (₱)'
+                        }
                     }
                 }
             }
@@ -1374,7 +1522,7 @@ function initializeCharts() {
         window.trendChart = trendChart; // Expose to window
     }
 
-    // Monthly Comparison Chart (Bar Chart)
+    // Monthly Performance Chart (Switchable: Bar Chart for Monthly / Line Chart for Daily)
     const monthlyCtx = document.getElementById('monthlyChart');
     if (monthlyCtx) {
         monthlyChart = new Chart(monthlyCtx.getContext('2d'), {
@@ -1394,32 +1542,32 @@ function initializeCharts() {
                 plugins: {
                     title: {
                         display: true,
-                            text: 'Monthly Sales Performance',
-                            font: {
-                                size: 14,
-                                weight: 'bold'
+                        text: 'Monthly Sales Performance',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Monthly Sales: ' + formatPHP(context.parsed.y);
                             }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Monthly Sales: ' + formatPHP(context.parsed.y);
-                                }
-                            }
+                        }
                     }
                 },
                 scales: {
                     y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return formatPHP(value);
-                                }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Revenue (₱)'
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return formatPHP(value);
                             }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Revenue (₱)'
+                        }
                     }
                 }
             }
@@ -1429,7 +1577,7 @@ function initializeCharts() {
 
     // Fetch and update metrics dynamically from database (skip if live WS metrics enabled)
     if (!window.USE_WEBSOCKET_METRICS) {
-    fetch('/api/metrics')
+    fetch('/api/metrics', { credentials: 'same-origin' })
         .then(response => response.json())
         .then(data => {
             // Update metric cards
@@ -1442,11 +1590,11 @@ function initializeCharts() {
             if (totalUnits) totalUnits.textContent = data.total_units_sold + ' units';
                 if (totalRevenue) totalRevenue.textContent = formatPHP(data.total_revenue);
                 if (totalInventoryValue) totalInventoryValue.textContent = formatPHP(data.total_inventory_value || 0);
-            if (accuracy) {
-                // Format accuracy as percentage
-                const accuracyValue = typeof data.accuracy === 'number' ? data.accuracy : parseFloat(data.accuracy) || 0;
-                accuracy.textContent = accuracyValue.toFixed(1) + '%';
-            }
+            // Accuracy is managed by fetchForecastAccuracy() - don't overwrite it here
+            // if (accuracy) {
+            //     const accuracyValue = typeof data.accuracy === 'number' ? data.accuracy : parseFloat(data.accuracy) || 0;
+            //     accuracy.textContent = accuracyValue.toFixed(1) + '%';
+            // }
             if (alertsCount) alertsCount.textContent = data.alerts;
 
             // Update change indicators (only show if data exists)
@@ -1521,18 +1669,21 @@ function initializeCharts() {
                 trendChart.update();
             }
 
-            // Update Monthly Chart with actual data
-            if (monthlyChart) {
-                monthlyChart.data.labels = data.monthly_labels;
-                monthlyChart.data.datasets[0].data = data.monthly_data;
-                
-                // Update chart title dynamically based on actual data
-                if (data.monthly_labels && data.monthly_labels.length > 0) {
-                    const monthCount = data.monthly_labels.length;
-                    monthlyChart.options.plugins.title.text = `Monthly Sales Performance (Last ${monthCount} Month${monthCount !== 1 ? 's' : ''})`;
+            // Store data for monthly chart view switching
+            window.monthlyChartData = {
+                monthly: {
+                    labels: data.monthly_labels || [],
+                    data: data.monthly_data || []
+                },
+                daily: {
+                    labels: data.monthly_daily_labels || [],
+                    data: data.monthly_daily_sales || []
                 }
-                
-                monthlyChart.update();
+            };
+            
+            // Update Monthly Chart based on current view
+            if (monthlyChart && window.monthlyChartData) {
+                updateMonthlyChartView(window.monthlyChartView);
             }
         })
         .catch(error => {
@@ -1544,14 +1695,15 @@ function initializeCharts() {
             const alertsCount = document.getElementById('alerts-count');
             if (totalUnits) totalUnits.textContent = '0 units';
             if (totalRevenue) totalRevenue.textContent = '₱0.00';
-            if (accuracy) accuracy.textContent = '0%';
+            // Accuracy is managed by fetchForecastAccuracy() - don't overwrite it here
+            // if (accuracy) accuracy.textContent = '0%';
             if (alertsCount) alertsCount.textContent = '0';
         });
     }
 
     // Fetch and display restock alerts (skip if live WS alerts enabled)
     if (!window.USE_WEBSOCKET_ALERTS) {
-    fetch('/api/restock-alerts')
+    fetch('/api/restock-alerts', { credentials: 'same-origin' })
         .then(response => response.json())
         .then(alerts => {
             const alertsList = document.getElementById('alerts-list');
@@ -1603,6 +1755,173 @@ function updateChartsWithForecast(forecastResult) {
     if (alertsCount) alertsCount.textContent = forecastResult.alerts_count;
 }
 
+// ==================== PRODUCT MANAGEMENT FUNCTIONS (GLOBAL SCOPE) ====================
+// These need to be in global scope for onclick handlers to work
+
+let currentEditingProductId = null;
+let currentDeletingProduct = null;
+let currentInventoryProduct = null;
+
+// Product Modal Functions
+window.openProductModal = function(productId = null) {
+    console.log('[Products] openProductModal called with ID:', productId);
+    const modal = document.getElementById('product-modal');
+    const title = document.getElementById('product-modal-title');
+    const form = document.getElementById('product-modal-form');
+    
+    if (!modal || !title || !form) {
+        console.error('[Products] Modal elements not found!');
+        return;
+    }
+    
+    // Reset form
+    form.reset();
+    document.getElementById('modal-product-id').value = '';
+    
+    if (productId) {
+        title.textContent = 'Edit Product';
+        currentEditingProductId = productId;
+        
+        // Load product data
+        fetch(`/api/products/${productId}`, { credentials: 'same-origin' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.product) {
+                    document.getElementById('modal-product-id').value = data.product.id;
+                    document.getElementById('modal-product-name').value = data.product.name;
+                    document.getElementById('modal-product-category').value = data.product.category || '';
+                    document.getElementById('modal-product-cost').value = data.product.unit_cost || '';
+                }
+            });
+    } else {
+        title.textContent = 'Add New Product';
+        currentEditingProductId = null;
+    }
+    
+    modal.classList.add('show');
+};
+
+window.openEditProductModal = function(productId) {
+    window.openProductModal(productId);
+};
+
+window.closeProductModal = function() {
+    const modal = document.getElementById('product-modal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+    currentEditingProductId = null;
+};
+
+// Delete Modal Functions
+window.openDeleteModal = function(productId, productName) {
+    console.log('[Products] openDeleteModal called:', productId, productName);
+    const modal = document.getElementById('delete-modal');
+    const message = document.getElementById('delete-modal-message');
+    const warning = document.getElementById('delete-modal-warning');
+    
+    if (!modal || !message || !warning) {
+        console.error('[Products] Delete modal elements not found!');
+        return;
+    }
+    
+    currentDeletingProduct = { id: productId, name: productName };
+    
+    message.textContent = `Checking data for "${productName}"...`;
+    warning.innerHTML = '⏳ Loading impact assessment...';
+    warning.style.display = 'block';
+    
+    // Get impact assessment WITHOUT actually deleting
+    fetch(`/api/products/${productId}?confirm=false`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.action === 'confirm_required' && data.impact_assessment) {
+            const alerts = data.impact_assessment.alerts;
+            
+            // Update modal message
+            message.innerHTML = `
+                <div style="margin-bottom: 12px;">
+                    <strong>⚠️ DELETE "${productName}"?</strong>
+                    <p style="font-size: 0.9em; color: #6b7280; margin-top: 4px;">This action <strong>cannot be undone</strong>. The following data will be permanently deleted:</p>
+                </div>
+            `;
+            
+            // Format the warnings
+            const warningHTML = `
+                <div style="background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                    <p style="color: #991b1b; font-weight: 600; margin: 0 0 8px 0;">⚠️ Data Impact:</p>
+                    <ul style="margin: 0; padding-left: 20px; color: #7f1d1d; font-size: 0.9em; line-height: 1.6;">
+                        ${alerts.map(alert => `<li>${alert}</li>`).join('')}
+                    </ul>
+                </div>
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; border-radius: 4px; font-size: 0.85em; color: #78350f;">
+                    <strong>💡 Recommendation:</strong> Consider archiving or disabling the product instead of permanent deletion.
+                    <br><strong>Next Step:</strong> After deletion, you may need to regenerate forecasts for other products.
+                </div>
+            `;
+            
+            warning.innerHTML = warningHTML;
+            warning.style.display = 'block';
+            
+            // Update the delete button to trigger actual deletion
+            const confirmBtn = document.getElementById('confirm-delete-btn');
+            if (confirmBtn) {
+                confirmBtn.innerHTML = '🗑️ Yes, Delete Permanently';
+                confirmBtn.style.backgroundColor = '#dc2626';
+                confirmBtn.style.color = 'white';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error getting impact assessment:', error);
+        warning.innerHTML = `⚠️ Error: ${error.message}`;
+    });
+    
+    modal.classList.add('show');
+};
+
+window.closeDeleteModal = function() {
+    const modal = document.getElementById('delete-modal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+    currentDeletingProduct = null;
+};
+
+// Inventory Adjustment Modal Functions
+window.openInventoryModal = function(productId, productName, currentStock) {
+    console.log('[Products] openInventoryModal called:', productId, productName, currentStock);
+    const modal = document.getElementById('inventory-modal');
+    const form = document.getElementById('inventory-modal-form');
+    
+    if (!modal || !form) {
+        console.error('[Products] Inventory modal elements not found!');
+        return;
+    }
+    
+    form.reset();
+    document.getElementById('inventory-product-id').value = productId;
+    document.getElementById('inventory-product-name').textContent = productName;
+    document.getElementById('inventory-current-stock').textContent = currentStock;
+    
+    currentInventoryProduct = { id: productId, name: productName, stock: currentStock };
+    
+    modal.classList.add('show');
+};
+
+window.closeInventoryModal = function() {
+    const modal = document.getElementById('inventory-modal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+    currentInventoryProduct = null;
+};
+
+// ==================== END PRODUCT MANAGEMENT FUNCTIONS ====================
+
 // Initialize export buttons for admin/manager users
 document.addEventListener('DOMContentLoaded', function() {
     const exportAlertsBtn = document.getElementById('export-alerts-csv');
@@ -1646,19 +1965,25 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('data_type', 'unified_sales');
 
             try {
+                // Show initial progress bar
                 importStatus.innerHTML = `
-                    <div style="color: #007bff; padding: 15px; background: #e7f3ff; border-radius: 8px; border-left: 4px solid #007bff; box-shadow: 0 2px 8px rgba(0,123,255,0.2); animation: pulse 2s infinite;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="color: #007bff; padding: 15px; background: #e7f3ff; border-radius: 8px; border-left: 4px solid #007bff; box-shadow: 0 2px 8px rgba(0,123,255,0.2);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                             <div style="width: 20px; height: 20px; border: 3px solid #007bff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
                             <div>
                                 <strong style="font-size: 1.1em;">⏳ Uploading & Processing CSV...</strong><br/>
-                                <small style="opacity: 0.9;">Please do not close this page. This may take several minutes if generating forecasts.</small>
+                                <small style="opacity: 0.9;">Please do not close this page.</small>
                             </div>
                         </div>
+                        <div style="width: 100%; background: #d4e8f7; border-radius: 10px; overflow: hidden; height: 25px; position: relative;">
+                            <div id="upload-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #007bff, #0056b3); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center;">
+                                <span id="upload-progress-text" style="color: white; font-weight: bold; font-size: 0.85em; position: absolute; left: 50%; transform: translateX(-50%); text-shadow: 0 1px 2px rgba(0,0,0,0.3);">0%</span>
+                            </div>
+                        </div>
+                        <div id="upload-stage" style="margin-top: 8px; font-size: 0.9em; opacity: 0.8;">Uploading file...</div>
                     </div>
                     <style>
                         @keyframes spin { to { transform: rotate(360deg); } }
-                        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
                     </style>
                 `;
                 uploadCsvBtn.disabled = true;
@@ -1666,44 +1991,139 @@ document.addEventListener('DOMContentLoaded', function() {
                 uploadCsvBtn.style.cursor = 'not-allowed';
                 uploadCsvBtn.style.opacity = '0.6';
                 
-                const response = await fetch('/api/upload-csv', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    const rowsProcessed = (result.summary && result.summary.processed) || result.rows_processed || 0;
-                    importStatus.innerHTML = `
-                        <div style="color: #28a745; padding: 10px; background: #d4edda; border-radius: 4px;">
-                            <strong>✓ Success!</strong><br/>
-                            <small>${result.message}<br/>Rows processed: ${rowsProcessed}</small>
-                        </div>
-                    `;
-                    fileInput.value = '';
-                    // Reload imports list
-                    loadImportsList();
-                    // Refresh forecast accuracy after new data import
-                    fetchForecastAccuracy();
-                    // Refresh weekly forecast preview
-                    fetchWeeklyForecast();
-                    // Refresh enhanced restock alerts
-                    fetchEnhancedRestockAlerts();
-                    // Refresh synchronized daily/weekly forecasts
-                    if (typeof loadSynchronizedForecasts === 'function') {
-                        const productSelect = document.getElementById('sync-forecast-product-select');
-                        const selectedProduct = productSelect ? productSelect.value : null;
-                        loadSynchronizedForecasts(selectedProduct);
+                // Use XMLHttpRequest to track upload progress
+                const xhr = new XMLHttpRequest();
+                const progressBar = document.getElementById('upload-progress-bar');
+                const progressText = document.getElementById('upload-progress-text');
+                const uploadStage = document.getElementById('upload-stage');
+                
+                // Track upload progress
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        if (progressBar && progressText) {
+                            progressBar.style.width = percentComplete + '%';
+                            progressText.textContent = Math.round(percentComplete) + '%';
+                        }
+                        if (uploadStage) {
+                            if (percentComplete < 100) {
+                                uploadStage.textContent = 'Uploading file...';
+                            } else {
+                                uploadStage.textContent = 'Processing data and generating forecasts...';
+                            }
+                        }
                     }
-                } else {
-                    importStatus.innerHTML = `<div style="color: #dc3545; padding: 10px; background: #f8d7da; border-radius: 4px;"><strong>Error:</strong> ${result.error}</div>`;
-                }
+                });
+                
+                // Handle completion
+                xhr.addEventListener('load', () => {
+                    if (progressBar && progressText) {
+                        progressBar.style.width = '100%';
+                        progressText.textContent = '100%';
+                    }
+                    
+                    const response = xhr.response;
+                    let result;
+                    try {
+                        result = JSON.parse(response);
+                    } catch (e) {
+                        importStatus.innerHTML = `<div style="color: #dc3545; padding: 10px; background: #f8d7da; border-radius: 4px;"><strong>Error:</strong> Invalid server response</div>`;
+                        uploadCsvBtn.disabled = false;
+                        uploadCsvBtn.textContent = 'Upload CSV';
+                        uploadCsvBtn.style.cursor = 'pointer';
+                        uploadCsvBtn.style.opacity = '1';
+                        return;
+                    }
+
+                    if (xhr.status === 200 && result.success) {
+                        const rowsProcessed = (result.summary && result.summary.processed) || result.rows_processed || 0;
+                        const forecastsFailed = (result.summary && result.summary.forecasts_failed) || 0;
+                        const forecastsRetrained = (result.summary && result.summary.forecasts_regenerated) || 0;
+                        
+                        // Build success message with warnings
+                        let statusHtml = `
+                            <div style="color: #28a745; padding: 10px; background: #d4edda; border-radius: 4px; border-left: 4px solid #28a745;">
+                                <strong>✓ CSV Upload Complete!</strong><br/>
+                                <small style="white-space: pre-wrap;">${result.message}</small>
+                            </div>
+                        `;
+                        
+                        // Show warnings if present (forecast failures are critical)
+                        if (result.warnings && result.warnings.length > 0) {
+                            statusHtml += `
+                                <div style="color: #856404; padding: 12px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107; margin-top: 10px;">
+                                    <strong>⚠️ Warnings:</strong><br/>
+                                    <ul style="margin: 8px 0 0 20px; padding: 0;">
+                                        ${result.warnings.map(w => `<li style="margin: 4px 0;">${w}</li>`).join('')}
+                                    </ul>
+                                    ${forecastsFailed > 0 ? '<br/><small><strong>Action Required:</strong> Re-upload this CSV or run manual forecast generation.</small>' : ''}
+                                </div>
+                            `;
+                        }
+                        
+                        // Show forecast errors if present
+                        if (result.forecast_errors && result.forecast_errors.length > 0) {
+                            statusHtml += `
+                                <div style="color: #721c24; padding: 12px; background: #f8d7da; border-radius: 4px; border-left: 4px solid #dc3545; margin-top: 10px;">
+                                    <strong>🚨 Forecast Generation Errors:</strong><br/>
+                                    <ul style="margin: 8px 0 0 20px; padding: 0; max-height: 200px; overflow-y: auto;">
+                                        ${result.forecast_errors.map(e => `<li style="margin: 4px 0; font-size: 0.9em;">${e}</li>`).join('')}
+                                    </ul>
+                                    <small style="display: block; margin-top: 8px;"><strong>What to do:</strong> Review errors above, then either upload cleaned data or run: <code>python generate_forecasts.py</code></small>
+                                </div>
+                            `;
+                        }
+                        
+                        // Success indicator with forecast status
+                        if (forecastsRetrained === 0 && result.summary && result.summary.forecasts_skipped === 0 && forecastsFailed === 0) {
+                            // No forecast generation attempted (non-sales upload)
+                            statusHtml += `<div style="color: #6c757d; padding: 8px; background: #e9ecef; border-radius: 4px; margin-top: 10px; font-size: 0.9em;">ℹ️ Forecast generation not applicable for this data type.</div>`;
+                        }
+                        
+                        importStatus.innerHTML = statusHtml;
+                        fileInput.value = '';
+                        
+                        // Reload imports list
+                        loadImportsList();
+                        // Refresh forecast accuracy after new data import
+                        fetchForecastAccuracy();
+                        // Refresh weekly forecast preview
+                        fetchWeeklyForecast();
+                        // Refresh enhanced restock alerts
+                        fetchEnhancedRestockAlerts();
+                        // Refresh synchronized daily/weekly forecasts
+                        if (typeof loadSynchronizedForecasts === 'function') {
+                            const productSelect = document.getElementById('sync-forecast-product-select');
+                            const selectedProduct = productSelect ? productSelect.value : null;
+                            loadSynchronizedForecasts(selectedProduct);
+                        }
+                    } else {
+                        importStatus.innerHTML = `<div style="color: #dc3545; padding: 10px; background: #f8d7da; border-radius: 4px;"><strong>Error:</strong> ${result.error || 'Upload failed'}</div>`;
+                    }
+                    
+                    uploadCsvBtn.disabled = false;
+                    uploadCsvBtn.textContent = 'Upload CSV';
+                    uploadCsvBtn.style.cursor = 'pointer';
+                    uploadCsvBtn.style.opacity = '1';
+                });
+                
+                // Handle errors
+                xhr.addEventListener('error', () => {
+                    importStatus.innerHTML = `<div style="color: #dc3545; padding: 10px; background: #f8d7da; border-radius: 4px;"><strong>Upload failed:</strong> Network error</div>`;
+                    uploadCsvBtn.disabled = false;
+                    uploadCsvBtn.textContent = 'Upload CSV';
+                    uploadCsvBtn.style.cursor = 'pointer';
+                    uploadCsvBtn.style.opacity = '1';
+                });
+                
+                // Send request
+                xhr.open('POST', '/api/upload-csv');
+                xhr.send(formData);
+                
             } catch (error) {
                 importStatus.innerHTML = `<div style="color: #dc3545; padding: 10px; background: #f8d7da; border-radius: 4px;"><strong>Upload failed:</strong> ${error.message}</div>`;
-            } finally {
                 uploadCsvBtn.disabled = false;
-                uploadCsvBtn.textContent = 'Import CSV';
+                uploadCsvBtn.textContent = 'Upload CSV';
                 uploadCsvBtn.style.cursor = 'pointer';
                 uploadCsvBtn.style.opacity = '1';
             }
@@ -1715,7 +2135,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (downloadAllDataBtn) {
         downloadAllDataBtn.addEventListener('click', async function() {
             try {
-                const response = await fetch('/api/download-all-data');
+                const response = await fetch('/api/download-all-data', { credentials: 'same-origin' });
                 if (response.ok) {
                     // Get filename from Content-Disposition header
                     const contentDisposition = response.headers.get('Content-Disposition');
@@ -1744,12 +2164,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Load imports list
-    function loadImportsList() {
+    window.loadImportsList = function() {
         const importsList = document.getElementById('imports-list');
         if (!importsList) return;
 
-        fetch('/api/list-imports')
-            .then(response => response.json())
+        fetch('/api/list-imports', { credentials: 'same-origin' })
+            .then(response => {
+                if (response.status === 401) {
+                    throw new Error('Session expired - please log in again');
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success && data.imports && data.imports.length > 0) {
                     importsList.innerHTML = data.imports.map(imp => {
@@ -1776,7 +2204,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                importsList.innerHTML = `<p style="padding: 20px; color: #dc3545; text-align: center;">Error loading imports: ${error.message}</p>`;
+                console.error('Error loading imports:', error);
+                importsList.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <p style="color: #dc3545; margin: 0 0 12px;">⚠️ Error: ${error.message}</p>
+                        <button onclick="loadImportsList()" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem;">
+                            🔄 Retry
+                        </button>
+                    </div>
+                `;
             });
     }
 
@@ -1785,7 +2221,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (uploadBtn) {
         uploadBtn.addEventListener('click', async function() {
             const fileInput = document.getElementById('csv-import');
-            const dataTypeSelect = document.getElementById('data-type-select');
             const statusDiv = document.getElementById('import-status');
             
             if (!fileInput.files[0]) {
@@ -1795,13 +2230,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
-            formData.append('data_type', dataTypeSelect.value);
+            // Always use unified_sales format (data type selector removed from UI)
+            formData.append('data_type', 'unified_sales');
 
             statusDiv.innerHTML = '<p style="color: #007bff;">Uploading and validating...</p>';
 
             try {
                 const response = await fetch('/api/upload-csv', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     body: formData
                 });
 
@@ -1833,12 +2270,34 @@ document.addEventListener('DOMContentLoaded', function() {
                         fetchEnhancedRestockAlerts();
                     }
                 } else {
+                    // Handle validation errors with detailed formatting
+                    let errorHTML = result.error || 'Unknown error occurred';
+                    
+                    // If error contains newlines, format as list
+                    if (errorHTML.includes('\n')) {
+                        const lines = errorHTML.split('\n').filter(line => line.trim());
+                        errorHTML = lines.map(line => {
+                            // Highlight row numbers and product names
+                            line = line.replace(/Row (\d+):/g, '<strong style="color: #991b1b;">Row $1:</strong>');
+                            line = line.replace(/'([^']+)'/g, '<code style="background: #fee2e2; padding: 2px 6px; border-radius: 3px; font-size: 0.9em;">$1</code>');
+                            return line;
+                        }).join('<br/>');
+                    }
+                    
                     statusDiv.innerHTML = `
-                        <div style="color: #dc3545; background: #f8d7da; padding: 12px; border-radius: 4px; border: 1px solid #f5c6cb;">
-                            <strong>❌ Import Failed</strong><br/>
-                            <div style="margin-top: 8px; font-size: 13px;">
-                                ${result.error}
+                        <div style="color: #991b1b; background: #fee2e2; padding: 16px; border-radius: 6px; border: 2px solid #fecaca; max-height: 400px; overflow-y: auto;">
+                            <strong style="font-size: 1.1em;">❌ Import Rejected</strong><br/>
+                            <div style="margin-top: 12px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                                ${errorHTML}
                             </div>
+                            ${result.total_unknown ? `
+                                <div style="margin-top: 12px; padding: 10px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px; color: #78350f; font-size: 0.85em;">
+                                    <strong>💡 Next Steps:</strong><br/>
+                                    1. Add missing products manually using the "Add Product" button above<br/>
+                                    2. OR fix typos in your CSV file and re-upload<br/>
+                                    3. Check product names match exactly (case-sensitive)
+                                </div>
+                            ` : ''}
                         </div>
                     `;
                 }
@@ -1855,87 +2314,65 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Product Management Functions
     let topProductsChart = null;
-    let currentEditingProductId = null;
-    let currentDeletingProduct = null;
-    let currentInventoryProduct = null;
 
-    // Load products with enhanced UI
-    function loadProducts(searchTerm = '') {
+    // Load products with enhanced UI - EXPOSE TO GLOBAL SCOPE
+    window.loadProducts = function(searchTerm = '') {
         const productsList = document.getElementById('products-list');
-        if (!productsList) return;
+        if (productsList) {
+            console.log('[loadProducts] Starting to load products, searchTerm:', searchTerm);
+        } else {
+            console.warn('[loadProducts] products-list element not found!');
+            return;
+        }
 
         const url = searchTerm ? `/api/products?search=${encodeURIComponent(searchTerm)}` : '/api/products';
+        console.log('[loadProducts] Fetching from:', url);
 
-        fetch(url)
-            .then(response => response.json())
+        fetch(url, { credentials: 'same-origin' })
+            .then(response => {
+                console.log('[loadProducts] Response status:', response.status);
+                if (response.status === 401) {
+                    throw new Error('Session expired - please log in again');
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('[loadProducts] Data received:', data);
                 if (data.success && data.products && data.products.length > 0) {
-                    // Fetch batch data for all products
-                    Promise.all(data.products.map(product => 
-                        fetch(`/api/batches/${product.id}`)
-                            .then(r => r.json())
-                            .then(batchData => ({ product, batches: batchData.batches || [] }))
-                            .catch(() => ({ product, batches: [] }))
-                    )).then(productsWithBatches => {
-                        productsList.innerHTML = productsWithBatches.map(({ product, batches }) => {
-                            const stock = product.current_stock || 0;
-                            let stockClass = 'high';
-                            if (stock < 10) stockClass = 'low';
-                            else if (stock < 50) stockClass = 'medium';
+                    console.log('[loadProducts] Rendering', data.products.length, 'products');
+                    productsList.innerHTML = data.products.map(product => {
+                        const stock = product.current_stock || 0;
+                        let stockClass = 'high';
+                        if (stock < 10) stockClass = 'low';
+                        else if (stock < 50) stockClass = 'medium';
 
-                            // Count batches by urgency
-                            const expiredBatches = batches.filter(b => b.urgency_level === 'EXPIRED').length;
-                            const criticalBatches = batches.filter(b => b.urgency_level === 'CRITICAL').length;
-                            const highBatches = batches.filter(b => b.urgency_level === 'HIGH').length;
-                            const totalBatches = batches.length;
-
-                            let batchInfo = '';
-                            if (totalBatches > 0) {
-                                const urgentCount = expiredBatches + criticalBatches + highBatches;
-                                if (urgentCount > 0) {
-                                    batchInfo = `<div style="margin-top: 8px; padding: 8px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; font-size: 0.85em;">
-                                        <strong>⚠️ ${urgentCount} batch${urgentCount > 1 ? 'es' : ''} need attention:</strong>
-                                        ${expiredBatches > 0 ? ` 🔴 ${expiredBatches} expired` : ''}
-                                        ${criticalBatches > 0 ? ` 🔴 ${criticalBatches} critical (≤3 days)` : ''}
-                                        ${highBatches > 0 ? ` 🟠 ${highBatches} high (≤7 days)` : ''}
-                                    </div>`;
-                                } else {
-                                    batchInfo = `<div style="margin-top: 6px; font-size: 0.85em; color: #10b981;">
-                                        ✅ ${totalBatches} batch${totalBatches > 1 ? 'es' : ''} in good condition
-                                    </div>`;
-                                }
-                            }
-
-                            return `
-                                <div class="product-item" data-product-id="${product.id}">
-                                    <div class="product-info">
-                                        <div class="product-name">${product.name}</div>
-                                        <div class="product-meta">
-                                            <span>📁 ${product.category || 'Uncategorized'}</span>
-                                            <span>💰 ₱${parseFloat(product.unit_cost || 0).toFixed(2)}</span>
-                                            <span class="stock-badge ${stockClass}">📦 ${stock} units</span>
-                                            ${totalBatches > 0 ? `<span style="color: #6366f1;">⏰ ${totalBatches} batch${totalBatches > 1 ? 'es' : ''}</span>` : ''}
-                                        </div>
-                                        ${batchInfo}
-                                    </div>
-                                    <div class="product-actions">
-                                        ${totalBatches > 0 ? `<button class="btn-stock" onclick="viewBatchesModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
-                                            ⏰ Batches
-                                        </button>` : ''}
-                                        <button class="btn-stock" onclick="openInventoryModal(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${stock})">
-                                            📦 Update
-                                        </button>
-                                        <button class="btn-edit" onclick="openEditProductModal(${product.id})">
-                                            ✏️ Edit
-                                        </button>
-                                        <button class="btn-delete" onclick="openDeleteModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
-                                            🗑️ Delete
-                                        </button>
+                        return `
+                            <div class="product-item" data-product-id="${product.id}">
+                                <div class="product-info">
+                                    <div class="product-name">${product.name}</div>
+                                    <div class="product-meta">
+                                        <span>📁 ${product.category || 'Uncategorized'}</span>
+                                        <span>💰 ₱${parseFloat(product.unit_cost || 0).toFixed(2)}</span>
+                                        <span class="stock-badge ${stockClass}">📦 ${stock} units</span>
                                     </div>
                                 </div>
+                                <div class="product-actions">
+                                    <button class="btn-stock" onclick="openInventoryModal(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${stock})">
+                                        📦 Update
+                                    </button>
+                                    <button class="btn-edit" onclick="openEditProductModal(${product.id})">
+                                        ✏️ Edit
+                                    </button>
+                                    <button class="btn-delete" onclick="openDeleteModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
+                                        🗑️ Delete
+                                    </button>
+                                </div>
+                            </div>
                             `;
                         }).join('');
-                    });
                 } else {
                     productsList.innerHTML = `
                         <div style="text-align: center; padding: 60px 20px;">
@@ -1947,93 +2384,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
+                console.error('Error loading products:', error);
                 productsList.innerHTML = `
                     <div style="text-align: center; padding: 60px 20px;">
                         <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">⚠️</div>
                         <p style="color: #ef4444; font-size: 1rem; margin: 0;">Error loading products</p>
                         <p style="color: #fca5a5; font-size: 0.875rem; margin-top: 8px;">${error.message}</p>
+                        <button onclick="loadProducts()" style="margin-top: 16px; padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem;">
+                            🔄 Retry
+                        </button>
                     </div>
                 `;
             });
-    }
-
-    // Product Modal Functions
-    window.openProductModal = function(productId = null) {
-        const modal = document.getElementById('product-modal');
-        const title = document.getElementById('product-modal-title');
-        const form = document.getElementById('product-modal-form');
-        
-        // Reset form
-        form.reset();
-        document.getElementById('modal-product-id').value = '';
-        
-        // Get batch section elements (for new products only)
-        const batchQuantityInput = document.getElementById('modal-batch-quantity');
-        const expirationDateInput = document.getElementById('modal-expiration-date');
-        const batchNumberInput = document.getElementById('modal-batch-number');
-        const supplierInput = document.getElementById('modal-supplier');
-        const batchNotesInput = document.getElementById('modal-batch-notes');
-        
-        if (productId) {
-            title.textContent = 'Edit Product';
-            // Hide all batch-related fields when editing
-            const batchFields = [batchQuantityInput, expirationDateInput, batchNumberInput, supplierInput, batchNotesInput];
-            batchFields.forEach(field => {
-                if (field && field.closest('.form-group')) {
-                    field.closest('.form-group').style.display = 'none';
-                }
-            });
-            currentEditingProductId = productId;
-            
-            // Load product data
-            fetch(`/api/products/${productId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.product) {
-                        document.getElementById('modal-product-id').value = data.product.id;
-                        document.getElementById('modal-product-name').value = data.product.name;
-                        document.getElementById('modal-product-category').value = data.product.category || '';
-                        document.getElementById('modal-product-cost').value = data.product.unit_cost || '';
-                    }
-                });
-        } else {
-            title.textContent = 'Add New Product';
-            // Show all batch-related fields for new products
-            const batchFields = [batchQuantityInput, expirationDateInput, batchNumberInput, supplierInput, batchNotesInput];
-            batchFields.forEach(field => {
-                if (field && field.closest('.form-group')) {
-                    field.closest('.form-group').style.display = 'block';
-                }
-            });
-            
-            // Set default expiration to 1 year from now
-            if (expirationDateInput) {
-                const oneYearLater = new Date();
-                oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-                expirationDateInput.value = oneYearLater.toISOString().split('T')[0];
-            }
-            
-            currentEditingProductId = null;
-        }
-        
-        modal.classList.add('show');
-    };
-
-    window.openEditProductModal = function(productId) {
-        openProductModal(productId);
-    };
-
-    window.closeProductModal = function() {
-        const modal = document.getElementById('product-modal');
-        modal.classList.remove('show');
-        currentEditingProductId = null;
     };
 
     // Product Modal Form Submission
     const productModalForm = document.getElementById('product-modal-form');
+    console.log('[Products] Product modal form element:', productModalForm);
     if (productModalForm) {
+        console.log('[Products] Attaching submit event listener to product form');
         productModalForm.addEventListener('submit', async function(e) {
             e.preventDefault();
+            console.log('[Products] Product form submitted');
 
             const productId = document.getElementById('modal-product-id').value;
             const productData = {
@@ -2042,120 +2414,64 @@ document.addEventListener('DOMContentLoaded', function() {
                 unit_cost: document.getElementById('modal-product-cost').value
             };
 
-            // If creating a new product and initial batch quantity provided, require expiration date
+            // If creating a new product, handle initial stock
             const isNew = !productId;
-            let batchQuantity = 0;
-            let batchExpiration = '';
             if (isNew) {
-                batchQuantity = parseInt(document.getElementById('modal-batch-quantity').value) || 0;
-                batchExpiration = document.getElementById('modal-expiration-date').value;
-                if (batchQuantity > 0 && !batchExpiration) {
-                    showNotification('Please provide an expiration date for the initial batch (required).', 'error');
-                    return;
-                }
+                const currentStock = parseInt(document.getElementById('modal-product-stock')?.value) || 0;
+                productData.current_stock = currentStock;
+                console.log('[Products] New product with stock:', currentStock);
             }
 
             try {
+                console.log('[Products] Sending request:', { url: productId ? `/api/products/${productId}` : '/api/products', method: productId ? 'PUT' : 'POST', data: productData });
                 const url = productId ? `/api/products/${productId}` : '/api/products';
                 const method = productId ? 'PUT' : 'POST';
 
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(productData)
+                    body: JSON.stringify(productData),
+                    credentials: 'same-origin'
                 });
 
+                console.log('[Products] Response status:', response.status);
                 const result = await response.json();
+                console.log('[Products] Response data:', result);
 
                 if (result.success) {
-                    // If creating new product with initial batch info, add the batch
-                    if (isNew && result.product && batchQuantity > 0) {
-                        const batchData = {
-                            product_id: result.product.id,
-                            quantity: batchQuantity,
-                            expiration_date: batchExpiration,
-                            batch_number: document.getElementById('modal-batch-number').value || null,
-                            unit_cost: document.getElementById('modal-product-cost').value || null,
-                            supplier: document.getElementById('modal-supplier').value || null,
-                            notes: document.getElementById('modal-batch-notes').value || null,
-                            user_id: window.currentUserId || null
-                        };
-
-                        try {
-                            const batchResponse = await fetch('/api/batches/add', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(batchData)
-                            });
-
-                            const batchResult = await batchResponse.json();
-                            if (batchResult.success) {
-                                showNotification(`${result.message} Batch added successfully!`, 'success');
-                            } else {
-                                showNotification(`${result.message} (but failed to add batch)`, 'error');
-                            }
-                        } catch (batchError) {
-                            console.error('Error adding batch:', batchError);
-                            showNotification('Product created but failed to add initial batch.', 'error');
-                        }
-                    } else {
-                        showNotification(result.message, 'success');
-                    }
-
+                    console.log('[Products] Product operation successful');
+                    showNotification(result.message, 'success');
                     closeProductModal();
                     loadProducts();
                 } else {
+                    console.error('[Products] Product operation failed:', result.error);
                     showNotification(`Error: ${result.error}`, 'error');
                 }
             } catch (error) {
+                console.error('[Products] Exception during product operation:', error);
                 showNotification(`Error: ${error.message}`, 'error');
             }
         });
     }
 
-    // Delete Modal Functions
-    window.openDeleteModal = function(productId, productName) {
-        const modal = document.getElementById('delete-modal');
-        const message = document.getElementById('delete-modal-message');
-        const warning = document.getElementById('delete-modal-warning');
-        
-        currentDeletingProduct = { id: productId, name: productName };
-        
-        message.textContent = `Are you sure you want to delete "${productName}"?`;
-        
-        // Check if product has sales records
-        fetch(`/api/products/${productId}/sales-count`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.count > 0) {
-                    warning.style.display = 'block';
-                    warning.innerHTML = `⚠️ This product has ${data.count} sales record(s). Deleting it may affect your reports.`;
-                } else {
-                    warning.style.display = 'none';
-                }
-            })
-            .catch(() => {
-                warning.style.display = 'none';
-            });
-        
-        modal.classList.add('show');
-    };
-
-    window.closeDeleteModal = function() {
-        const modal = document.getElementById('delete-modal');
-        modal.classList.remove('show');
-        currentDeletingProduct = null;
-    };
-
-    // Confirm Delete Button
+    // Confirm Delete Button - now with explicit confirmation
     const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+    console.log('[Products] Confirm delete button element:', confirmDeleteBtn);
     if (confirmDeleteBtn) {
+        console.log('[Products] Attaching click event listener to delete button');
         confirmDeleteBtn.addEventListener('click', async function() {
+            console.log('[Products] Delete button clicked, product:', currentDeletingProduct);
             if (!currentDeletingProduct) return;
 
+            // Disable button to prevent double-click
+            confirmDeleteBtn.disabled = true;
+            confirmDeleteBtn.innerHTML = '⏳ Deleting...';
+
             try {
-                const response = await fetch(`/api/products/${currentDeletingProduct.id}`, {
-                    method: 'DELETE'
+                // Now actually delete with confirm=true
+                const response = await fetch(`/api/products/${currentDeletingProduct.id}?confirm=true`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
                 });
 
                 const result = await response.json();
@@ -2163,42 +2479,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.success) {
                     closeDeleteModal();
                     loadProducts();
-                    showNotification(result.message, 'success');
+                    
+                    // Show success with next steps
+                    const nextSteps = result.next_steps ? result.next_steps.join('\n') : '';
+                    showNotification(`✓ ${result.message}\n${nextSteps}`, 'success');
                 } else {
                     showNotification(`Error: ${result.error}`, 'error');
+                    confirmDeleteBtn.disabled = false;
+                    confirmDeleteBtn.innerHTML = '🗑️ Yes, Delete Permanently';
                 }
             } catch (error) {
                 showNotification(`Error: ${error.message}`, 'error');
+                confirmDeleteBtn.disabled = false;
+                confirmDeleteBtn.innerHTML = '🗑️ Yes, Delete Permanently';
             }
         });
     }
 
-    // Inventory Adjustment Modal Functions
-    window.openInventoryModal = function(productId, productName, currentStock) {
-        const modal = document.getElementById('inventory-modal');
-        const form = document.getElementById('inventory-modal-form');
-        
-        form.reset();
-        document.getElementById('inventory-product-id').value = productId;
-        document.getElementById('inventory-product-name').textContent = productName;
-        document.getElementById('inventory-current-stock').textContent = currentStock;
-        
-        currentInventoryProduct = { id: productId, name: productName, stock: currentStock };
-        
-        modal.classList.add('show');
-    };
-
-    window.closeInventoryModal = function() {
-        const modal = document.getElementById('inventory-modal');
-        modal.classList.remove('show');
-        currentInventoryProduct = null;
-    };
-
     // Inventory Modal Form Submission
     const inventoryModalForm = document.getElementById('inventory-modal-form');
+    console.log('[Products] Inventory modal form element:', inventoryModalForm);
     if (inventoryModalForm) {
+        console.log('[Products] Attaching submit event listener to inventory form');
         inventoryModalForm.addEventListener('submit', async function(e) {
             e.preventDefault();
+            console.log('[Products] Inventory form submitted');
             
             const productId = document.getElementById('inventory-product-id').value;
             const quantity = parseInt(document.getElementById('inventory-quantity').value);
@@ -2208,6 +2513,7 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const response = await fetch('/api/inventory/adjust', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         product_id: productId,
@@ -2321,7 +2627,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.adjustStock = function(productId, productName) {
         // Get current stock first
-        fetch(`/api/products/${productId}`)
+        fetch(`/api/products/${productId}`, { credentials: 'same-origin' })
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.product) {
@@ -2337,7 +2643,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ======= Available periods for dropdowns (Top Products + Synchronized Views) =======
     async function fetchAvailablePeriods() {
         try {
-            const res = await fetch('/api/available-periods');
+            const res = await fetch('/api/available-periods', { credentials: 'same-origin' });
             const data = await res.json();
             if (!data.success) return null;
             return data;
@@ -2432,15 +2738,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Top Products Chart
-    function loadTopProducts() {
+    window.loadTopProducts = function() {
+        console.log('[loadTopProducts] Function called');
         const canvas = document.getElementById('topProductsChart');
-        if (!canvas) return;
+        if (!canvas) {
+            console.warn('[loadTopProducts] Canvas not found!');
+            return;
+        }
 
         const period = document.getElementById('ranking-period')?.value || '7d';
         const metric = document.getElementById('ranking-metric')?.value || 'revenue';
         const year = document.getElementById('ranking-year')?.value || '';
         const month = document.getElementById('ranking-month')?.value || '';
         const week = document.getElementById('ranking-week')?.value || '';
+
+        console.log('[loadTopProducts] Filters:', { period, metric, year, month, week });
 
         const params = new URLSearchParams({ limit: '10', metric });
         // If any calendar filter set, they override the period window
@@ -2452,12 +2764,21 @@ document.addEventListener('DOMContentLoaded', function() {
             params.set('period', period);
         }
 
-        fetch(`/api/top-products?${params.toString()}`)
-            .then(response => response.json())
+        console.log('[loadTopProducts] Fetching from:', `/api/top-products?${params.toString()}`);
+
+        fetch(`/api/top-products?${params.toString()}`, { credentials: 'same-origin' })
+            .then(response => {
+                console.log('[loadTopProducts] Response status:', response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log('[loadTopProducts] Data received:', data);
                 if (data.success && data.products) {
+                    console.log('[loadTopProducts] Products count:', data.products.length);
                     const labels = data.products.map(p => p.product_name);
                     const values = data.products.map(p => metric === 'revenue' ? p.total_revenue : p.total_quantity);
+                    console.log('[loadTopProducts] Labels:', labels);
+                    console.log('[loadTopProducts] Values:', values);
 
                     if (topProductsChart) {
                         topProductsChart.destroy();
@@ -2545,10 +2866,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }
                     });
+                } else {
+                    console.warn('[loadTopProducts] No products or unsuccessful response:', data);
                 }
             })
             .catch(error => {
-                console.error('Error loading top products:', error);
+                console.error('[loadTopProducts] Error loading top products:', error);
             });
     }
 
@@ -2586,7 +2909,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const metric = document.getElementById('ranking-metric')?.value || 'revenue';
             
             try {
-                const response = await fetch(`/api/top-products?limit=10&period=${period}&metric=${metric}`);
+                const response = await fetch(`/api/top-products?limit=10&period=${period}&metric=${metric}`, { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 if (data.success && data.products) {
@@ -2648,7 +2971,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load products into forecast dropdown
     const forecastProductSelect = document.getElementById('forecast-product');
     if (forecastProductSelect) {
-        fetch('/api/products')
+        fetch('/api/products', { credentials: 'same-origin' })
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.products) {
@@ -2671,7 +2994,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Populate product selector for synchronized forecasts
 async function populateSyncForecastProductSelector() {
     try {
-        const response = await fetch('/api/products');
+        const response = await fetch('/api/products', { credentials: 'same-origin' });
         if (!response.ok) return;
         
         const data = await response.json();
@@ -2751,7 +3074,7 @@ async function loadDailyForecastChart(productId = null) {
         if (m) params.set('month', m);
         if (w) params.set('week', w);
         const url = `/api/forecast/daily${params.toString() ? ('?' + params.toString()) : ''}`;
-        const response = await fetch(url);
+        const response = await fetch(url, { credentials: 'same-origin' });
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -2804,7 +3127,8 @@ function renderDailyForecastChart(data) {
                 actual: day.sales,
                 forecast: null,
                 confidence_upper: null,
-                confidence_lower: null
+                confidence_lower: null,
+                yoy: null
             });
         });
     }
@@ -2826,8 +3150,18 @@ function renderDailyForecastChart(data) {
                     actual: null,
                     forecast: day.sales,
                     confidence_upper: day.confidence_upper,
-                    confidence_lower: day.confidence_lower
+                    confidence_lower: day.confidence_lower,
+                    yoy: null
                 });
+            }
+        });
+    }
+    
+    // Process year-over-year data for historical comparison
+    if (data.yoy_data && data.yoy_data.length > 0) {
+        data.yoy_data.forEach(day => {
+            if (dateMap.has(day.date)) {
+                dateMap.get(day.date).yoy = day.sales;
             }
         });
     }
@@ -2839,6 +3173,8 @@ function renderDailyForecastChart(data) {
     const forecastData = [];
     const confidenceUpper = [];
     const confidenceLower = [];
+    const yoyData = [];
+    const predictionErrors = []; // Track accuracy at each point
     
     sortedDates.forEach(dateStr => {
         const entry = dateMap.get(dateStr);
@@ -2849,7 +3185,21 @@ function renderDailyForecastChart(data) {
         forecastData.push(entry.forecast);
         confidenceUpper.push(entry.confidence_upper);
         confidenceLower.push(entry.confidence_lower);
+        yoyData.push(entry.yoy);
+        
+        // Calculate prediction error percentage if both actual and forecast exist
+        if (entry.actual !== null && entry.forecast !== null && entry.actual > 0) {
+            const errorPct = Math.abs((entry.forecast - entry.actual) / entry.actual) * 100;
+            predictionErrors.push({ date: dateStr, error: errorPct, actual: entry.actual, forecast: entry.forecast });
+        }
     });
+    
+    // Calculate average prediction error for completed days
+    let avgAccuracy = null;
+    if (predictionErrors.length > 0) {
+        const avgError = predictionErrors.reduce((sum, p) => sum + p.error, 0) / predictionErrors.length;
+        avgAccuracy = Math.max(0, 100 - avgError);
+    }
     
     window.dailyForecastChart = new Chart(ctx, {
         type: 'line',
@@ -2860,64 +3210,107 @@ function renderDailyForecastChart(data) {
                     label: 'Actual Sales',
                     data: actualData,
                     borderColor: '#28a745',
-                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
+                    backgroundColor: 'rgba(40, 167, 69, 0.15)',
+                    borderWidth: 3,
+                    pointRadius: function(context) {
+                        // Show larger points where we have both actual and forecast (for comparison)
+                        const idx = context.dataIndex;
+                        return (actualData[idx] !== null && forecastData[idx] !== null) ? 5 : 0;
+                    },
+                    pointHoverRadius: 7,
                     pointBackgroundColor: '#28a745',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
                     fill: true,
-                    tension: 0.4
+                    tension: 0.3,
+                    order: 2
                 },
                 {
                     label: 'Forecasted Sales',
                     data: forecastData,
                     borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    backgroundColor: 'rgba(0, 123, 255, 0.15)',
+                    borderWidth: 3,
+                    borderDash: function(context) {
+                        // Dashed line for future forecasts, solid for past comparisons
+                        const idx = context.dataIndex;
+                        return actualData[idx] === null ? [5, 5] : [];
+                    },
+                    pointRadius: function(context) {
+                        // Show points where we have both actual and forecast
+                        const idx = context.dataIndex;
+                        return (actualData[idx] !== null && forecastData[idx] !== null) ? 5 : 3;
+                    },
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#007bff',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    order: 1
+                },
+                {
+                    label: 'Last Year Same Period',
+                    data: yoyData,
+                    borderColor: '#ffc107',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
                     borderWidth: 2,
+                    borderDash: [3, 3],
                     pointRadius: 0,
                     pointHoverRadius: 5,
-                    pointBackgroundColor: '#007bff',
-                    fill: true,
-                    tension: 0.4
+                    pointBackgroundColor: '#ffc107',
+                    fill: false,
+                    tension: 0.3,
+                    order: 3
                 },
                 {
                     label: 'Confidence Upper',
                     data: confidenceUpper,
                     borderColor: 'rgba(0, 123, 255, 0.3)',
-                    backgroundColor: 'rgba(0, 123, 255, 0.05)',
+                    backgroundColor: 'rgba(0, 123, 255, 0.08)',
                     borderWidth: 1,
                     pointRadius: 0,
                     fill: '+1',
-                    tension: 0.4
+                    tension: 0.3,
+                    order: 4
                 },
                 {
                     label: 'Confidence Lower',
                     data: confidenceLower,
                     borderColor: 'rgba(0, 123, 255, 0.3)',
-                    backgroundColor: 'rgba(0, 123, 255, 0.05)',
+                    backgroundColor: 'rgba(0, 123, 255, 0.08)',
                     borderWidth: 1,
                     pointRadius: 0,
                     fill: false,
-                    tension: 0.4
+                    tension: 0.3,
+                    order: 4
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
             plugins: {
                 title: {
                     display: true,
-                    text: `Daily Sales & Forecast (${data.history_start ? data.history_start + ' to ' : ''}${data.week_end})`,
+                    text: `Daily Sales Trend & Forecast${data.history_start ? ' (Historical Context: ' + data.history_start + ')' : ''}`,
                     font: { size: 16, weight: 'bold' },
-                    padding: { bottom: 20 }
+                    padding: { bottom: 5 }
                 },
                 subtitle: {
                     display: true,
-                    text: data.accuracy ? `Yesterday's Forecast Accuracy: ${data.accuracy}% • Current Week: ${data.week_start} to ${data.week_end}` : `Current Week: ${data.week_start} to ${data.week_end} • Enhanced model with seasonal patterns`,
-                    font: { size: 12 },
-                    color: data.accuracy && data.accuracy >= 85 ? '#28a745' : (data.accuracy && data.accuracy >= 70 ? '#007bff' : '#6b7280'),
-                    padding: { bottom: 10 }
+                    text: [
+                        data.accuracy ? `✓ Yesterday's Accuracy: ${data.accuracy.toFixed(1)}%` : 'Model: Linear Regression with seasonal patterns',
+                        avgAccuracy !== null ? `📊 Average Accuracy (past ${predictionErrors.length} days): ${avgAccuracy.toFixed(1)}%` : '',
+                        `Period: ${data.week_start} to ${data.week_end}` + (data.yoy_data && data.yoy_data.length > 0 ? ' • 📈 Yellow = Same period last year' : '')
+                    ].filter(t => t),
+                    font: { size: 11 },
+                    color: data.accuracy ? (data.accuracy >= 85 ? '#28a745' : (data.accuracy >= 70 ? '#007bff' : '#ef4444')) : '#6b7280',
+                    padding: { bottom: 15 }
                 },
                 legend: {
                     display: true,
@@ -2925,13 +3318,21 @@ function renderDailyForecastChart(data) {
                     labels: {
                         filter: (item) => item.text !== 'Confidence Upper' && item.text !== 'Confidence Lower',
                         usePointStyle: true,
-                        padding: 15
+                        padding: 15,
+                        font: { size: 11 }
                     }
                 },
                 tooltip: {
                     mode: 'index',
                     intersect: false,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 12 },
                     callbacks: {
+                        title: function(tooltipItems) {
+                            return tooltipItems[0].label.replace('\n', ' ');
+                        },
                         label: function(context) {
                             let label = context.dataset.label || '';
                             if (label) {
@@ -2941,6 +3342,43 @@ function renderDailyForecastChart(data) {
                                 label += Math.round(context.parsed.y) + ' units';
                             }
                             return label;
+                        },
+                        afterBody: function(tooltipItems) {
+                            const idx = tooltipItems[0].dataIndex;
+                            const actual = actualData[idx];
+                            const forecast = forecastData[idx];
+                            const yoy = yoyData[idx];
+                            const lines = [];
+                            
+                            // Show prediction accuracy if both exist
+                            if (actual !== null && forecast !== null && actual > 0) {
+                                const error = Math.abs(forecast - actual);
+                                const errorPct = (error / actual) * 100;
+                                const accuracy = Math.max(0, 100 - errorPct);
+                                const diff = forecast - actual;
+                                lines.push('');
+                                lines.push(`🎯 Prediction Accuracy: ${accuracy.toFixed(1)}%`);
+                                lines.push(`   Difference: ${diff >= 0 ? '+' : ''}${Math.round(diff)} units (${diff >= 0 ? '+' : ''}${((diff/actual)*100).toFixed(1)}%)`);
+                                if (accuracy >= 90) lines.push('   ✓ Excellent prediction!');
+                                else if (accuracy >= 80) lines.push('   ✓ Good prediction');
+                                else if (accuracy >= 70) lines.push('   ⚠ Fair prediction');
+                                else lines.push('   ⚠ Model needs adjustment');
+                            }
+                            
+                            // Show year-over-year comparison
+                            if (yoy !== null && actual !== null && actual > 0) {
+                                const yoyGrowth = ((actual - yoy) / yoy) * 100;
+                                lines.push('');
+                                lines.push(`📅 vs Last Year: ${yoyGrowth >= 0 ? '+' : ''}${yoyGrowth.toFixed(1)}%`);
+                            }
+                            
+                            // Show confidence range for forecasts
+                            if (forecast !== null && confidenceLower[idx] && confidenceUpper[idx]) {
+                                lines.push('');
+                                lines.push(`Confidence Range: ${Math.round(confidenceLower[idx])} - ${Math.round(confidenceUpper[idx])} units`);
+                            }
+                            
+                            return lines;
                         }
                     }
                 }
@@ -2986,7 +3424,7 @@ async function loadWeeklyForecastChart(productId = null) {
         if (y) params.set('year', y);
         if (m) params.set('month', m);
         const url = `/api/forecast/weekly${params.toString() ? ('?' + params.toString()) : ''}`;
-        const response = await fetch(url);
+        const response = await fetch(url, { credentials: 'same-origin' });
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -3084,6 +3522,21 @@ function renderWeeklyForecastChart(data) {
         confidenceLower.push(entry.confidence_lower);
     });
     
+    // Calculate prediction errors for weeks with both actual and forecast
+    const weeklyPredictionErrors = [];
+    sortedWeeks.forEach((weekNum, idx) => {
+        if (actualData[idx] !== null && forecastData[idx] !== null && actualData[idx] > 0) {
+            const errorPct = Math.abs((forecastData[idx] - actualData[idx]) / actualData[idx]) * 100;
+            weeklyPredictionErrors.push({ week: weekNum, error: errorPct, actual: actualData[idx], forecast: forecastData[idx] });
+        }
+    });
+    
+    let avgWeeklyAccuracy = null;
+    if (weeklyPredictionErrors.length > 0) {
+        const avgError = weeklyPredictionErrors.reduce((sum, p) => sum + p.error, 0) / weeklyPredictionErrors.length;
+        avgWeeklyAccuracy = Math.max(0, 100 - avgError);
+    }
+    
     window.weeklyForecastChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -3093,64 +3546,89 @@ function renderWeeklyForecastChart(data) {
                     label: 'Actual Sales',
                     data: actualData,
                     borderColor: '#28a745',
-                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
+                    backgroundColor: 'rgba(40, 167, 69, 0.15)',
+                    borderWidth: 3,
+                    pointRadius: function(context) {
+                        const idx = context.dataIndex;
+                        return (actualData[idx] !== null && forecastData[idx] !== null) ? 6 : 4;
+                    },
+                    pointHoverRadius: 8,
                     pointBackgroundColor: '#28a745',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
                     fill: true,
-                    tension: 0.4
+                    tension: 0.3,
+                    order: 1
                 },
                 {
                     label: 'Forecasted Sales',
                     data: forecastData,
                     borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
+                    backgroundColor: 'rgba(0, 123, 255, 0.15)',
+                    borderWidth: 3,
+                    borderDash: function(context) {
+                        const idx = context.dataIndex;
+                        return actualData[idx] === null ? [5, 5] : [];
+                    },
+                    pointRadius: function(context) {
+                        const idx = context.dataIndex;
+                        return (actualData[idx] !== null && forecastData[idx] !== null) ? 6 : 4;
+                    },
+                    pointHoverRadius: 8,
                     pointBackgroundColor: '#007bff',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
                     fill: true,
-                    tension: 0.4
+                    tension: 0.3,
+                    order: 2
                 },
                 {
                     label: 'Confidence Upper',
                     data: confidenceUpper,
                     borderColor: 'rgba(0, 123, 255, 0.3)',
-                    backgroundColor: 'rgba(0, 123, 255, 0.05)',
+                    backgroundColor: 'rgba(0, 123, 255, 0.08)',
                     borderWidth: 1,
                     pointRadius: 0,
                     fill: '+1',
-                    tension: 0.4
+                    tension: 0.3,
+                    order: 3
                 },
                 {
                     label: 'Confidence Lower',
                     data: confidenceLower,
                     borderColor: 'rgba(0, 123, 255, 0.3)',
-                    backgroundColor: 'rgba(0, 123, 255, 0.05)',
+                    backgroundColor: 'rgba(0, 123, 255, 0.08)',
                     borderWidth: 1,
                     pointRadius: 0,
                     fill: false,
-                    tension: 0.4
+                    tension: 0.3,
+                    order: 3
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
             plugins: {
                 title: {
                     display: true,
-                    text: `Weekly Forecast (${data.month_name})`,
+                    text: `Weekly Sales Trend & Forecast - ${data.month_name || 'Current Month'}`,
                     font: { size: 16, weight: 'bold' },
-                    padding: { bottom: 20 }
+                    padding: { bottom: 5 }
                 },
                 subtitle: {
-                    display: data.accuracy !== null,
-                    text: data.accuracy ? `Last Week's Forecast Accuracy: ${data.accuracy}%` : '',
-                    font: { size: 12 },
-                    color: data.accuracy >= 85 ? '#28a745' : (data.accuracy >= 70 ? '#007bff' : '#ef4444'),
-                    padding: { bottom: 10 }
+                    display: true,
+                    text: [
+                        data.accuracy !== null && data.accuracy !== undefined ? `✓ Last Week's Accuracy: ${data.accuracy.toFixed(1)}%` : 'Model: Aggregated daily forecasts',
+                        avgWeeklyAccuracy !== null ? `📊 Average Accuracy (${weeklyPredictionErrors.length} weeks): ${avgWeeklyAccuracy.toFixed(1)}%` : ''
+                    ].filter(t => t),
+                    font: { size: 11 },
+                    color: data.accuracy ? (data.accuracy >= 85 ? '#28a745' : (data.accuracy >= 70 ? '#007bff' : '#ef4444')) : '#6b7280',
+                    padding: { bottom: 15 }
                 },
                 legend: {
                     display: true,
@@ -3158,13 +3636,21 @@ function renderWeeklyForecastChart(data) {
                     labels: {
                         filter: (item) => item.text !== 'Confidence Upper' && item.text !== 'Confidence Lower',
                         usePointStyle: true,
-                        padding: 15
+                        padding: 15,
+                        font: { size: 11 }
                     }
                 },
                 tooltip: {
                     mode: 'index',
                     intersect: false,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 12 },
                     callbacks: {
+                        title: function(tooltipItems) {
+                            return tooltipItems[0].label;
+                        },
                         label: function(context) {
                             let label = context.dataset.label || '';
                             if (label) {
@@ -3175,14 +3661,36 @@ function renderWeeklyForecastChart(data) {
                             }
                             return label;
                         },
-                        afterLabel: function(context) {
-                            // Show confidence interval for forecasts
-                            if (context.dataset.label === 'Forecasted Sales' && confidenceUpper[context.dataIndex]) {
-                                const lower = Math.round(confidenceLower[context.dataIndex]);
-                                const upper = Math.round(confidenceUpper[context.dataIndex]);
-                                return `Range: ${lower} - ${upper} units`;
+                        afterBody: function(tooltipItems) {
+                            const idx = tooltipItems[0].dataIndex;
+                            const actual = actualData[idx];
+                            const forecast = forecastData[idx];
+                            const lines = [];
+                            
+                            // Show prediction accuracy if both exist
+                            if (actual !== null && forecast !== null && actual > 0) {
+                                const error = Math.abs(forecast - actual);
+                                const errorPct = (error / actual) * 100;
+                                const accuracy = Math.max(0, 100 - errorPct);
+                                const diff = forecast - actual;
+                                lines.push('');
+                                lines.push(`🎯 Prediction Accuracy: ${accuracy.toFixed(1)}%`);
+                                lines.push(`   Difference: ${diff >= 0 ? '+' : ''}${Math.round(diff)} units (${diff >= 0 ? '+' : ''}${((diff/actual)*100).toFixed(1)}%)`);
+                                if (accuracy >= 90) lines.push('   ✓ Excellent prediction!');
+                                else if (accuracy >= 80) lines.push('   ✓ Good prediction');
+                                else if (accuracy >= 70) lines.push('   ⚠ Fair prediction');
+                                else lines.push('   ⚠ Model needs improvement');
                             }
-                            return '';
+                            
+                            // Show confidence range for forecasts
+                            if (forecast !== null && confidenceLower[idx] && confidenceUpper[idx]) {
+                                lines.push('');
+                                lines.push(`Confidence Range: ${Math.round(confidenceLower[idx])} - ${Math.round(confidenceUpper[idx])} units`);
+                                const margin = ((confidenceUpper[idx] - confidenceLower[idx]) / forecast) * 100;
+                                lines.push(`   (±${margin.toFixed(0)}% uncertainty)`);
+                            }
+                            
+                            return lines;
                         }
                     }
                 }
@@ -3320,7 +3828,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Load user preferences on page load
 async function loadUserPreferences() {
     try {
-        const response = await fetch('/api/preferences');
+        const response = await fetch('/api/preferences', { credentials: 'same-origin' });
         if (response.ok) {
             const preferences = await response.json();
             
@@ -3400,6 +3908,7 @@ async function saveUserPreferences() {
         
         const response = await fetch('/api/preferences', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -3471,7 +3980,7 @@ function clearAutoRefresh() {
 async function populateProductSelectors() {
     try {
         // Fetch products with forecasts
-        const response = await fetch('/api/products?with_forecasts=true');
+        const response = await fetch('/api/products?with_forecasts=true', { credentials: 'same-origin' });
         if (!response.ok) {
             console.error('Failed to fetch products with forecasts');
             return;
@@ -3530,365 +4039,6 @@ if (document.getElementById('save-settings-btn')) {
     
     // Attach save button handler
     document.getElementById('save-settings-btn').addEventListener('click', saveUserPreferences);
-}
-
-// ============================================================================
-// BATCH MANAGEMENT & EXPIRATION TRACKING
-// ============================================================================
-
-/**
- * Load expiring batches count for dashboard card
- */
-function loadExpiringBatchesCount() {
-    fetch('/api/batches/expiring?days=30')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const batches = data.batches || [];
-                const expired = batches.filter(b => b.urgency_level === 'EXPIRED').length;
-                const critical = batches.filter(b => b.urgency_level === 'CRITICAL').length;
-                const high = batches.filter(b => b.urgency_level === 'HIGH').length;
-                const medium = batches.filter(b => b.urgency_level === 'MEDIUM').length;
-                
-                const total = expired + critical + high + medium;
-                
-                const countElem = document.getElementById('expiring-count');
-                const breakdownElem = document.getElementById('expiring-breakdown');
-                
-                if (countElem) {
-                    countElem.textContent = total;
-                }
-                
-                if (breakdownElem) {
-                    if (total > 0) {
-                        let parts = [];
-                        if (expired > 0) parts.push(`🔴 ${expired} expired`);
-                        if (critical > 0) parts.push(`🔴 ${critical} critical`);
-                        if (high > 0) parts.push(`🟠 ${high} high`);
-                        if (medium > 0) parts.push(`🟡 ${medium} medium`);
-                        breakdownElem.innerHTML = parts.join(' | ');
-                    } else {
-                        breakdownElem.innerHTML = 'No batches expiring soon ✅';
-                    }
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error loading expiring batches:', error);
-            const countElem = document.getElementById('expiring-count');
-            if (countElem) countElem.textContent = '—';
-        });
-}
-
-/**
- * Show expiring batches modal
- */
-window.showExpiringBatchesModal = function() {
-    fetch('/api/batches/expiring?days=30')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const batches = data.batches || [];
-                
-                // Group by urgency
-                const grouped = {
-                    EXPIRED: batches.filter(b => b.urgency_level === 'EXPIRED'),
-                    CRITICAL: batches.filter(b => b.urgency_level === 'CRITICAL'),
-                    HIGH: batches.filter(b => b.urgency_level === 'HIGH'),
-                    MEDIUM: batches.filter(b => b.urgency_level === 'MEDIUM')
-                };
-                
-                let html = `
-                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="this.remove()">
-                        <div style="background: white; border-radius: 12px; max-width: 900px; width: 90%; max-height: 80vh; overflow-y: auto; padding: 0;" onclick="event.stopPropagation()">
-                            <div style="position: sticky; top: 0; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; z-index: 1;">
-                                <h2 style="margin: 0; font-size: 1.5em;">⏰ Expiring Stock Batches</h2>
-                                <p style="margin: 8px 0 0; opacity: 0.9; font-size: 0.95em;">Batches requiring immediate attention (30-day window)</p>
-                            </div>
-                            <div style="padding: 20px;">
-                `;
-                
-                // Add groups
-                const urgencyConfig = {
-                    EXPIRED: { icon: '🔴', label: 'EXPIRED', color: '#ef4444', bgColor: '#fee2e2' },
-                    CRITICAL: { icon: '🔴', label: 'CRITICAL (≤3 days)', color: '#dc2626', bgColor: '#fef2f2' },
-                    HIGH: { icon: '🟠', label: 'HIGH (≤7 days)', color: '#f59e0b', bgColor: '#fef3c7' },
-                    MEDIUM: { icon: '🟡', label: 'MEDIUM (≤14 days)', color: '#eab308', bgColor: '#fef9c3' }
-                };
-                
-                Object.keys(urgencyConfig).forEach(level => {
-                    const items = grouped[level];
-                    if (items.length > 0) {
-                        const config = urgencyConfig[level];
-                        html += `
-                            <div style="margin-bottom: 24px;">
-                                <h3 style="color: ${config.color}; font-size: 1.1em; margin-bottom: 12px;">
-                                    ${config.icon} ${config.label} (${items.length})
-                                </h3>
-                                <div style="display: grid; gap: 12px;">
-                        `;
-                        
-                        items.forEach(batch => {
-                            const daysLeft = batch.days_until_expiry;
-                            const daysText = daysLeft < 0 ? `${Math.abs(daysLeft)} days ago` : `${daysLeft} days left`;
-                            
-                            html += `
-                                <div style="background: ${config.bgColor}; border-left: 4px solid ${config.color}; padding: 12px; border-radius: 6px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                                        <div>
-                                            <strong style="font-size: 1.05em; color: #1f2937;">${batch.product_name}</strong>
-                                            <div style="margin-top: 4px; font-size: 0.9em; color: #6b7280;">
-                                                📦 Batch: ${batch.batch_number} | Qty: ${batch.quantity} units
-                                            </div>
-                                            <div style="margin-top: 4px; font-size: 0.85em; color: #6b7280;">
-                                                📅 Expires: ${batch.expiration_date} (${daysText})
-                                            </div>
-                                            ${batch.supplier ? `<div style="margin-top: 2px; font-size: 0.85em; color: #9ca3af;">🏭 ${batch.supplier}</div>` : ''}
-                                        </div>
-                                        <button onclick="viewBatchesModal(${batch.product_id}, '${batch.product_name.replace(/'/g, "\\'")}'); event.target.closest('[style*=fixed]').remove();" 
-                                                style="background: white; border: 1px solid ${config.color}; color: ${config.color}; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                                            View Product
-                                        </button>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                        
-                        html += `
-                                </div>
-                            </div>
-                        `;
-                    }
-                });
-                
-                if (batches.length === 0) {
-                    html += `
-                        <div style="text-align: center; padding: 40px; color: #10b981;">
-                            <div style="font-size: 3em; margin-bottom: 12px;">✅</div>
-                            <p style="font-size: 1.1em; margin: 0;">All batches in good condition!</p>
-                            <p style="font-size: 0.9em; color: #6b7280; margin-top: 8px;">No batches expiring within the next 30 days</p>
-                        </div>
-                    `;
-                }
-                
-                html += `
-                                <button onclick="this.closest('[style*=fixed]').remove()" style="width: 100%; padding: 12px; background: #e5e7eb; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 12px;">
-                                    Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                document.body.insertAdjacentHTML('beforeend', html);
-            }
-        })
-        .catch(error => {
-            console.error('Error loading expiring batches:', error);
-            alert('Failed to load expiring batches');
-        });
-};
-
-/**
- * View batches for a specific product
- */
-window.viewBatchesModal = function(productId, productName) {
-    fetch(`/api/batches/${productId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const batches = data.batches || [];
-                
-                let html = `
-                    <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="this.remove()">
-                        <div style="background: white; border-radius: 12px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto; padding: 0;" onclick="event.stopPropagation()">
-                            <div style="position: sticky; top: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; z-index: 1;">
-                                <h2 style="margin: 0; font-size: 1.5em;">📦 ${productName} - Batch Inventory</h2>
-                                <p style="margin: 8px 0 0; opacity: 0.9;">FIFO Inventory Management - ${batches.length} batch${batches.length !== 1 ? 'es' : ''}</p>
-                            </div>
-                            <div style="padding: 20px;">
-                `;
-                
-                if (batches.length > 0) {
-                    // Sort by expiration date (oldest first - FIFO order)
-                    batches.sort((a, b) => new Date(a.expiration_date) - new Date(b.expiration_date));
-                    
-                    batches.forEach((batch, index) => {
-                        const urgencyColors = {
-                            EXPIRED: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
-                            CRITICAL: { bg: '#fef2f2', border: '#dc2626', text: '#991b1b' },
-                            HIGH: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
-                            MEDIUM: { bg: '#fef9c3', border: '#eab308', text: '#854d0e' },
-                            OK: { bg: '#d1fae5', border: '#10b981', text: '#065f46' }
-                        };
-                        
-                        const colors = urgencyColors[batch.urgency_level] || urgencyColors.OK;
-                        const daysLeft = batch.days_until_expiry;
-                        const daysText = daysLeft < 0 ? `${Math.abs(daysLeft)} days ago` : `${daysLeft} days`;
-                        
-                        html += `
-                            <div style="background: ${colors.bg}; border-left: 4px solid ${colors.border}; padding: 14px; border-radius: 6px; margin-bottom: 12px;">
-                                <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 8px;">
-                                    <div style="flex: 1;">
-                                        <strong style="font-size: 1.05em; color: ${colors.text};">
-                                            #${index + 1} - ${batch.batch_number}
-                                        </strong>
-                                        <span style="margin-left: 12px; padding: 3px 8px; background: ${colors.border}; color: white; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
-                                            ${batch.urgency_level}
-                                        </span>
-                                    </div>
-                                    <div style="text-align: right; font-size: 1.2em; font-weight: bold; color: ${colors.text};">
-                                        ${batch.quantity} units
-                                    </div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 0.9em; color: #4b5563;">
-                                    <div>📅 <strong>Expires:</strong> ${batch.expiration_date}</div>
-                                    <div>⏰ <strong>${daysLeft >= 0 ? 'Time left' : 'Expired'}:</strong> ${daysText}</div>
-                                    ${batch.received_date ? `<div>📥 <strong>Received:</strong> ${batch.received_date}</div>` : ''}
-                                    ${batch.supplier ? `<div>🏭 <strong>Supplier:</strong> ${batch.supplier}</div>` : ''}
-                                    ${batch.unit_cost ? `<div>💰 <strong>Unit Cost:</strong> ₱${parseFloat(batch.unit_cost).toFixed(2)}</div>` : ''}
-                                </div>
-                                ${batch.notes ? `<div style="margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.5); border-radius: 4px; font-size: 0.85em; color: #6b7280;">
-                                    📝 ${batch.notes}
-                                </div>` : ''}
-                            </div>
-                        `;
-                    });
-                    
-                    // Add FIFO explanation
-                    html += `
-                        <div style="margin-top: 20px; padding: 12px; background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; font-size: 0.9em; color: #1e40af;">
-                            <strong>📊 FIFO System:</strong> Sales automatically deduct from batches in order (oldest expiration first). 
-                            This ensures expired stock is minimized and inventory turnover is optimized.
-                        </div>
-                    `;
-                } else {
-                    html += `
-                        <div style="text-align: center; padding: 40px; color: #9ca3af;">
-                            <div style="font-size: 3em; margin-bottom: 12px;">📦</div>
-                            <p style="font-size: 1.1em; margin: 0;">No batches found</p>
-                            <p style="font-size: 0.9em; margin-top: 8px;">Add inventory batches via CSV upload or manual entry</p>
-                        </div>
-                    `;
-                }
-                
-                html += `
-                                <button onclick="this.closest('[style*=fixed]').remove()" style="width: 100%; padding: 12px; background: #e5e7eb; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 12px;">
-                                    Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                document.body.insertAdjacentHTML('beforeend', html);
-            }
-        })
-        .catch(error => {
-            console.error('Error loading batches:', error);
-            alert('Failed to load batch information');
-        });
-};
-
-// Load expiring batches count when dashboard loads
-if (window.location.pathname.includes('admin') || window.location.pathname === '/') {
-    document.addEventListener('DOMContentLoaded', () => {
-        if (document.getElementById('expiring-count')) {
-            loadExpiringBatchesCount();
-            // Refresh every 5 minutes
-            setInterval(loadExpiringBatchesCount, 300000);
-        }
-    });
-}
-
-// ============================================================================
-// BATCH MANAGEMENT MODALS
-// ============================================================================
-
-/**
- * Open add batch modal from inventory modal
- */
-window.openAddBatchModal = function(prefillQuantity) {
-    const productId = document.getElementById('inventory-product-id') ? document.getElementById('inventory-product-id').value : null;
-    const productName = document.getElementById('inventory-product-name') ? document.getElementById('inventory-product-name').textContent : '';
-    
-    if (!productId) {
-        alert('Product ID not found');
-        return;
-    }
-    
-    // Close inventory modal
-    closeInventoryModal();
-    
-    // Open batch modal
-    document.getElementById('batch-product-id').value = productId;
-    document.getElementById('batch-product-name').textContent = productName;
-
-    // If a prefill quantity provided, set it
-    if (typeof prefillQuantity !== 'undefined' && prefillQuantity !== null) {
-        const q = parseInt(prefillQuantity) || 0;
-        document.getElementById('batch-quantity').value = q;
-    }
-
-    // Set default expiration date to 1 year from now if empty
-    const oneYearLater = new Date();
-    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-    if (!document.getElementById('batch-expiration').value) {
-        document.getElementById('batch-expiration').value = oneYearLater.toISOString().split('T')[0];
-    }
-
-    document.getElementById('add-batch-modal').classList.add('show');
-};
-
-/**
- * Close add batch modal
- */
-window.closeAddBatchModal = function() {
-    document.getElementById('add-batch-modal').classList.remove('show');
-    document.getElementById('add-batch-form').reset();
-};
-
-/**
- * Submit add batch form
- */
-const addBatchForm = document.getElementById('add-batch-form');
-if (addBatchForm) {
-    addBatchForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const batchData = {
-            product_id: parseInt(document.getElementById('batch-product-id').value),
-            quantity: parseInt(document.getElementById('batch-quantity').value),
-            expiration_date: document.getElementById('batch-expiration').value,
-            batch_number: document.getElementById('batch-number-input').value || null,
-            unit_cost: document.getElementById('batch-unit-cost').value || null,
-            supplier: document.getElementById('batch-supplier').value || null,
-            notes: document.getElementById('batch-notes').value || null
-        };
-        
-        try {
-            const response = await fetch('/api/batches/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(batchData)
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                closeAddBatchModal();
-                if (typeof loadProducts === 'function') {
-                    loadProducts();
-                }
-                showNotification(`✅ Batch added successfully! Batch #${result.batch.batch_number}`, 'success');
-            } else {
-                showNotification(`❌ Error: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            console.error('Error adding batch:', error);
-            showNotification(`❌ Error adding batch: ${error.message}`, 'error');
-        }
-    });
 }
 
 /**

@@ -7,57 +7,59 @@ import csv
 from datetime import datetime, timedelta
 import random
 
-# Build 40+ products across several categories
+# Vape Products - 40+ products across vape-related categories
 CATEGORIES = [
-    ("Electronics", [
-        ("Laptop", 28000, 2, 34999.00),
-        ("Mouse", 180, 6, 299.00),
-        ("Keyboard", 900, 4, 1299.00),
-        ("Monitor", 9000, 2, 14999.00),
-        ("Webcam", 1600, 2, 2499.00),
-        ("Headphones", 1400, 3, 2199.00),
-        ("Power Bank", 700, 3, 1599.00),
-        ("Bluetooth Speaker", 1100, 2, 1999.00),
+    ("Disposable Vapes", [
+        ("Classic 500 Puff", 150, 8, 399.00),
+        ("Premium 2000 Puff", 280, 5, 799.00),
+        ("Max 3000 Puff", 350, 4, 999.00),
+        ("Lite 200 Puff", 100, 12, 249.00),
+        ("Tropical Mix 500 Puff", 150, 8, 399.00),
+        ("Berry Blast 1000 Puff", 200, 7, 549.00),
+        ("Mint Fresh 500 Puff", 150, 8, 399.00),
+        ("Ice Cool 2000 Puff", 280, 5, 799.00),
+        ("Fruity Fusion 1500 Puff", 250, 6, 699.00),
+        ("Grape 500 Puff", 150, 8, 399.00),
+    ]),
+    ("Pod Systems", [
+        ("Pod System Kit", 800, 3, 1499.00),
+        ("Replacement Pods (4-Pack)", 200, 6, 599.00),
+        ("Compact Pod Kit", 600, 4, 1199.00),
+        ("Advanced Pod Kit", 1200, 2, 1999.00),
+        ("Starter Pod System", 500, 5, 999.00),
+        ("Pod Mesh Coil (5-Pack)", 250, 5, 699.00),
+        ("Refillable Pod Kit", 700, 4, 1299.00),
+        ("Premium Pod Device", 1000, 3, 1799.00),
+    ]),
+    ("E-Liquids", [
+        ("E-Liquid 30ml", 120, 10, 299.00),
+        ("E-Liquid 60ml Premium", 200, 6, 499.00),
+        ("E-Liquid 100ml Bulk", 300, 4, 699.00),
+        ("Zero Nicotine 30ml", 100, 8, 249.00),
+        ("High Strength 50mg 30ml", 150, 5, 399.00),
+        ("Menthol 30ml", 120, 10, 299.00),
+        ("Tobacco Blend 30ml", 120, 8, 299.00),
+        ("Dessert Flavor 30ml", 130, 7, 349.00),
+        ("Fruit Mix 60ml", 200, 6, 499.00),
+        ("Strawberry 30ml", 120, 9, 299.00),
     ]),
     ("Accessories", [
-        ("USB Cable", 60, 12, 120.00),
-        ("HDMI Cable", 120, 7, 350.00),
-        ("Phone Case", 90, 8, 299.00),
-        ("Screen Protector", 30, 10, 199.00),
-        ("Charger", 250, 6, 799.00),
-        ("Earbuds", 500, 5, 899.00),
-        ("Memory Card 64GB", 400, 4, 699.00),
-        ("OTG Adapter", 40, 10, 149.00),
+        ("Coil Pack (10 pcs)", 200, 6, 499.00),
+        ("Battery 18650", 80, 12, 249.00),
+        ("Battery Charger", 250, 4, 599.00),
+        ("Tank Glass Replacement", 150, 8, 399.00),
+        ("Drip Tips (5-Pack)", 100, 7, 249.00),
+        ("Vape Carrying Case", 200, 5, 499.00),
+        ("Cotton Wicks", 50, 10, 149.00),
+        ("USB-C Cable for Vape", 60, 8, 199.00),
     ]),
-    ("Home & Living", [
-        ("Desk Lamp", 450, 3, 799.00),
-        ("LED Strip", 200, 3, 499.00),
-        ("Extension Cord", 300, 4, 399.00),
-        ("Electric Kettle", 700, 2, 1499.00),
-        ("Rice Cooker", 1200, 2, 1899.00),
-        ("Stand Fan", 1500, 2, 1699.00),
-        ("Air Purifier Filter", 800, 2, 1299.00),
-        ("Water Bottle", 120, 5, 399.00),
-    ]),
-    ("Office", [
-        ("Printer Paper (Ream)", 160, 5, 320.00),
-        ("Ink Cartridge", 500, 3, 1099.00),
-        ("Stapler", 200, 3, 299.00),
-        ("Notebook", 45, 8, 99.00),
-        ("Pen Set", 25, 9, 149.00),
-        ("Office Chair", 3500, 1, 4999.00),
-        ("Desk Organizer", 180, 3, 399.00),
-        ("Whiteboard Marker", 30, 7, 79.00),
-    ]),
-    ("Gadgets", [
-        ("Smartwatch", 2500, 2, 4999.00),
-        ("Fitness Band", 1200, 3, 1999.00),
-        ("Tablet", 9000, 1, 12999.00),
-        ("E-Reader", 4500, 1, 6999.00),
-        ("Drone", 15000, 1, 19999.00),
-        ("Action Camera", 4500, 1, 9999.00),
-        ("Gaming Mouse", 600, 3, 1799.00),
-        ("Mechanical Keyboard", 1500, 2, 3599.00),
+    ("Premium Devices", [
+        ("Advanced Mod", 1800, 3, 2999.00),
+        ("Professional Starter Kit", 1500, 2, 2499.00),
+        ("Temperature Control Device", 3000, 1, 4999.00),
+        ("Dual Battery Mod", 2000, 2, 3499.00),
+        ("Smart Display Mod", 2500, 2, 3999.00),
+        ("Sub-Ohm Tank System", 1200, 3, 1999.00),
     ]),
 ]
 
@@ -91,13 +93,17 @@ def product_trend(name, year, month):
     months_elapsed = (year - 2022) * 12 + (month - 1)
     # Generic mild growth by default
     base = 1.0 + 0.01 * months_elapsed
-    # A few overrides by keyword
-    if "Laptop" in name or "Tablet" in name:
-        base = 1.0 + 0.015 * months_elapsed
-    if "Monitor" in name or "Printer" in name:
-        base = 1.0 - 0.003 * months_elapsed
-    if "USB" in name or "Cable" in name or "Memory Card" in name:
-        base = 1.0 + 0.02 * months_elapsed
+    # Vape product trends
+    if "Disposable" in name or "Puff" in name:
+        base = 1.0 + 0.015 * months_elapsed  # Disposable vapes growing
+    if "Pod" in name:
+        base = 1.0 + 0.012 * months_elapsed  # Pod systems steady growth
+    if "E-Liquid" in name or "Liquid" in name:
+        base = 1.0 + 0.01 * months_elapsed  # E-liquids consistent
+    if "Coil" in name or "Battery" in name or "Tank" in name:
+        base = 1.0 - 0.002 * months_elapsed  # Accessories saturation
+    if "Premium" in name or "Advanced" in name or "Temperature Control" in name or "Mod" in name:
+        base = 1.0 + 0.02 * months_elapsed  # Premium devices growing
     return max(0.1, base)
 
 
@@ -154,4 +160,9 @@ def save_csv(rows, filename):
 
 if __name__ == '__main__':
     rows = generate_rows()
-    save_csv(rows, 'data/historical_sales_2022_2025_large.csv')
+    # Use parent directory path
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(script_dir)
+    data_path = os.path.join(parent_dir, 'data', 'historical_sales_2022_2025_large.csv')
+    save_csv(rows, data_path)

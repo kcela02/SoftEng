@@ -1,42 +1,16 @@
-﻿<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports - VapeCrib Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-    <div class="dashboard">
-        <header class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <img src="{{ url_for('static', filename='vc_logo.png') }}" alt="VapeCrib Logo" class="nav-logo" style="height: 50px; margin-right: 10px;">
-                    <h1 style="margin: 0; display: inline;">VapeCrib Dashboard</h1>
-                </div>
-                <nav class="nav">
-                    <a href="{{ url_for('main.dashboard') }}" class="nav-link">Dashboard</a>
-                    <a href="{{ url_for('main.forecasting') }}" class="nav-link">Forecasting</a>
-                    <a href="{{ url_for('main.products_page') }}" class="nav-link">Products</a>
-                    <a href="{{ url_for('main.reports') }}" class="nav-link active">Reports</a>
-                    <a href="{{ url_for('main.settings') }}" class="nav-link">Settings</a>
-                    <span class="user-info">Welcome, {{ current_user.username }} ({{ current_user.role }})</span>
-                    <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
-                </nav>
-            </div>
-        </header>
+﻿{% extends "base_dashboard.html" %}
 
-        <main class="main-content">
+{% block title %}Reports - VapeCrib Dashboard{% endblock %}
+
+{% block content %}
             <div class="container" style="max-width: 1400px; padding: 20px;">
-                <h2 style="margin-bottom: 10px;"> Reports & Analytics</h2>
+                <h2 style="margin-bottom: 10px;">📊 Reports & Analytics</h2>
                 <p style="color: #666; margin-bottom: 30px;">Download comprehensive reports and insights about your business performance.</p>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"> Sales Report</h3>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">📈 Sales Report</h3>
                             <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Detailed sales transactions and trends</p>
                         </div>
                         <div style="margin-bottom: 15px;">
@@ -55,7 +29,7 @@
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
                             <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">📦 Inventory Report</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Stock levels, batches, and FIFO tracking</p>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Current stock levels and inventory valuation</p>
                         </div>
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Report Type:</label>
@@ -63,7 +37,6 @@
                                 <option value="current">Current Stock Levels</option>
                                 <option value="low">Low Stock Items</option>
                                 <option value="all">All Inventory</option>
-                                <option value="expiring">Expiring Batches</option>
                             </select>
                         </div>
                         <button class="btn btn-primary" style="width: 100%;" onclick="openInventoryReportModal()">View Report</button>
@@ -71,7 +44,7 @@
 
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 18px;"> Import History</h3>
+                            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 18px;">📋 Import History</h3>
                             <p style="color: #374151; font-size: 14px; margin: 0;">CSV upload and processing logs</p>
                         </div>
                         <div style="margin-bottom: 15px;">
@@ -83,63 +56,238 @@
                                 <option value="all">All imports</option>
                             </select>
                         </div>
-                        <button class="btn btn-primary" style="width: 100%;" onclick="openImportHistoryModal()">View Import Logs</button>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="openImportHistoryModal()">View History</button>
+                    </div>
+                </div>
+
+            <!-- Sales Report Modal -->
+            <div id="salesReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
+                    <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="margin: 0; color: #1f2937;">📈 Sales Report</h2>
+                        <button onclick="closeSalesReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+                    </div>
+                    <div style="padding: 20px; overflow-y: auto; flex: 1;">
+                        <div id="salesReportContent">Loading...</div>
+                    </div>
+                    <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button onclick="closeSalesReportModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
+                        <button onclick="downloadSalesReport()" class="btn btn-primary">Download PDF</button>
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
 
-    <div id="salesReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-        <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
-            <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="margin: 0; color: #1f2937;"> Sales Report</h2>
-                <button onclick="closeSalesReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+            <!-- Inventory Report Modal -->
+            <div id="inventoryReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
+                    <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="margin: 0; color: #1f2937;">📦 Inventory Report</h2>
+                        <button onclick="closeInventoryReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+                    </div>
+                    <div style="padding: 20px; overflow-y: auto; flex: 1;">
+                        <div id="inventoryReportContent">Loading...</div>
+                    </div>
+                    <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button onclick="closeInventoryReportModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
+                        <button onclick="downloadInventoryReport()" class="btn btn-primary">Download CSV</button>
+                    </div>
+                </div>
             </div>
-            <div style="padding: 20px; overflow-y: auto; flex: 1;">
-                <div id="salesReportContent">Loading...</div>
-            </div>
-            <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
-                <button onclick="downloadSalesReport()" class="btn btn-primary">Download CSV</button>
-                <button onclick="closeSalesReportModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
-            </div>
-        </div>
-    </div>
 
-    <div id="inventoryReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-        <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
-            <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="margin: 0; color: #1f2937;"> Inventory Report</h2>
-                <button onclick="closeInventoryReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+            <!-- Import History Modal -->
+            <div id="importHistoryModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
+                    <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="margin: 0; color: #1f2937;">📋 Import History</h2>
+                        <button onclick="closeImportHistoryModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+                    </div>
+                    <div style="padding: 20px; overflow-y: auto; flex: 1;">
+                        <div id="importHistoryContent">Loading...</div>
+                    </div>
+                    <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button onclick="closeImportHistoryModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
+                    </div>
+                </div>
             </div>
-            <div style="padding: 20px; overflow-y: auto; flex: 1;">
-                <div id="inventoryReportContent">Loading...</div>
             </div>
-            <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
-                <button onclick="downloadInventoryReport()" class="btn btn-primary">Download CSV</button>
-                <button onclick="closeInventoryReportModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
-            </div>
-        </div>
-    </div>
+{% endblock %}
 
-    <div id="importHistoryModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-        <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
-            <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="margin: 0; color: #1f2937;"> Import History</h2>
-                <button onclick="closeImportHistoryModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
-            </div>
-            <div style="padding: 20px; overflow-y: auto; flex: 1;">
-                <div id="importHistoryContent">Loading...</div>
-            </div>
-            <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
-                <button onclick="closeImportHistoryModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
-            </div>
-        </div>
-    </div>
+{% block extra_scripts %}
+<script>
+    // Sales Report Modal
+    function openSalesReportModal() {
+        const period = document.getElementById('sales-report-period').value;
+        const modal = document.getElementById('salesReportModal');
+        const content = document.getElementById('salesReportContent');
+        
+        modal.style.display = 'block';
+        content.innerHTML = '<div style="text-align: center; padding: 40px;"><p>Loading sales data...</p></div>';
+        
+        fetch('/api/sales-report?period=' + period)
+            .then(response => response.json())
+            .then(data => {
+                if (data.sales && data.sales.length > 0) {
+                    let html = '<div style="margin-bottom: 20px;">';
+                    html += '<h3 style="color: #111827; margin: 0 0 5px 0;">Sales Summary</h3>';
+                    html += '<p style="color: #4b5563; margin: 0;">Total Sales: ' + data.sales.length + ' | Total Revenue: ₱' + (data.total_revenue || 0).toFixed(2) + '</p>';
+                    html += '</div><div style="overflow-x: auto;">';
+                    html += '<table style="width: 100%; border-collapse: collapse; font-size: 14px;">';
+                    html += '<thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">';
+                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Date</th>';
+                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Product</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Quantity</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Price</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Total</th>';
+                    html += '</tr></thead><tbody>';
+                    
+                    data.sales.forEach(sale => {
+                        html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                        html += '<td style="padding: 12px; color: #374151;">' + new Date(sale.date).toLocaleDateString() + '</td>';
+                        html += '<td style="padding: 12px; color: #374151;">' + (sale.product_name || 'N/A') + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #374151;">' + sale.quantity + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #374151;">₱' + (sale.price || 0).toFixed(2) + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #374151; font-weight: 500;">₱' + (sale.revenue || 0).toFixed(2) + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #4b5563;"><p>No sales data found for this period.</p></div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading sales report:', error);
+                content.innerHTML = '<div style="text-align: center; padding: 40px; color: #ef4444;"><p>Error loading sales report. Please try again.</p></div>';
+            });
+    }
+    
+    function closeSalesReportModal() {
+        document.getElementById('salesReportModal').style.display = 'none';
+    }
+    
+    function downloadSalesReport() {
+        const period = document.getElementById('sales-report-period').value;
+        window.location.href = '/api/sales-report/download?period=' + period;
+    }
 
-    <script src="{{ url_for('static', filename='utils.js') }}"></script>
-    <script>
-function openSalesReportModal(){const e=document.getElementById("sales-report-period").value,t=document.getElementById("salesReportModal"),o=document.getElementById("salesReportContent");t.style.display="block",o.innerHTML='<div style="text-align: center; padding: 40px;"><p>Loading sales data...</p></div>',fetch("/api/sales-report?period="+e).then(e=>e.json()).then(e=>{if(e.sales&&e.sales.length>0){let t='<div style="margin-bottom: 20px;"><h3 style="color: #111827; margin: 0 0 5px 0;">Period: '+(e.period_label||period)+'</h3><p style="color: #4b5563; margin: 0;">Total Sales: '+(e.total_sales||e.sales.length)+" | Total Revenue: "+formatPHP(e.total_revenue||0)+'</p></div><div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 14px;"><thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;"><th style="padding: 12px; text-align: left; color: #1f2937;">Date</th><th style="padding: 12px; text-align: left; color: #1f2937;">Product</th><th style="padding: 12px; text-align: right; color: #1f2937;">Quantity</th><th style="padding: 12px; text-align: right; color: #1f2937;">Price</th><th style="padding: 12px; text-align: right; color: #1f2937;">Revenue</th></tr></thead><tbody>';e.sales.forEach(e=>{t+='<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px; color: #1f2937;">'+new Date(e.date).toLocaleDateString()+'</td><td style="padding: 10px; color: #1f2937;">'+e.product_name+'</td><td style="padding: 10px; text-align: right; color: #1f2937;">'+e.quantity+'</td><td style="padding: 10px; text-align: right; color: #1f2937;">'+formatPHP(e.price)+'</td><td style="padding: 10px; text-align: right; font-weight: 500; color: #1f2937;">'+formatPHP(e.revenue)+"</td></tr>"}),t+="</tbody></table></div>",o.innerHTML=t}else o.innerHTML='<div style="text-align: center; padding: 40px; color: #4b5563;"><p>No sales data found for the selected period.</p></div>'}).catch(e=>{console.error("Error loading sales report:",e),o.innerHTML='<div style="text-align: center; padding: 40px; color: #ef4444;"><p>Error loading sales report. Please try again.</p></div>'})}function closeSalesReportModal(){document.getElementById("salesReportModal").style.display="none"}function downloadSalesReport(){const e=document.getElementById("sales-report-period").value;window.location.href="/api/sales-report/download?period="+e}function openInventoryReportModal(){const e=document.getElementById("inventory-report-type").value,t=document.getElementById("inventoryReportModal"),o=document.getElementById("inventoryReportContent");t.style.display="block",o.innerHTML='<div style="text-align: center; padding: 40px;"><p>Loading inventory data...</p></div>',fetch("/api/inventory-report?type="+e).then(e=>e.json()).then(e=>{if(e.inventory&&e.inventory.length>0){if(e.is_batch_report){let t='<div style="margin-bottom: 20px;"><h3 style="color: #111827; margin: 0 0 5px 0;">'+e.report_label+'</h3><p style="color: #4b5563; margin: 0;">Total Batches: '+e.inventory.length+" | Total Value: "+formatPHP(e.total_value||0)+'</p></div><div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 14px;"><thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;"><th style="padding: 12px; text-align: left; color: #1f2937;">Product</th><th style="padding: 12px; text-align: left; color: #1f2937;">Batch #</th><th style="padding: 12px; text-align: right; color: #1f2937;">Qty</th><th style="padding: 12px; text-align: left; color: #1f2937;">Expires</th><th style="padding: 12px; text-align: center; color: #1f2937;">Days Left</th><th style="padding: 12px; text-align: center; color: #1f2937;">Urgency</th><th style="padding: 12px; text-align: left; color: #1f2937;">Supplier</th><th style="padding: 12px; text-align: right; color: #1f2937;">Value</th></tr></thead><tbody>';e.inventory.forEach(e=>{const o=e.urgency==="CRITICAL"?'<span style="background: #fee2e2; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">🔴 CRITICAL</span>':e.urgency==="HIGH"?'<span style="background: #fed7aa; color: #ea580c; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">🟠 HIGH</span>':'<span style="background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">🟡 MEDIUM</span>';t+='<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px; font-weight: 500; color: #1f2937;">'+e.product_name+'</td><td style="padding: 10px; font-family: monospace; color: #4b5563;">'+e.batch_number+'</td><td style="padding: 10px; text-align: right; color: #1f2937;">'+e.quantity+'</td><td style="padding: 10px; color: #1f2937;">'+e.expiration_date+'</td><td style="padding: 10px; text-align: center; font-weight: 500; color: #1f2937;">'+e.days_until_expiry+'</td><td style="padding: 10px; text-align: center;">'+o+'</td><td style="padding: 10px; color: #4b5563;">'+e.supplier+'</td><td style="padding: 10px; text-align: right; font-weight: 500; color: #1f2937;">'+formatPHP(e.batch_value||0)+"</td></tr>"}),t+="</tbody></table></div>",o.innerHTML=t}else{let t='<div style="margin-bottom: 20px;"><h3 style="color: #111827; margin: 0 0 5px 0;">'+e.report_label+'</h3><p style="color: #4b5563; margin: 0;">Total Products: '+e.inventory.length+" | Total Inventory Value: "+formatPHP(e.total_value||0)+'</p></div><div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 14px;"><thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;"><th style="padding: 12px; text-align: left; color: #1f2937;">Product</th><th style="padding: 12px; text-align: left; color: #1f2937;">Category</th><th style="padding: 12px; text-align: right; color: #1f2937;">Current Stock</th><th style="padding: 12px; text-align: center; color: #1f2937;">Batches</th><th style="padding: 12px; text-align: left; color: #1f2937;">Earliest Expiry</th><th style="padding: 12px; text-align: right; color: #1f2937;">Unit Cost</th><th style="padding: 12px; text-align: right; color: #1f2937;">Total Value</th><th style="padding: 12px; text-align: center; color: #1f2937;">Status</th></tr></thead><tbody>';e.inventory.forEach(e=>{const o=e.current_stock<=10?'<span style="background: #fee2e2; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Low Stock</span>':e.current_stock<=50?'<span style="background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Medium</span>':'<span style="background: #d1fae5; color: #059669; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Good</span>',a=e.batch_count>0?`<span style="color: #3b82f6; font-weight: 500;">${e.batch_count}</span>`:'<span style="color: #9ca3af;">0</span>';let r="N/A";e.earliest_expiry&&(r=e.earliest_expiry,e.days_until_expiry<=7?r+=' <span style="color: #dc2626; font-weight: 600;">('+e.days_until_expiry+" days!)</span>":e.days_until_expiry<=30&&(r+=' <span style="color: #ea580c;">('+e.days_until_expiry+" days)</span>"));t+='<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px; font-weight: 500; color: #1f2937;">'+e.product_name+'</td><td style="padding: 10px; color: #1f2937;">'+(e.category||"N/A")+'</td><td style="padding: 10px; text-align: right; font-weight: 500; color: #1f2937;">'+e.current_stock+'</td><td style="padding: 10px; text-align: center;">'+a+'</td><td style="padding: 10px; color: #1f2937;">'+r+'</td><td style="padding: 10px; text-align: right; color: #1f2937;">'+formatPHP(e.unit_cost||0)+'</td><td style="padding: 10px; text-align: right; font-weight: 500; color: #1f2937;">'+formatPHP(e.total_value||0)+'</td><td style="padding: 10px; text-align: center;">'+o+"</td></tr>"}),t+="</tbody></table></div>",o.innerHTML=t}}else o.innerHTML='<div style="text-align: center; padding: 40px; color: #4b5563;"><p>No inventory data found.</p></div>'}).catch(e=>{console.error("Error loading inventory report:",e),o.innerHTML='<div style="text-align: center; padding: 40px; color: #ef4444;"><p>Error loading inventory report. Please try again.</p></div>'})}function closeInventoryReportModal(){document.getElementById("inventoryReportModal").style.display="none"}function downloadInventoryReport(){const e=document.getElementById("inventory-report-type").value;window.location.href="/api/inventory-report/download?type="+e}function openImportHistoryModal(){const e=document.getElementById("import-history-limit").value,t=document.getElementById("importHistoryModal"),o=document.getElementById("importHistoryContent");t.style.display="block",o.innerHTML='<div style="text-align: center; padding: 40px;"><p>Loading import history...</p></div>';const i="all"===e?"/api/list-imports":"/api/list-imports?limit="+e;fetch(i).then(e=>e.json()).then(e=>{if(e.imports&&e.imports.length>0){let t='<div style="margin-bottom: 20px;"><h3 style="color: #111827; margin: 0 0 5px 0;">Import History</h3><p style="color: #4b5563; margin: 0;">Total Imports: '+e.imports.length+'</p></div><div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 14px;"><thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;"><th style="padding: 12px; text-align: left; color: #1f2937;">Date</th><th style="padding: 12px; text-align: left; color: #1f2937;">Filename</th><th style="padding: 12px; text-align: center; color: #1f2937;">Status</th><th style="padding: 12px; text-align: right; color: #1f2937;">Processed</th><th style="padding: 12px; text-align: right; color: #1f2937;">Skipped</th><th style="padding: 12px; text-align: right; color: #1f2937;">Failed</th><th style="padding: 12px; text-align: left; color: #1f2937;">Error Message</th></tr></thead><tbody>';e.imports.forEach(e=>{let o="";o="success"===e.status?'<span style="background: #d1fae5; color: #059669; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Success</span>':"partial"===e.status?'<span style="background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Partial</span>':'<span style="background: #fee2e2; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">Failed</span>';const i=e.error_message?e.error_message.length>50?e.error_message.substring(0,50)+"...":e.error_message:"-";t+='<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px; color: #1f2937;">'+new Date(e.upload_date).toLocaleString()+'</td><td style="padding: 10px; font-weight: 500; color: #1f2937;">'+e.filename+'</td><td style="padding: 10px; text-align: center;">'+o+'</td><td style="padding: 10px; text-align: right; color: #059669;">'+(e.rows_processed||0)+'</td><td style="padding: 10px; text-align: right; color: #d97706;">'+(e.rows_skipped||0)+'</td><td style="padding: 10px; text-align: right; color: #dc2626;">'+(e.rows_failed||0)+'</td><td style="padding: 10px; color: #4b5563; font-size: 13px;">'+i+"</td></tr>"}),t+="</tbody></table></div>",o.innerHTML=t}else o.innerHTML='<div style="text-align: center; padding: 40px; color: #4b5563;"><p>No import history found.</p></div>'}).catch(e=>{console.error("Error loading import history:",e),o.innerHTML='<div style="text-align: center; padding: 40px; color: #ef4444;"><p>Error loading import history. Please try again.</p></div>'})}function closeImportHistoryModal(){document.getElementById("importHistoryModal").style.display="none"}window.onclick=function(e){const t=document.getElementById("salesReportModal"),o=document.getElementById("inventoryReportModal"),i=document.getElementById("importHistoryModal");e.target===t&&(t.style.display="none"),e.target===o&&(o.style.display="none"),e.target===i&&(i.style.display="none")};
-    </script>
-</body>
-</html>
+    // Inventory Report Modal
+    function openInventoryReportModal() {
+        const reportType = document.getElementById('inventory-report-type').value;
+        const modal = document.getElementById('inventoryReportModal');
+        const content = document.getElementById('inventoryReportContent');
+        
+        modal.style.display = 'block';
+        content.innerHTML = '<div style="text-align: center; padding: 40px;"><p>Loading inventory data...</p></div>';
+        
+        fetch('/api/inventory-report?type=' + reportType)
+            .then(response => response.json())
+            .then(data => {
+                if (data.inventory && data.inventory.length > 0) {
+                    let html = '<div style="margin-bottom: 20px;">';
+                    html += '<h3 style="color: #111827; margin: 0 0 5px 0;">Inventory Summary</h3>';
+                    html += '<p style="color: #4b5563; margin: 0;">Total Items: ' + data.inventory.length + ' | Total Value: ₱' + (data.total_value || 0).toFixed(2) + '</p>';
+                    html += '</div><div style="overflow-x: auto;">';
+                    html += '<table style="width: 100%; border-collapse: collapse; font-size: 14px;">';
+                    html += '<thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">';
+                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Product</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Stock</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Price</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Total Value</th>';
+                    html += '</tr></thead><tbody>';
+                    
+                    data.inventory.forEach(item => {
+                        html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                        html += '<td style="padding: 12px; color: #374151;">' + (item.product_name || 'N/A') + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #374151;">' + (item.current_stock || 0) + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #374151;">₱' + (item.unit_cost || 0).toFixed(2) + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #374151; font-weight: 500;">₱' + (item.total_value || 0).toFixed(2) + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #4b5563;"><p>No inventory data found.</p></div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading inventory report:', error);
+                content.innerHTML = '<div style="text-align: center; padding: 40px; color: #ef4444;"><p>Error loading inventory report. Please try again.</p></div>';
+            });
+    }
+    
+    function closeInventoryReportModal() {
+        document.getElementById('inventoryReportModal').style.display = 'none';
+    }
+    
+    function downloadInventoryReport() {
+        const reportType = document.getElementById('inventory-report-type').value;
+        window.location.href = '/api/inventory-report/download?type=' + reportType;
+    }
+
+    // Import History Modal
+    function openImportHistoryModal() {
+        const limit = document.getElementById('import-history-limit').value;
+        const modal = document.getElementById('importHistoryModal');
+        const content = document.getElementById('importHistoryContent');
+        
+        modal.style.display = 'block';
+        content.innerHTML = '<div style="text-align: center; padding: 40px;"><p>Loading import history...</p></div>';
+        
+        const url = limit === 'all' ? '/api/list-imports' : '/api/list-imports?limit=' + limit;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.imports && data.imports.length > 0) {
+                    let html = '<div style="margin-bottom: 20px;">';
+                    html += '<h3 style="color: #111827; margin: 0 0 5px 0;">Import History</h3>';
+                    html += '<p style="color: #4b5563; margin: 0;">Total Imports: ' + data.imports.length + '</p>';
+                    html += '</div><div style="overflow-x: auto;">';
+                    html += '<table style="width: 100%; border-collapse: collapse; font-size: 14px;">';
+                    html += '<thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">';
+                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Date</th>';
+                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Filename</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Records</th>';
+                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Status</th>';
+                    html += '</tr></thead><tbody>';
+                    
+                    data.imports.forEach(imp => {
+                        const status = imp.status === 'completed' ? '<span style="color: #10b981;">✓ Completed</span>' : '<span style="color: #f59e0b;">⚠ ' + imp.status + '</span>';
+                        html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
+                        html += '<td style="padding: 12px; color: #374151;">' + new Date(imp.import_date).toLocaleString() + '</td>';
+                        html += '<td style="padding: 12px; color: #374151;">' + imp.filename + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #374151;">' + imp.record_count + '</td>';
+                        html += '<td style="padding: 12px; color: #374151;">' + status + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #4b5563;"><p>No import history found.</p></div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading import history:', error);
+                content.innerHTML = '<div style="text-align: center; padding: 40px; color: #ef4444;"><p>Error loading import history. Please try again.</p></div>';
+            });
+    }
+    
+    function closeImportHistoryModal() {
+        document.getElementById('importHistoryModal').style.display = 'none';
+    }
+    
+    // Close modals on outside click
+    window.onclick = function(event) {
+        const salesModal = document.getElementById('salesReportModal');
+        const inventoryModal = document.getElementById('inventoryReportModal');
+        const importModal = document.getElementById('importHistoryModal');
+        
+        if (event.target === salesModal) salesModal.style.display = 'none';
+        if (event.target === inventoryModal) inventoryModal.style.display = 'none';
+        if (event.target === importModal) importModal.style.display = 'none';
+    };
+</script>
+{% endblock %}

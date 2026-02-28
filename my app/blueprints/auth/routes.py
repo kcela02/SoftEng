@@ -2,7 +2,7 @@
 from flask import request, jsonify, render_template, redirect, url_for, flash
 from flask_login import login_user, login_required, logout_user, current_user
 from models import db, User
-from utils import ActivityLogger
+from utils import ActivityLogger, get_safe_redirect_url, get_safe_endpoint_url
 from . import auth_bp
 
 
@@ -26,9 +26,13 @@ def login():
             # Log successful login
             ActivityLogger.log(ActivityLogger.USER_LOGIN, user_id=user.id, details=f"Username: {username}")
             
+            # Get safe redirect URL (validate any redirect parameter)
+            next_page = request.args.get('next')
+            redirect_url = get_safe_redirect_url(next_page, fallback='main.dashboard')
+            
             if request.is_json:
-                return jsonify({'success': True, 'message': 'Login successful', 'redirect': url_for('main.dashboard')})
-            return redirect(url_for('main.dashboard'))
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': redirect_url})
+            return redirect(redirect_url)
         else:
             if request.is_json:
                 return jsonify({'success': False, 'message': 'Invalid username or password'}), 401
@@ -44,7 +48,8 @@ def logout():
     ActivityLogger.log(ActivityLogger.USER_LOGOUT, details=f"Username: {current_user.username}")
     
     logout_user()
-    return redirect(url_for('main.home'))
+    # Use safe endpoint URL for redirect
+    return redirect(get_safe_endpoint_url('main.home'))
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
@@ -68,7 +73,7 @@ def register():
             if request.is_json:
                 return jsonify({'success': False, 'message': 'Username already exists'}), 400
             flash('Username already exists')
-            return redirect(url_for('auth.register'))
+            return redirect(get_safe_endpoint_url('auth.register'))
 
         # Check if this is the first user - if so, make them admin
         user_count = db.session.query(User).count()
@@ -91,5 +96,5 @@ def register():
         if request.is_json:
             return jsonify({'success': True, 'message': 'Registration successful'})
         flash('Registration successful')
-        return redirect(url_for('auth.login'))
+        return redirect(get_safe_endpoint_url('auth.login'))
     return render_template('register.html')

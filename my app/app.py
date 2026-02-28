@@ -1,5 +1,5 @@
 # app.py - Application Factory Pattern
-from flask import Flask
+from flask import Flask, jsonify, redirect, url_for
 from flask_cors import CORS
 from flask_login import LoginManager
 from flask_socketio import SocketIO
@@ -43,9 +43,20 @@ def create_app(config_name=None):
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     
+    # Custom unauthorized handler for API calls
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        """Return JSON for API requests, redirect for HTML pages."""
+        from flask import request
+        # Check if this is an API call
+        if request.path.startswith('/api/'):
+            return jsonify({'success': False, 'error': 'Unauthorized - please log in first'}), 401
+        # For non-API requests, redirect to login page
+        return redirect(url_for('auth.login'))
+    
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
     
     # Register blueprints
     from blueprints.auth import auth_bp

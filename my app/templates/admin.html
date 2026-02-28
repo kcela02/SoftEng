@@ -6,6 +6,18 @@
 <style>
     .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
     .dot.live { background: #10b981; }
+    
+    /* Chart View Toggle Buttons */
+    .chart-view-btn {
+        transition: all 0.2s ease;
+    }
+    .chart-view-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+    }
+    .chart-view-btn.active {
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.4);
+    }
 </style>
 {% endblock %}
 
@@ -155,34 +167,50 @@
 
                 <div class="charts-section">
                     <div class="chart-container">
-                        <h3>Sales Trend Analysis</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="margin: 0;">📊 Forecast Trend Analysis</h3>
+                            <div style="font-size: 0.85em; color: #6b7280;">
+                                <span style="color: #28a745;">●</span> Actual Revenue
+                                <span style="margin-left: 12px; color: #007bff;">●</span> Forecasted Revenue
+                            </div>
+                        </div>
                         <canvas id="trendChart"></canvas>
                     </div>
                     <div class="chart-container" id="monthly-chart-container">
-                        <h3>Monthly Performance</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="margin: 0;">📈 Historical Performance</h3>
+                            <div style="display: flex; gap: 8px;">
+                                <button id="chart-view-monthly" class="chart-view-btn active" style="padding: 6px 12px; border: 2px solid #007bff; background: #007bff; color: white; border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: 600; transition: all 0.2s;">
+                                    📊 Monthly Bars
+                                </button>
+                                <button id="chart-view-daily" class="chart-view-btn" style="padding: 6px 12px; border: 2px solid #d1d5db; background: transparent; color: var(--color-text-primary); border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: 600; transition: all 0.2s;">
+                                    📉 Daily Trend
+                                </button>
+                            </div>
+                        </div>
                         <canvas id="monthlyChart"></canvas>
                     </div>
                 </div>
 
                 <div class="bottom-section">
                     <div class="alerts-panel">
-                        <h3>Restock Alerts</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h3 style="margin: 0;">Restock Alerts</h3>
+                            {% if can_edit %}
+                            <button class="btn btn-secondary" id="export-alerts-csv" style="padding: 6px 12px; font-size: 0.85em;">📥 Export CSV</button>
+                            {% endif %}
+                        </div>
                         <div class="hint" style="font-size: 0.85em; color: #6b7280; margin-bottom: 12px;">
                             🔴 CRITICAL: Stock < 1-day forecast | 🟠 HIGH: Stock < 7-day forecast | 🟡 MEDIUM: Stock < 30-day forecast
                         </div>
                         <div id="alerts-list">
                             <div class="loading-message">Loading alerts...</div>
                         </div>
-                        {% if can_edit %}
-                        <div class="admin-controls">
-                            <button class="btn btn-secondary" id="export-alerts-csv">Export Alerts (CSV)</button>
-                        </div>
-                        {% endif %}
                     </div>
                     <div class="activity-panel">
                         <h3>Recent Activity</h3>
                         <div class="hint" style="font-size: 0.85em; color: #6b7280; margin-bottom: 12px;">
-                            📦 Inventory batches tracked with FIFO (First-In-First-Out) expiration management
+                            📦 Inventory tracked with real-time stock levels
                         </div>
                         <ul id="activity-list">
                             <li style="color: #999;">Loading recent activity...</li>
@@ -254,9 +282,9 @@
     <div id="toast-container" style="position:fixed;right:16px;bottom:16px;z-index:1000;display:flex;flex-direction:column;gap:8px;"></div>
 
     <script>
-        // Prefer live updates for metrics and alerts on this page
-        window.USE_WEBSOCKET_METRICS = true;
-        window.USE_WEBSOCKET_ALERTS = true;
+        // Disable WebSocket-only metrics - use HTTP API for reliability
+        window.USE_WEBSOCKET_METRICS = false;
+        window.USE_WEBSOCKET_ALERTS = false;
 
         // Handle hash navigation for Forecasting/Products links from other pages
         (function(){
@@ -535,11 +563,10 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='app.js') }}"></script>
 <script>
-    // Prefer live updates for metrics and alerts on this page
-    window.USE_WEBSOCKET_METRICS = true;
-    window.USE_WEBSOCKET_ALERTS = true;
+    // Disable WebSocket-only metrics - use HTTP API for reliability
+    window.USE_WEBSOCKET_METRICS = false;
+    window.USE_WEBSOCKET_ALERTS = false;
 
     // WebSocket live metrics
     (function(){
