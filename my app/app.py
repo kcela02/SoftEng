@@ -81,7 +81,7 @@ def create_app(config_name=None):
             admin.set_password('admin123')
             db.session.add(admin)
             db.session.commit()
-            print("✅ Default admin user created (username: admin, password: admin123)")
+            print("[OK] Default admin user created (username: admin, password: admin123)")
     
     return app
 

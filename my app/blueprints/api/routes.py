@@ -444,8 +444,14 @@ def get_metrics():
         # Default: last 6 months
         for i in range(5, -1, -1):
             month_date = today - timedelta(days=30*i)
+            month_start = month_date.replace(day=1)
+            if month_start.month == 12:
+                month_end = month_start.replace(year=month_start.year + 1, month=1, day=1)
+            else:
+                month_end = month_start.replace(month=month_start.month + 1, day=1)
             month_sales = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-                db.func.strftime('%Y-%m', Sale.sale_date) == month_date.strftime('%Y-%m')
+                Sale.sale_date >= month_start,
+                Sale.sale_date < month_end
             ).scalar() or 0
             monthly_labels.append(month_date.strftime('%b'))
             monthly_data.append(float(month_sales))

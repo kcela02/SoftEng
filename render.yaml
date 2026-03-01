@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: vapecrib
+    runtime: python
+    rootDir: my app
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --threads 4 --bind 0.0.0.0:$PORT wsgi:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vapecrib-db
+          property: connectionString
+
+databases:
+  - name: vapecrib-db
+    databaseName: vapecrib
+    user: vapecrib
+    plan: free

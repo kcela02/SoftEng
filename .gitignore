@@ -1,0 +1,36 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Flask / SQLite ─────────────────────────────────────────────────────────────
+# SQLite database (each dev has their own; Render uses PostgreSQL via DATABASE_URL)
+my app/instance/
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Secrets ────────────────────────────────────────────────────────────────────
+.env
+my app/.env
+# .env.example is intentionally NOT ignored — it's the template for collaborators
+
+# ── Trained model files ────────────────────────────────────────────────────────
+my app/models/instance/
+my app/instance/models/
+*.pkl
+
+# ── OS / editor ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
