@@ -352,13 +352,11 @@
                 socket.on('connect', ()=> setStatus(true));
                 socket.on('disconnect', ()=> setStatus(false));
                 socket.on('metrics_update', (m)=>{
-                    const fmtMoney = (v)=> '₱' + Number(v||0).toFixed(2);
+                    // total-units and total-revenue are period-dependent and managed by
+                    // loadDashboardData() in app.js — do not overwrite them here with
+                    // hardcoded 7-day figures from the server push.
                     const fmtInt = (v)=> Number(v||0).toLocaleString();
-                    const u = document.getElementById('total-units');
-                    const r = document.getElementById('total-revenue');
                     const a = document.getElementById('alerts-count');
-                    if(u) u.textContent = fmtInt(m.total_units_sold);
-                    if(r) r.textContent = fmtMoney(m.total_revenue);
                     if(a) a.textContent = fmtInt(m.active_alerts);
                 });
                 // Toast helper
@@ -573,13 +571,9 @@
         try {
             const socket = io({ transports: ['websocket','polling'] });
             socket.on('metrics_update', (m)=>{
-                const fmtMoney = (v)=> '₱' + Number(v||0).toFixed(2);
+                // total-units and total-revenue are period-dependent — managed by loadDashboardData()
                 const fmtInt = (v)=> Number(v||0).toLocaleString();
-                const u = document.getElementById('total-units');
-                const r = document.getElementById('total-revenue');
                 const a = document.getElementById('alerts-count');
-                if(u) u.textContent = fmtInt(m.total_units_sold);
-                if(r) r.textContent = fmtMoney(m.total_revenue);
                 if(a) a.textContent = fmtInt(m.active_alerts);
             });
             // Request initial metrics
