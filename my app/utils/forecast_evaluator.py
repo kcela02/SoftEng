@@ -3,8 +3,13 @@ Forecast accuracy evaluation utilities.
 Calculates MAPE (Mean Absolute Percentage Error) and other accuracy metrics.
 """
 from models import db, Sale, Forecast
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date as date_type
 from sqlalchemy import func
+import time as _time
+
+# Simple in-process TTL cache: {days_back: (accuracy, timestamp)}
+_mape_cache: dict = {}
+_MAPE_CACHE_TTL = 120  # seconds — recompute at most every 2 minutes
 
 
 class ForecastEvaluator:
@@ -27,55 +32,71 @@ class ForecastEvaluator:
             last_sale_date = db.session.query(func.max(Sale.sale_date)).scalar()
             if not last_sale_date:
                 return 0.0
-            
+
+            # Check TTL cache first (accuracy changes rarely)
+            cache_key = days_back
+            cached = _mape_cache.get(cache_key)
+            if cached and (_time.time() - cached[1]) < _MAPE_CACHE_TTL:
+                return cached[0]
+
             # Convert to date if datetime
             end_date = last_sale_date.date() if hasattr(last_sale_date, 'date') else last_sale_date
             start_date = end_date - timedelta(days=days_back)
-            
-            # Get all forecasts in the evaluation period
-            forecasts = Forecast.query.filter(
-                func.date(Forecast.forecast_date) >= start_date,
-                func.date(Forecast.forecast_date) <= end_date
-            ).all()
-            
-            if not forecasts:
+
+            # Use datetime bounds so index on sale_date / forecast_date is usable
+            start_dt = datetime(start_date.year, start_date.month, start_date.day)
+            end_dt   = datetime(end_date.year,   end_date.month,   end_date.day, 23, 59, 59)
+
+            # Query 1: aggregate actual sales by product + day (uses sale_date index)
+            sales_rows = db.session.query(
+                Sale.product_id,
+                func.date(Sale.sale_date).label('sale_day'),
+                func.sum(Sale.quantity).label('actual_qty')
+            ).filter(
+                Sale.sale_date >= start_dt,
+                Sale.sale_date <= end_dt
+            ).group_by(Sale.product_id, func.date(Sale.sale_date)).all()
+
+            actual_map = {(r.product_id, str(r.sale_day)): float(r.actual_qty) for r in sales_rows}
+
+            # Query 2: aggregate forecasts by product + day
+            fc_rows = db.session.query(
+                Forecast.product_id,
+                func.date(Forecast.forecast_date).label('fc_day'),
+                func.sum(Forecast.predicted_quantity).label('predicted_qty')
+            ).filter(
+                Forecast.forecast_date >= start_dt,
+                Forecast.forecast_date <= end_dt
+            ).group_by(Forecast.product_id, func.date(Forecast.forecast_date)).all()
+
+            if not fc_rows:
                 return 0.0
-            
+
             total_percentage_error = 0.0
             valid_count = 0
-            
-            for forecast in forecasts:
-                # Get actual sales for that date and product
-                actual_sales = db.session.query(
-                    func.sum(Sale.quantity)
-                ).filter(
-                    Sale.product_id == forecast.product_id,
-                    func.date(Sale.sale_date) == func.date(forecast.forecast_date)
-                ).scalar()
-                
-                actual = float(actual_sales) if actual_sales else 0.0
-                predicted = float(forecast.predicted_quantity) if forecast.predicted_quantity else 0.0
-                
-                # Skip if no actual sales (can't calculate error)
+
+            for product_id, fc_day, predicted_qty in fc_rows:
+                actual    = actual_map.get((product_id, str(fc_day)), 0.0)
+                predicted = float(predicted_qty) if predicted_qty else 0.0
+
                 if actual == 0:
                     continue
-                
-                # Calculate absolute percentage error
+
                 percentage_error = abs(predicted - actual) / actual
                 total_percentage_error += percentage_error
                 valid_count += 1
-            
+
             if valid_count == 0:
                 return 0.0
-            
-            # Calculate MAPE
-            mape = (total_percentage_error / valid_count) * 100
-            
-            # Convert to accuracy percentage (100% - MAPE)
+
+            mape     = (total_percentage_error / valid_count) * 100
             accuracy = max(0.0, 100.0 - mape)
-            
-            return round(accuracy, 2)
-            
+            result   = round(accuracy, 2)
+
+            # Store in cache
+            _mape_cache[cache_key] = (result, _time.time())
+            return result
+
         except Exception as e:
             print(f"Error calculating MAPE: {str(e)}")
             return 0.0

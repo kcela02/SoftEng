@@ -257,8 +257,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Initialize chart view toggle buttons
     initializeChartViewToggle();
     
-    // Fetch forecast accuracy metrics
-    fetchForecastAccuracy();
+    // Forecast accuracy is fetched inside loadDashboardData (called by initializePeriodFilters)
     
     // Fetch weekly forecast preview
     fetchWeeklyForecast();
@@ -426,6 +425,21 @@ function loadDashboardData(period, dateRange = null) {
         if (accuracyHint) accuracyHint.textContent = `Based on ${customLabel}`;
     }
     
+    // Map period to days_back for accuracy API
+    const periodDaysMap = {
+        '7d': 7,
+        '30d': 30,
+        '3m': 90,
+        '6m': 180,
+        '1y': 365,
+        'all': 9999
+    };
+    let accuracyDaysBack = periodDaysMap[period] || 7;
+    if (period === 'custom' && dateRange) {
+        const ms = new Date(dateRange.end) - new Date(dateRange.start);
+        accuracyDaysBack = Math.max(1, Math.round(ms / 86400000));
+    }
+
     // Fetch and update dashboard
     fetch(url, { credentials: 'same-origin' })
         .then(response => response.json())
@@ -436,13 +450,16 @@ function loadDashboardData(period, dateRange = null) {
             console.error('Error loading dashboard data:', error);
             showToast('Failed to load dashboard data', 'error');
         });
+
+    // Refresh accuracy with matching period
+    fetchForecastAccuracy(accuracyDaysBack);
 }
 
 // Fetch and display forecast accuracy metrics
-window.fetchForecastAccuracy = async function() {
-    console.log('[fetchForecastAccuracy] Starting fetch...');
+window.fetchForecastAccuracy = async function(days_back = 7) {
+    console.log('[fetchForecastAccuracy] Starting fetch, days_back=' + days_back);
     try {
-        const response = await fetch('/api/forecast-accuracy?days_back=7', { credentials: 'same-origin' });
+        const response = await fetch(`/api/forecast-accuracy?days_back=${days_back}`, { credentials: 'same-origin' });
         
         console.log('[fetchForecastAccuracy] Response status:', response.status);
         
@@ -471,26 +488,15 @@ window.fetchForecastAccuracy = async function() {
         
         console.log('[fetchForecastAccuracy] Valid accuracy values:', accuracyValues);
         
-        const summaryAccuracyEl = document.getElementById('accuracy');
-        if (summaryAccuracyEl && accuracyValues.length > 0) {
-            const avgAccuracy = accuracyValues.reduce((sum, val) => sum + val, 0) / accuracyValues.length;
-            console.log('[fetchForecastAccuracy] Average accuracy:', avgAccuracy);
-            summaryAccuracyEl.textContent = avgAccuracy.toFixed(1) + '%';
-        } else if (summaryAccuracyEl) {
-            console.log('[fetchForecastAccuracy] No valid accuracy values, showing --');
-            summaryAccuracyEl.textContent = '--';
-        }
+        // #accuracy summary card is updated by updateDashboardWithData() from /api/metrics
+        // so all summary cards appear at the same time — don't touch it here
         
     } catch (error) {
         console.error('Error fetching forecast accuracy:', error);
         
-        // Update summary card to show no data
-        const summaryAccuracyEl = document.getElementById('accuracy');
-        if (summaryAccuracyEl) {
-            summaryAccuracyEl.textContent = 'No data';
-        }
+        // #accuracy summary card is driven by /api/metrics — don't overwrite on detail error
         
-        // Show "No data yet" if insufficient history
+        // Show "No data yet" in the detail breakdown if insufficient history
         ['1d', '7d', '30d'].forEach(horizon => {
             const valueEl = document.getElementById(`accuracy-${horizon}`);
             const statusEl = document.getElementById(`accuracy-${horizon}-status`);
@@ -850,8 +856,8 @@ function updateDashboardWithData(data) {
     if (totalUnits) totalUnits.textContent = (data.total_units_sold || 0).toLocaleString('en-PH') + ' units';
     if (totalRevenue) totalRevenue.textContent = formatPHP(data.total_revenue);
     if (totalInventoryValue) totalInventoryValue.textContent = formatPHP(data.total_inventory_value || 0);
-    // Accuracy is managed by fetchForecastAccuracy() - don't overwrite it here
-    // if (accuracy) accuracy.textContent = (data.accuracy !== undefined && data.accuracy !== null) ? data.accuracy.toFixed(1) + '%' : 'N/A';
+    // Accuracy summary card is driven by /api/metrics so it updates with every other card
+    if (accuracy) accuracy.textContent = (data.accuracy !== undefined && data.accuracy !== null) ? data.accuracy.toFixed(1) + '%' : '--';
     if (alertsCount) alertsCount.textContent = data.alerts !== undefined ? data.alerts : 0;
     if (turnoverRateEl && typeof data.turnover_rate !== 'undefined') turnoverRateEl.textContent = Number(data.turnover_rate || 0).toFixed(2);
 
@@ -891,9 +897,9 @@ function updateDashboardWithData(data) {
     updateComparisonCard('current-month-units', 'last-month-units', 'month-units-change',
         data.current_month_units, data.last_month_units, data.month_units_change, false);
     updateComparisonCard('current-year-revenue', 'last-year-revenue', 'year-revenue-change',
-        data.current_month_revenue, data.year_ago_revenue, data.year_revenue_change, true);
+        data.current_ytd_revenue, data.year_ago_revenue, data.year_revenue_change, true);
     updateComparisonCard('current-year-units', 'last-year-units', 'year-units-change',
-        data.current_month_units, data.year_ago_units, data.year_units_change, false);
+        data.current_ytd_units, data.year_ago_units, data.year_units_change, false);
 
     // Update charts with monthly daily revenue data (actual vs forecast)
     if (window.trendChart && data.monthly_daily_labels && data.monthly_daily_sales) {

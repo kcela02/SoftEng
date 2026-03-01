@@ -34,7 +34,7 @@ class Sale(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
-    sale_date = db.Column(db.DateTime, default=datetime.utcnow)
+    sale_date = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     is_fake = db.Column(db.Boolean, default=False)  # Flag for fake data
 

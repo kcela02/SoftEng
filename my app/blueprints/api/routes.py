@@ -6,7 +6,7 @@ from models.regression import forecast_linear_regression
 from utils import ActivityLogger
 from utils.model_trainer import ForecastingPipeline
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, case as sa_case, and_ as sa_and
 import pandas as pd
 import csv
 import io
@@ -210,61 +210,39 @@ def get_metrics():
             return query.filter(date_column >= filter_start, date_column < filter_end)
         return query
     
-    # Calculate total revenue (filtered by period)
-    revenue_query = db.session.query(db.func.sum(Sale.quantity * Sale.price))
-    revenue_query = apply_date_filter(revenue_query, Sale.sale_date)
-    total_revenue = revenue_query.scalar() or 0
+    # Calculate total revenue + units sold — single combined query (filtered by period)
+    _rev_units = db.session.query(
+        db.func.sum(Sale.quantity * Sale.price),
+        db.func.sum(Sale.quantity)
+    )
+    _rev_units = apply_date_filter(_rev_units, Sale.sale_date)
+    _rv, _us = _rev_units.one()
+    total_revenue = _rv or 0
+    total_units_sold = _us or 0
     
-    # Calculate total units sold (filtered by period)
-    units_query = db.session.query(db.func.sum(Sale.quantity))
-    units_query = apply_date_filter(units_query, Sale.sale_date)
-    total_units_sold = units_query.scalar() or 0
-    
-    # Count total products
-    total_products = db.session.query(db.func.count(Product.id)).scalar() or 0
-    
-    # Count total inventory
-    total_inventory = db.session.query(db.func.sum(Product.current_stock)).scalar() or 0
-    
-    # Calculate total inventory value (stock × unit cost)
-    total_inventory_value = db.session.query(
+    # Products, inventory count, and inventory value — single combined query (not period-filtered)
+    _prod_row = db.session.query(
+        db.func.count(Product.id),
+        db.func.sum(Product.current_stock),
         db.func.sum(Product.current_stock * Product.unit_cost)
-    ).scalar() or 0
+    ).one()
+    total_products = _prod_row[0] or 0
+    total_inventory = _prod_row[1] or 0
+    total_inventory_value = _prod_row[2] or 0
     
     # Check if dataset contains fake data
     fake_sales_count = Sale.query.filter_by(is_fake=True).count()
     has_fake_data = fake_sales_count > 0
     
-    # Calculate forecast accuracy from ForecastSnapshot table with actual values
-    from models import ForecastSnapshot
-    snapshots_with_actual = db.session.query(ForecastSnapshot).filter(
-        ForecastSnapshot.actual_quantity.isnot(None)
-    )
-    
-    # Apply date filter to snapshots if specified
-    if filter_start and filter_end:
-        snapshots_with_actual = snapshots_with_actual.filter(
-            ForecastSnapshot.forecast_date >= filter_start.date(),
-            ForecastSnapshot.forecast_date < filter_end.date()
-        )
-    
-    snapshots_with_actual = snapshots_with_actual.all()
-    
-    if len(snapshots_with_actual) > 0:
-        # Calculate MAPE (Mean Absolute Percentage Error)
-        errors = []
-        for snapshot in snapshots_with_actual:
-            if snapshot.actual_quantity and snapshot.actual_quantity > 0:
-                error = abs(snapshot.predicted_quantity - snapshot.actual_quantity) / snapshot.actual_quantity
-                errors.append(error)
-        
-        if errors:
-            mape = sum(errors) / len(errors)
-            accuracy = max(0, (1 - mape) * 100)  # Convert to accuracy percentage
-        else:
-            accuracy = 0.0
+    # Calculate forecast accuracy using the same logic as /api/forecast-accuracy
+    from utils.forecast_evaluator import ForecastEvaluator
+    if filter_start:
+        _acc_days = max(1, (today - filter_start).days)
+    elif days:
+        _acc_days = days
     else:
-        accuracy = 0.0
+        _acc_days = 365  # 'all' — evaluate last year
+    accuracy = ForecastEvaluator.calculate_mape(days_back=_acc_days)
     
     # Count active alerts from Alert table (optimized - single query instead of 72+)
     # Alerts are created/updated by check_low_stock_and_alert() function
@@ -276,31 +254,25 @@ def get_metrics():
     
     alerts = alerts_count
     
-    # Period comparison calculations (current 7 days vs previous 7 days)
+    # Period comparison: current 7 days vs previous 7 days — 4 values in one CASE query
     seven_days_ago = today - timedelta(days=6)
     fourteen_days_ago = today - timedelta(days=13)
-    
-    # Current period revenue (last 7 days)
-    current_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-        Sale.sale_date >= seven_days_ago
-    ).scalar() or 0
-    
-    # Previous period revenue (7-14 days ago)
-    previous_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-        Sale.sale_date >= fourteen_days_ago,
-        Sale.sale_date < seven_days_ago
-    ).scalar() or 0
-    
-    # Current period units (last 7 days)
-    current_units = db.session.query(db.func.sum(Sale.quantity)).filter(
-        Sale.sale_date >= seven_days_ago
-    ).scalar() or 0
-    
-    # Previous period units (7-14 days ago)
-    previous_units = db.session.query(db.func.sum(Sale.quantity)).filter(
-        Sale.sale_date >= fourteen_days_ago,
-        Sale.sale_date < seven_days_ago
-    ).scalar() or 0
+    _cmp = db.session.query(
+        db.func.sum(sa_case(
+            (Sale.sale_date >= seven_days_ago, Sale.quantity * Sale.price), else_=0)),
+        db.func.sum(sa_case(
+            (Sale.sale_date >= seven_days_ago, Sale.quantity), else_=0)),
+        db.func.sum(sa_case(
+            (sa_and(Sale.sale_date >= fourteen_days_ago, Sale.sale_date < seven_days_ago),
+             Sale.quantity * Sale.price), else_=0)),
+        db.func.sum(sa_case(
+            (sa_and(Sale.sale_date >= fourteen_days_ago, Sale.sale_date < seven_days_ago),
+             Sale.quantity), else_=0)),
+    ).filter(Sale.sale_date >= fourteen_days_ago).one()
+    current_revenue  = _cmp[0] or 0
+    current_units    = _cmp[1] or 0
+    previous_revenue = _cmp[2] or 0
+    previous_units   = _cmp[3] or 0
     
     # Calculate percentage changes (only if previous period has data)
     revenue_change = None
@@ -441,65 +413,64 @@ def get_metrics():
             monthly_labels.append(month_date.strftime('%b %Y'))
             monthly_data.append(float(revenue or 0))
     else:
-        # Default: last 6 months
+        # Default: last 6 months — single GROUP BY query
+        from sqlalchemy import extract
+        _six_months_ago = today - timedelta(days=180)
+        _m_results = db.session.query(
+            extract('year', Sale.sale_date).label('year'),
+            extract('month', Sale.sale_date).label('month'),
+            db.func.sum(Sale.quantity * Sale.price).label('revenue')
+        ).filter(
+            Sale.sale_date >= _six_months_ago
+        ).group_by('year', 'month').order_by('year', 'month').all()
+        _month_map = {(int(y), int(m)): float(r or 0) for y, m, r in _m_results}
         for i in range(5, -1, -1):
             month_date = today - timedelta(days=30*i)
-            month_start = month_date.replace(day=1)
-            if month_start.month == 12:
-                month_end = month_start.replace(year=month_start.year + 1, month=1, day=1)
-            else:
-                month_end = month_start.replace(month=month_start.month + 1, day=1)
-            month_sales = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-                Sale.sale_date >= month_start,
-                Sale.sale_date < month_end
-            ).scalar() or 0
             monthly_labels.append(month_date.strftime('%b'))
-            monthly_data.append(float(month_sales))
+            monthly_data.append(_month_map.get((month_date.year, month_date.month), 0.0))
     
-    # Month-over-Month Comparison (DYNAMIC: same day range)
-    # Today is Nov 10, so compare Nov 1-10 vs Oct 1-10
-    current_month_start = today.replace(day=1)
-    current_day_of_month = today.day  # e.g., 10 for Nov 10
-    
-    # Last month calculation
+    # Month-over-Month Comparison (DYNAMIC: same day range, e.g. Nov 1-10 vs Oct 1-10)
+    # Normalize to midnight so we capture ALL sales on each day, not just after the current clock time
+    current_month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    current_day_of_month = today.day
+
+    # Last month start (midnight of the 1st)
     if current_month_start.month == 1:
         last_month_start = current_month_start.replace(year=current_month_start.year - 1, month=12)
     else:
         last_month_start = current_month_start.replace(month=current_month_start.month - 1)
-    
-    # Calculate the end date for last month comparison (same day of month)
-    # If current day doesn't exist in last month (e.g., Jan 31 -> Feb 31), use last day of that month
+
+    # Last month end — exclusive upper bound (midnight of day N+1 in last month)
+    # so "same day of month" comparison covers the full day, not just up to the current clock time.
     try:
-        last_month_end = last_month_start.replace(day=current_day_of_month)
+        last_month_end_excl = last_month_start.replace(day=current_day_of_month) + timedelta(days=1)
     except ValueError:
-        # Day doesn't exist in that month, use last day of the month
+        # Day N doesn't exist in that month (e.g. comparing Mar 31 → Feb has no 31st)
+        # Use the last day of that month + 1 day (exclusive)
         if last_month_start.month == 12:
-            last_month_end = last_month_start.replace(year=last_month_start.year + 1, month=1, day=1) - timedelta(days=1)
+            last_month_end_excl = last_month_start.replace(year=last_month_start.year + 1, month=1, day=1)
         else:
-            last_month_end = last_month_start.replace(month=last_month_start.month + 1, day=1) - timedelta(days=1)
-    
-    # Current month revenue (from start of month to today)
+            last_month_end_excl = last_month_start.replace(month=last_month_start.month + 1, day=1)
+
+    # Current month: from midnight of 1st through now (inclusive)
     current_month_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
         Sale.sale_date >= current_month_start,
         Sale.sale_date <= today
     ).scalar() or 0
-    
-    # Last month revenue (same day range)
+
     last_month_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
         Sale.sale_date >= last_month_start,
-        Sale.sale_date <= last_month_end
+        Sale.sale_date < last_month_end_excl
     ).scalar() or 0
-    
-    # Current month units (from start of month to today)
+
     current_month_units = db.session.query(db.func.sum(Sale.quantity)).filter(
         Sale.sale_date >= current_month_start,
         Sale.sale_date <= today
     ).scalar() or 0
-    
-    # Last month units (same day range)
+
     last_month_units = db.session.query(db.func.sum(Sale.quantity)).filter(
         Sale.sale_date >= last_month_start,
-        Sale.sale_date <= last_month_end
+        Sale.sale_date < last_month_end_excl
     ).scalar() or 0
     
     # Calculate month-over-month percentage changes
@@ -511,40 +482,40 @@ def get_metrics():
     if last_month_units > 0:
         month_units_change = ((current_month_units - last_month_units) / last_month_units) * 100
     
-    # Year-over-Year Comparison (DYNAMIC: same day range last year)
-    # Today is Nov 10, 2025, so compare Nov 1-10, 2025 vs Nov 1-10, 2024
-    year_ago_month_start = current_month_start.replace(year=current_month_start.year - 1)
-    
-    # Calculate the end date for last year comparison (same day of current month)
-    try:
-        year_ago_end = year_ago_month_start.replace(day=current_day_of_month)
-    except ValueError:
-        # Day doesn't exist in that month (e.g., leap year issue)
-        if year_ago_month_start.month == 12:
-            year_ago_end = year_ago_month_start.replace(year=year_ago_month_start.year + 1, month=1, day=1) - timedelta(days=1)
-        else:
-            year_ago_end = year_ago_month_start.replace(month=year_ago_month_start.month + 1, day=1) - timedelta(days=1)
-    
-    # Same period last year revenue
-    year_ago_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).filter(
-        Sale.sale_date >= year_ago_month_start,
-        Sale.sale_date <= year_ago_end
-    ).scalar() or 0
-    
-    # Same period last year units
-    year_ago_units = db.session.query(db.func.sum(Sale.quantity)).filter(
-        Sale.sale_date >= year_ago_month_start,
-        Sale.sale_date <= year_ago_end
-    ).scalar() or 0
-    
-    # Calculate year-over-year percentage changes
+    # Year-over-Year Comparison — Year-to-Date (Jan 1 → today) vs same period last year
+    ytd_start      = today.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    ytd_start_ly   = ytd_start.replace(year=ytd_start.year - 1)
+    # Same calendar point last year: e.g. Mar 1 2026 → Mar 1 2025 23:59:59
+    ytd_end_ly     = today.replace(year=today.year - 1, hour=23, minute=59, second=59, microsecond=0)
+
+    _ytd = db.session.query(
+        db.func.sum(Sale.quantity * Sale.price),
+        db.func.sum(Sale.quantity)
+    ).filter(
+        Sale.sale_date >= ytd_start,
+        Sale.sale_date <= today
+    ).one()
+    current_ytd_revenue = _ytd[0] or 0
+    current_ytd_units   = _ytd[1] or 0
+
+    _ytd_ly = db.session.query(
+        db.func.sum(Sale.quantity * Sale.price),
+        db.func.sum(Sale.quantity)
+    ).filter(
+        Sale.sale_date >= ytd_start_ly,
+        Sale.sale_date <= ytd_end_ly
+    ).one()
+    year_ago_revenue = _ytd_ly[0] or 0
+    year_ago_units   = _ytd_ly[1] or 0
+
+    # Year-over-year percentage changes
     year_revenue_change = None
     if year_ago_revenue > 0:
-        year_revenue_change = ((current_month_revenue - year_ago_revenue) / year_ago_revenue) * 100
-    
+        year_revenue_change = ((current_ytd_revenue - year_ago_revenue) / year_ago_revenue) * 100
+
     year_units_change = None
     if year_ago_units > 0:
-        year_units_change = ((current_month_units - year_ago_units) / year_ago_units) * 100
+        year_units_change = ((current_ytd_units - year_ago_units) / year_ago_units) * 100
     
     # Inventory turnover (simple: revenue / inventory value) guarded against division by zero
     turnover_rate = 0.0
@@ -578,7 +549,9 @@ def get_metrics():
         'month_revenue_change': round(month_revenue_change, 1) if month_revenue_change is not None else None,
         'month_units_change': round(month_units_change, 1) if month_units_change is not None else None,
         
-        # Year-over-Year comparison (NEW)
+        # Year-over-Year comparison — Year-to-Date vs same period last year
+        'current_ytd_revenue': float(current_ytd_revenue),
+        'current_ytd_units': int(current_ytd_units),
         'year_ago_revenue': float(year_ago_revenue),
         'year_ago_units': int(year_ago_units),
         'year_revenue_change': round(year_revenue_change, 1) if year_revenue_change is not None else None,
