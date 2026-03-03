@@ -89,6 +89,18 @@ def create_app(config_name=None):
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
     
+    # Inject git commit hash as a template global so CSS/JS cache busts on every deploy
+    import subprocess
+    try:
+        _ver = subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            cwd=os.path.dirname(__file__),
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        _ver = str(int(os.getenv('DEPLOY_TS', '1')))
+    app.jinja_env.globals['static_ver'] = _ver
+    
     # Register WebSocket event handlers
     from websocket_events import register_socketio_events
     register_socketio_events(socketio)
