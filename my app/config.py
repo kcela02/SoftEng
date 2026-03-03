@@ -69,6 +69,12 @@ class ProductionConfig(Config):
     SECRET_KEY = os.environ.get('SECRET_KEY', '')
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', '')
     
+    # Keep DB connections alive; recycle before Render's idle timeout
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 280,
+    }
+    
     # CORS Configuration - Only allow your Render deployment and optional frontend
     CORS_ORIGINS = [
         "https://vapecrib.onrender.com",

@@ -36,6 +36,10 @@ def create_app(config_name=None):
     # Initialize extensions
     db.init_app(app)
     
+    # Gzip compress HTML/JSON/CSS responses (big win on slow connections)
+    from flask_compress import Compress
+    Compress(app)
+    
     # Initialize CSRF Protection
     csrf = CSRFProtect(app)
     
