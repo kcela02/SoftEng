@@ -36,6 +36,17 @@ class User(UserMixin, db.Model):
                 self.failed_login_attempts = 0
                 db.session.commit()
         return False
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'role': self.role,
+            'is_owner': self.is_owner,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+        }
     
     @staticmethod
     def validate_password_strength(password):
@@ -77,6 +88,16 @@ class Product(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_fake = db.Column(db.Boolean, default=False)  # Flag for fake data
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'category': self.category,
+            'unit_cost': self.unit_cost,
+            'current_stock': self.current_stock,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
@@ -85,6 +106,19 @@ class Sale(db.Model):
     sale_date = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     is_fake = db.Column(db.Boolean, default=False)  # Flag for fake data
+
+    def to_dict(self):
+        product = Product.query.get(self.product_id)
+        return {
+            'id': self.id,
+            'product_id': self.product_id,
+            'product_name': product.name if product else None,
+            'quantity': self.quantity,
+            'price': self.price,
+            'total': round(self.quantity * self.price, 2),
+            'sale_date': self.sale_date.isoformat() if self.sale_date else None,
+            'user_id': self.user_id,
+        }
 
 class Inventory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -149,6 +183,22 @@ class InventoryBatch(db.Model):
             return 'MEDIUM'
         else:
             return 'OK'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'product_id': self.product_id,
+            'batch_number': self.batch_number,
+            'quantity': self.quantity,
+            'original_quantity': self.original_quantity,
+            'expiration_date': self.expiration_date.isoformat() if self.expiration_date else None,
+            'received_date': self.received_date.isoformat() if self.received_date else None,
+            'unit_cost': self.unit_cost,
+            'supplier': self.supplier,
+            'urgency_level': self.urgency_level(),
+            'days_until_expiry': self.days_until_expiry(),
+            'is_expired': self.is_expired,
+        }
 
 
 class BatchTransaction(db.Model):
@@ -217,6 +267,21 @@ class Forecast(db.Model):
         db.Index('idx_forecast_period', 'product_id', 'aggregation_level', 'period_key'),
     )
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'product_id': self.product_id,
+            'forecast_date': self.forecast_date.isoformat() if self.forecast_date else None,
+            'predicted_quantity': self.predicted_quantity,
+            'model_used': self.model_used,
+            'accuracy': self.accuracy,
+            'confidence_lower': self.confidence_lower,
+            'confidence_upper': self.confidence_upper,
+            'aggregation_level': self.aggregation_level,
+            'period_key': self.period_key,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
 
 # New models for architectural enhancements
 class UserPreference(db.Model):
@@ -251,6 +316,20 @@ class Alert(db.Model):
     
     # Relationships
     product = db.relationship('Product', backref='alerts', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'product_id': self.product_id,
+            'product_name': self.product.name if self.product else None,
+            'alert_type': self.alert_type,
+            'severity': self.severity,
+            'message': self.message,
+            'recommended_order_qty': self.recommended_order_qty,
+            'is_active': self.is_active,
+            'is_acknowledged': self.is_acknowledged,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 class DashboardMetrics(db.Model):

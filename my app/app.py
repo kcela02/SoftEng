@@ -6,6 +6,7 @@ from flask_socketio import SocketIO
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_jwt_extended import JWTManager
 from config import config
 from models import db, User
 import os
@@ -35,6 +36,9 @@ def create_app(config_name=None):
     
     # Initialize extensions
     db.init_app(app)
+
+    # JWT for mobile API
+    JWTManager(app)
     
     # Gzip compress HTML/JSON/CSS responses (big win on slow connections)
     from flask_compress import Compress
@@ -88,10 +92,14 @@ def create_app(config_name=None):
     from blueprints.auth import auth_bp
     from blueprints.main import main_bp
     from blueprints.api import api_bp
+    from blueprints.mobile import mobile_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(mobile_bp)
+    # Exempt mobile API from CSRF — mobile apps use JWT tokens, not browser cookies
+    csrf.exempt(mobile_bp)
     
     # Inject git commit hash as a template global so CSS/JS cache busts on every deploy
     import subprocess

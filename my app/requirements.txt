@@ -40,3 +40,4 @@ gunicorn==21.2.0
 python-dotenv==1.0.0
 whitenoise==6.6.0
 Flask-Compress==1.15
+Flask-JWT-Extended==4.7.1
