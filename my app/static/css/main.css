@@ -356,12 +356,14 @@ body::after {
     width: auto;
     height: 50px;
     object-fit: contain;
-    animation: vcLogoRotate 14s linear infinite;
+    animation: vcLogoRotate 14s ease-in-out infinite;
     will-change: transform;
 }
 
 @keyframes vcLogoRotate {
-    to { transform: rotate(360deg); }
+    0%,
+    7%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .logo h1 {

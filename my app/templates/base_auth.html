@@ -8,6 +8,16 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+    <script>
+    (function(){
+        var k='vcLogoStart',D=14000,n=Date.now();
+        if(!localStorage.getItem(k)) localStorage.setItem(k,String(n));
+        var d=(n-parseInt(localStorage.getItem(k),10))%D;
+        var s=document.createElement('style');
+        s.textContent='.nav-logo,.auth-logo img{animation-delay:-'+d+'ms!important}';
+        document.head.appendChild(s);
+    })();
+    </script>
     {% block extra_head %}{% endblock %}
     <style>
         .auth-container {
@@ -34,6 +44,8 @@
             width: 80px;
             height: 80px;
             margin-bottom: 10px;
+            animation: vcLogoRotate 14s ease-in-out infinite;
+            will-change: transform;
         }
         .auth-logo h2 {
             color: #333;

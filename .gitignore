@@ -33,6 +33,11 @@ _for_collaborators/
 my app/data/*.csv
 my app/sample_*.csv
 
+# ── Dev-only scripts (local use only, not for deployment) ──────────────────────
+/runtime.txt
+/test_csrf.py
+my app/migrate_to_render.py
+
 # ── OS / editor ────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
