@@ -19,11 +19,11 @@ def upload_sales_csv(csv_file='sample_sales_3years.csv'):
         # Read CSV
         print(f"\n📂 Reading {csv_file}...")
         df = pd.read_csv(csv_file)
-        print(f"✓ Loaded {len(df):,} records")
+        print(f"[OK] Loaded {len(df):,} records")
         
         # Get unique products
         unique_products = df['product_name'].unique()
-        print(f"✓ Found {len(unique_products)} unique products")
+        print(f"[OK] Found {len(unique_products)} unique products")
         
         # Product categories (for better organization)
         product_categories = {
@@ -70,7 +70,7 @@ def upload_sales_csv(csv_file='sample_sales_3years.csv'):
         }
         
         # Step 1: Create products
-        print("\n📦 Creating products...")
+        print("\n[INFO] Creating products...")
         product_map = {}
         
         for idx, product_name in enumerate(unique_products, 1):
@@ -94,10 +94,10 @@ def upload_sales_csv(csv_file='sample_sales_3years.csv'):
             product_map[product_name] = product.id
         
         db.session.commit()
-        print(f"✓ Created {len(product_map)} products")
+        print(f"[OK] Created {len(product_map)} products")
         
         # Step 2: Upload sales with progress bar
-        print(f"\n💰 Uploading {len(df):,} sales records...")
+        print(f"\n[INFO] Uploading {len(df):,} sales records...")
         
         # Group by date for better performance
         sales_by_date = df.groupby('sale_date')
@@ -141,10 +141,10 @@ def upload_sales_csv(csv_file='sample_sales_3years.csv'):
             db.session.bulk_save_objects(sales_batch)
             db.session.commit()
         
-        print(f"✓ Uploaded {total_processed:,} sales records")
+        print(f"[OK] Uploaded {total_processed:,} sales records")
         
         # Step 3: Generate forecasts
-        print("\n📈 Generating forecasts...")
+        print("\n[INFO] Generating forecasts...")
         products = Product.query.all()
         forecast_count = 0
         
@@ -159,9 +159,9 @@ def upload_sales_csv(csv_file='sample_sales_3years.csv'):
                 if success:
                     forecast_count += 1
             except Exception as e:
-                print(f"  ⚠️ Warning: Could not generate forecast for {product.name}: {str(e)}")
+                print(f"  [WARNING] Could not generate forecast for {product.name}: {str(e)}")
         
-        print(f"✓ Generated forecasts for {forecast_count} products")
+        print(f"[OK] Generated forecasts for {forecast_count} products")
         
         # Display summary
         total_revenue = db.session.query(db.func.sum(Sale.quantity * Sale.price)).scalar() or 0
@@ -180,7 +180,7 @@ def upload_sales_csv(csv_file='sample_sales_3years.csv'):
         print(f"Inventory Value:     ${total_inventory_value:>10,.2f}")
         print(f"Forecasts Generated: {forecast_count:>10}")
         print("="*60)
-        print("✅ Upload complete!")
+        print("[OK] Upload complete!")
 
 if __name__ == '__main__':
     upload_sales_csv()

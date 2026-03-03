@@ -3,6 +3,9 @@ from flask import Flask, jsonify, redirect, url_for
 from flask_cors import CORS
 from flask_login import LoginManager
 from flask_socketio import SocketIO
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from config import config
 from models import db, User
 import os
@@ -32,16 +35,35 @@ def create_app(config_name=None):
     
     # Initialize extensions
     db.init_app(app)
-    CORS(app)
     
-    # Initialize SocketIO with CORS support
+    # Initialize CSRF Protection
+    csrf = CSRFProtect(app)
+    
+    # Initialize Rate Limiter
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=app.config.get('RATELIMIT_DEFAULTS', ["200 per day", "50 per hour"]),
+        storage_uri=app.config.get('RATELIMIT_STORAGE_URI', 'memory://'),
+        strategy='fixed-window'
+    )
+    
+    # Store limiter in app for access in blueprints
+    app.limiter = limiter
+    
+    # Initialize CORS with environment-specific allowed origins
+    cors_origins = app.config.get('CORS_ORIGINS', [])
+    CORS(app, origins=cors_origins, supports_credentials=True)
+    
+    # Initialize SocketIO with CORS support using same origins
     global socketio
-    socketio = SocketIO(app, cors_allowed_origins="*")
+    socketio = SocketIO(app, cors_allowed_origins=cors_origins)
     
     # Setup Flask-Login
     login_manager = LoginManager()
     login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
+    login_manager.login_view = 'main.index'  # Redirect to index instead of login page
+    login_manager.login_message = None  # Disable flash message for cleaner UX
     
     # Custom unauthorized handler for API calls
     @login_manager.unauthorized_handler
@@ -51,8 +73,8 @@ def create_app(config_name=None):
         # Check if this is an API call
         if request.path.startswith('/api/'):
             return jsonify({'success': False, 'error': 'Unauthorized - please log in first'}), 401
-        # For non-API requests, redirect to login page
-        return redirect(url_for('auth.login'))
+        # For non-API requests, redirect to index page with login modal
+        return redirect(url_for('main.index'))
     
     @login_manager.user_loader
     def load_user(user_id):
@@ -79,9 +101,11 @@ def create_app(config_name=None):
         if not User.query.filter_by(username='admin').first():
             admin = User(username='admin', email='admin@example.com', role='admin')
             admin.set_password('admin123')
+            admin.force_password_change = True  # Security: Force password change on first login
             db.session.add(admin)
             db.session.commit()
-            print("[OK] Default admin user created (username: admin, password: admin123)")
+            print("[SECURITY WARNING] Default admin user created (username: admin, password: admin123)")
+            print("[ACTION REQUIRED] Please change the admin password immediately after first login!")
     
     return app
 

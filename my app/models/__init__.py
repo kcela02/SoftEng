@@ -12,13 +12,61 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(50), default='user')  # 'admin' or 'user'
+    is_owner = db.Column(db.Boolean, default=False)  # Protected owner — cannot be demoted or deleted
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    force_password_change = db.Column(db.Boolean, default=False)  # Security: Force password change
+    failed_login_attempts = db.Column(db.Integer, default=0)  # Track failed logins
+    account_locked_until = db.Column(db.DateTime, nullable=True)  # Account lockout timestamp
+    last_login = db.Column(db.DateTime, nullable=True)  # Track last successful login
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def is_account_locked(self):
+        """Check if account is currently locked."""
+        if self.account_locked_until:
+            if datetime.utcnow() < self.account_locked_until:
+                return True
+            else:
+                # Lock expired, reset
+                self.account_locked_until = None
+                self.failed_login_attempts = 0
+                db.session.commit()
+        return False
+    
+    @staticmethod
+    def validate_password_strength(password):
+        """
+        Validate password against security policy.
+        Returns (is_valid, error_message)
+        """
+        from flask import current_app
+        
+        min_length = current_app.config.get('PASSWORD_MIN_LENGTH', 8)
+        require_uppercase = current_app.config.get('PASSWORD_REQUIRE_UPPERCASE', True)
+        require_lowercase = current_app.config.get('PASSWORD_REQUIRE_LOWERCASE', True)
+        require_numbers = current_app.config.get('PASSWORD_REQUIRE_NUMBERS', True)
+        require_special = current_app.config.get('PASSWORD_REQUIRE_SPECIAL', False)
+        
+        if len(password) < min_length:
+            return False, f'Password must be at least {min_length} characters long'
+        
+        if require_uppercase and not any(c.isupper() for c in password):
+            return False, 'Password must contain at least one uppercase letter'
+        
+        if require_lowercase and not any(c.islower() for c in password):
+            return False, 'Password must contain at least one lowercase letter'
+        
+        if require_numbers and not any(c.isdigit() for c in password):
+            return False, 'Password must contain at least one number'
+        
+        if require_special and not any(c in '!@#$%^&*()_+-=[]{}|;:,.<>?' for c in password):
+            return False, 'Password must contain at least one special character'
+        
+        return True, None
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)

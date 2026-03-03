@@ -5,7 +5,10 @@
 {% block auth_title %}Create Account{% endblock %}
 
 {% block content %}
-<form method="POST" class="auth-form">
+<div id="register-messages"></div>
+
+<form id="registerForm" method="POST" class="auth-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div class="form-group">
         <label for="username">Username</label>
         <input type="text" id="username" name="username" placeholder="Choose a username" required autofocus>

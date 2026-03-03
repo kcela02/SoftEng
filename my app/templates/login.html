@@ -5,7 +5,10 @@
 {% block auth_title %}Login to VapeCrib{% endblock %}
 
 {% block content %}
-<form method="POST" class="auth-form">
+<div id="login-messages"></div>
+
+<form id="loginForm" method="POST" class="auth-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <div class="form-group">
         <label for="username">Username</label>
         <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>

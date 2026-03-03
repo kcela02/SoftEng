@@ -1,169 +1,794 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VapeCrib Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VapeCrib</title>
+  <meta name="csrf-token" content="{{ csrf_token() }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ── Reset / Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body.lp {
+      min-height: 100vh;
+      background: #0a0a0a;
+      color: #f5f5f5;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Keyframes ── */
+    @keyframes lp-up   { from { opacity:0; transform:translateY(28px); } to { opacity:1; transform:none; } }
+    @keyframes lp-right{ from { opacity:0; transform:translateX(-20px);} to { opacity:1; transform:none; } }
+    @keyframes lp-grow { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+    @keyframes lp-pulse{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
+    @keyframes lp-modal{ from { opacity:0; transform:translateY(16px) scale(.97); } to { opacity:1; transform:none; } }
+    @keyframes lp-barIn{ from { transform:scaleY(0); } to { transform:scaleY(1); } }
+    @keyframes lp-blink { 0%,100%{ opacity:1; } 50%{ opacity:.3; } }
+    @keyframes lp-particle-drift {
+      0%   { transform: translate(0, 0); }
+      25%  { transform: translate(var(--px1), var(--py1)); }
+      50%  { transform: translate(var(--px2), var(--py2)); }
+      75%  { transform: translate(var(--px1), var(--py2)); }
+      100% { transform: translate(0, 0); }
+    }
+
+    /* ── Canvas background ── */
+    #lp-canvas {
+      position: fixed; inset: 0; z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── Ambient blobs ── */
+    .lp-blob {
+      position: fixed; border-radius: 50%;
+      filter: blur(80px); pointer-events: none; z-index: 0;
+    }
+    .lp-blob-1 {
+      width: 520px; height: 520px; top: -100px; left: -120px;
+      background: rgba(255,255,255,0.025);
+    }
+    .lp-blob-2 {
+      width: 400px; height: 400px; bottom: -80px; right: -80px;
+      background: rgba(100,100,100,0.04);
+    }
+
+    /* ── Layout ── */
+    .lp { position: relative; }
+    .lp-wrap {
+      position: relative; z-index: 1;
+      max-width: 1160px; margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Nav ── */
+    .lp-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      backdrop-filter: blur(14px);
+      background: rgba(10,10,10,0.72);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      transition: background .3s;
+    }
+    .lp-nav-inner {
+      max-width: 1160px; margin: 0 auto;
+      padding: 0 24px;
+      height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .lp-brand {
+      font-family: 'Exo 2', 'Roboto', sans-serif;
+      font-size: 1.35rem; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      text-decoration: none;
+      background: linear-gradient(90deg, #6b7280 0%, #d1d5db 30%, #ffffff 48%, #f9fafb 52%, #d1d5db 70%, #6b7280 100%);
+      background-size: 250% auto;
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: vcTitleShimmer 5s linear infinite;
+    }
+    .lp-nav-actions { display: flex; gap: 10px; }
+
+    /* ── Buttons ── */
+    .btn-ghost {
+      padding: 8px 18px; border-radius: 8px; font-size: .875rem;
+      font-weight: 500; cursor: pointer; border: 1px solid rgba(255,255,255,0.18);
+      background: transparent; color: #e5e5e5;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.3); }
+
+    .btn-solid {
+      padding: 8px 20px; border-radius: 8px; font-size: .875rem;
+      font-weight: 600; cursor: pointer; border: none;
+      background: #f5f5f5; color: #111;
+      transition: background .2s, transform .15s;
+    }
+    .btn-solid:hover { background: #e0e0e0; transform: translateY(-1px); }
+
+    .btn-hero-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 32px; border-radius: 10px; font-size: 1rem;
+      font-weight: 600; cursor: pointer; border: none;
+      background: #f5f5f5; color: #111;
+      transition: background .2s, transform .15s, box-shadow .2s;
+    }
+    .btn-hero-primary:hover {
+      background: #e0e0e0; transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .btn-hero-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px; border-radius: 10px; font-size: 1rem;
+      font-weight: 500; cursor: pointer;
+      background: transparent; color: #d4d4d4;
+      border: 1px solid rgba(255,255,255,0.2);
+      transition: background .2s, border-color .2s, transform .15s;
+    }
+    .btn-hero-secondary:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.35);
+      transform: translateY(-2px);
+    }
+
+    /* ── Live badge ── */
+    .lp-live {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px; font-size: .72rem;
+      font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      color: #a3a3a3;
+      animation: lp-up .6s ease both;
+    }
+    .lp-live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #a3a3a3;
+      animation: lp-blink 2s ease infinite;
+    }
+
+    /* ── Hero ── */
+    .lp-hero {
+      padding: 148px 0 100px;
+      display: flex; align-items: center; gap: 64px;
+      flex-wrap: wrap;
+    }
+    .lp-hero-text { flex: 1; min-width: 280px; }
+    .lp-hero-badge {
+      margin-bottom: 20px;
+    }
+
+    .lp-h1 {
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      font-weight: 800; line-height: 1.12; letter-spacing: -.02em;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #ffffff 20%, #9ca3af 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: lp-up .7s .1s ease both;
+    }
+    .lp-sub {
+      font-size: 1.05rem; color: #737373; line-height: 1.7;
+      max-width: 440px;
+      animation: lp-up .7s .22s ease both;
+    }
+    .lp-hero-cta {
+      display: flex; gap: 14px; flex-wrap: wrap; margin-top: 36px;
+      animation: lp-up .7s .34s ease both;
+    }
+
+    /* ── Preview card ── */
+    .lp-hero-preview {
+      flex: 1; min-width: 280px; max-width: 440px;
+      animation: lp-up .8s .2s ease both;
+    }
+    .pc {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; padding: 24px;
+      backdrop-filter: blur(8px);
+    }
+    .pc-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .pc-title { font-size: .8rem; color: #525252; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+    .pc-live-tag {
+      font-size: .7rem; color: #a3a3a3; background: rgba(255,255,255,0.05);
+      padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* metrics row */
+    .mc-row { display: flex; gap: 10px; margin-bottom: 18px; }
+    .mc {
+      flex: 1; padding: 12px 14px; border-radius: 10px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    }
+    .mc-label { font-size: .7rem; color: #525252; margin-bottom: 4px; }
+    .mc-val { font-size: 1.3rem; font-weight: 700; color: #f5f5f5; }
+    .mc-delta { font-size: .7rem; color: #737373; margin-top: 2px; }
+    .mc-delta.up { color: #a3a3a3; }
+
+    /* mini chart */
+    .mb-wrap { display: flex; align-items: flex-end; gap: 4px; height: 52px; padding: 0 2px; }
+    .mb {
+      flex: 1; border-radius: 3px 3px 0 0;
+      background: linear-gradient(180deg, #525252, #2a2a2a);
+      transform-origin: bottom;
+      animation: lp-barIn .6s ease both;
+    }
+    .mb.active { background: linear-gradient(180deg, #a3a3a3, #525252); }
+
+    /* alerts */
+    .ai-list { margin-top: 16px; display: flex; flex-direction: column; gap: 7px; }
+    .ai {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 8px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+      font-size: .78rem; color: #a3a3a3;
+      opacity: 0;
+      transition: opacity .4s, transform .4s;
+    }
+    .ai.visible { opacity: 1; transform: none; }
+    .ai-dot { width: 7px; height: 7px; border-radius: 50%; background: #525252; flex-shrink: 0; }
+    .ai-dot.warn { background: #a3a3a3; }
+    .ai-sku { font-weight: 600; color: #d4d4d4; }
+
+    /* ── Divider ── */
+    .lp-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+      margin: 0;
+      transform-origin: left;
+      animation: lp-grow 1s .4s ease both;
+    }
+
+    /* ── Features ── */
+    .lp-section { padding: 88px 0; }
+    .lp-section-label {
+      font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      color: #525252; margin-bottom: 12px;
+      animation: lp-up .6s ease both;
+    }
+    .lp-section-title {
+      font-size: clamp(1.6rem, 3.5vw, 2.2rem); font-weight: 800;
+      line-height: 1.2; letter-spacing: -.02em; color: #f5f5f5;
+      max-width: 480px; margin-bottom: 56px;
+      animation: lp-up .6s .1s ease both;
+    }
+    .lp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 18px;
+    }
+    .lp-feat {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; padding: 26px 24px;
+      transition: background .25s, border-color .25s, transform .2s;
+      animation: lp-up .6s ease both;
+    }
+    .lp-feat:hover {
+      background: rgba(255,255,255,0.045);
+      border-color: rgba(255,255,255,0.14);
+      transform: translateY(-3px);
+    }
+    .lp-feat-icon {
+      width: 38px; height: 38px; border-radius: 9px;
+      background: rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; margin-bottom: 16px; color: #a3a3a3;
+    }
+    .lp-feat-title { font-size: .95rem; font-weight: 700; color: #e5e5e5; margin-bottom: 6px; }
+    .lp-feat-desc { font-size: .82rem; color: #525252; line-height: 1.6; }
+
+    /* ── Stats bar ── */
+    .lp-stats {
+      display: flex; flex-wrap: wrap; gap: 0;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; overflow: hidden;
+      animation: lp-up .6s .2s ease both;
+    }
+    .lp-stat {
+      flex: 1; min-width: 140px; padding: 28px 24px;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      text-align: center;
+    }
+    .lp-stat:last-child { border-right: none; }
+    .lp-stat-num {
+      font-size: 2rem; font-weight: 800; color: #f5f5f5;
+      letter-spacing: -.02em;
+    }
+    .lp-stat-label { font-size: .78rem; color: #525252; margin-top: 4px; }
+
+    /* ── CTA section ── */
+    .lp-cta-section {
+      padding: 80px 0 100px; text-align: center;
+    }
+    .lp-cta-card {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px; padding: 60px 40px;
+      max-width: 640px; margin: 0 auto;
+      animation: lp-up .6s ease both;
+    }
+    .lp-cta-title {
+      font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 800;
+      color: #f5f5f5; letter-spacing: -.02em; margin-bottom: 12px;
+    }
+    .lp-cta-sub { font-size: .9rem; color: #525252; margin-bottom: 28px; }
+    .lp-cta-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── Footer ── */
+    .lp-footer {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 28px 0;
+    }
+    .lp-footer-inner {
+      max-width: 1160px; margin: 0 auto; padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .lp-footer-brand { font-size: .85rem; font-weight: 700; color: #525252; }
+    .lp-footer-copy  { font-size: .78rem; color: #3a3a3a; }
+
+    /* ── Modals ── */
+    .lp-overlay {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+      align-items: center; justify-content: center;
+    }
+    .lp-overlay.open { display: flex; }
+    .lp-modal {
+      background: #141414; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 36px 32px;
+      width: 100%; max-width: 400px;
+      animation: lp-modal .3s ease;
+    }
+    .lp-modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .lp-modal-title { font-size: 1.15rem; font-weight: 700; color: #f5f5f5; }
+    .lp-modal-close {
+      width: 30px; height: 30px; border-radius: 7px; border: none;
+      background: rgba(255,255,255,0.06); color: #737373;
+      font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background .2s, color .2s;
+    }
+    .lp-modal-close:hover { background: rgba(255,255,255,0.12); color: #f5f5f5; }
+
+    .lp-form-group { margin-bottom: 16px; }
+    .lp-form-group label { display: block; font-size: .8rem; color: #737373; margin-bottom: 6px; font-weight: 500; }
+    .lp-form-group input {
+      width: 100%; padding: 10px 14px; border-radius: 8px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      color: #f5f5f5; font-size: .9rem; outline: none;
+      transition: border-color .2s, background .2s;
+    }
+    .lp-form-group input:focus { border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); }
+    .lp-form-group input::placeholder { color: #3a3a3a; }
+
+    .lp-form-footer { margin-top: 6px; text-align: center; font-size: .78rem; color: #525252; }
+    .lp-form-footer a { color: #a3a3a3; text-decoration: none; cursor: pointer; }
+    .lp-form-footer a:hover { color: #f5f5f5; }
+
+    .lp-form-submit {
+      width: 100%; padding: 11px; border-radius: 9px;
+      background: #f5f5f5; color: #111; font-size: .9rem; font-weight: 700;
+      border: none; cursor: pointer; margin-top: 18px;
+      transition: background .2s, transform .15s;
+    }
+    .lp-form-submit:hover { background: #e0e0e0; transform: translateY(-1px); }
+
+    .lp-flash { padding: 9px 12px; border-radius: 7px; font-size: .82rem; margin-bottom: 10px; display: none; }
+    .lp-flash.error { background: rgba(255,60,60,.12); border: 1px solid rgba(255,60,60,.2); color: #f87171; display: block; }
+    .lp-flash.success { background: rgba(60,200,100,.1); border: 1px solid rgba(60,200,100,.2); color: #86efac; display: block; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .lp-hero { padding: 120px 0 72px; flex-direction: column; gap: 40px; }
+      .lp-hero-preview { max-width: 100%; }
+      .lp-stat { min-width: 110px; padding: 20px 16px; }
+    }
+  </style>
 </head>
-<body>
-    <div class="welcome-page">
-        <div class="hero-section">
-            <div class="hero-content">
-                <h1 class="hero-title"><img src="{{ url_for('static', filename='vc_logo_round.png') }}" alt="VapeCrib Logo" class="hero-logo"> VapeCrib Dashboard</h1>
-                <p class="hero-subtitle">Advanced analytics and forecasting for smarter inventory management</p>
-                <div class="hero-features">
-                    <div class="feature">                       
-                        <h3>🧠 Smart Forecasting</h3>
-                        <p>Predict sales trends with AI-powered models</p>
-                    </div>
-                    <div class="feature">
-                        <h3>📈 Real-time Analytics</h3>
-                        <p>Monitor performance with interactive charts</p>
-                    </div>
-                    <div class="feature">
-                        <h3>🚨 Proactive Alerts</h3>
-                        <p>Get notified before stock runs out</p>
-                    </div>
-                    <div class="feature">
-                        <h3>📊 Real-time Analytics</h3>
-                        <p>Live inventory tracking and insights</p>
-                    </div>
-                </div>
-                <div class="cta-buttons">
-                    <button class="btn btn-primary" onclick="openModal('loginModal')">Login</button>
-                    <button class="btn btn-secondary" onclick="openModal('registerModal')">Register</button>
-                </div>
-            </div>
-            <div class="hero-image">
-                <div class="dashboard-preview">
-                    <div class="preview-header">
-                        <div class="preview-title">Sales Dashboard</div>
-                        <div class="preview-dots">
-                            <span></span><span></span><span></span>
-                        </div>
-                    </div>
-                    <div class="preview-content">
-                        <div class="preview-chart">
-                            <div class="chart-line"></div>
-                            <div class="chart-bars">
-                                <div class="bar" style="height: 40%"></div>
-                                <div class="bar" style="height: 60%"></div>
-                                <div class="bar" style="height: 80%"></div>
-                                <div class="bar" style="height: 50%"></div>
-                                <div class="bar" style="height: 70%"></div>
-                            </div>
-                        </div>
-                        <div class="preview-metrics">
-                            <div class="metric">
-                                <span class="metric-value">9,391</span>
-                                <span class="metric-label">Total Sales</span>
-                            </div>
-                            <div class="metric">
-                                <span class="metric-value">95.5%</span>
-                                <span class="metric-label">Accuracy</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+<body class="lp">
 
-        <footer class="footer">
-            <p>&copy; 2025 Predictive Sales Dashboard. All rights reserved.</p>
-        </footer>
+<!-- Ambient blobs -->
+<div class="lp-blob lp-blob-1"></div>
+<div class="lp-blob lp-blob-2"></div>
+
+<!-- Particle canvas -->
+<canvas id="lp-canvas"></canvas>
+
+<!-- ── Navigation ── -->
+<nav class="lp-nav">
+  <div class="lp-nav-inner">
+    <a class="lp-brand" href="#">VapeCrib</a>
+    <div class="lp-nav-actions">
+      <button class="btn-ghost" id="navLoginBtn">Staff login</button>
+      <button class="btn-solid" id="navRegisterBtn">Register</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section>
+  <div class="lp-wrap">
+    <div class="lp-hero">
+      <!-- Text side -->
+      <div class="lp-hero-text">
+        <div class="lp-hero-badge">
+          <span class="lp-live">
+            <span class="lp-live-dot"></span>
+            Internal Staff Portal
+          </span>
+        </div>
+        <h1 class="lp-h1">Your store's<br>command center.</h1>
+        <p class="lp-sub">
+          Everything you need to run VapeCrib's daily operations — inventory,
+          sales tracking, demand forecasting, and restock alerts — in one place.
+          Staff access only.
+        </p>
+        <div class="lp-hero-cta">
+          <button class="btn-hero-primary" id="heroGetStarted">Register account</button>
+          <button class="btn-hero-secondary" id="heroSignIn">Sign in →</button>
+        </div>
+      </div>
+
+      <!-- Preview card -->
+      <div class="lp-hero-preview">
+        <div class="pc">
+          <div class="pc-head">
+            <span class="pc-title">Live Overview</span>
+            <span class="pc-live-tag">● Live</span>
+          </div>
+
+          <!-- Metric chips -->
+          <div class="mc-row">
+            <div class="mc">
+              <div class="mc-label">SKUs Tracked</div>
+              <div class="mc-val" id="lpSkuCount">0</div>
+              <div class="mc-delta up">↑ restocked today</div>
+            </div>
+            <div class="mc">
+              <div class="mc-label">Low Stock</div>
+              <div class="mc-val" id="lpLowStock">0</div>
+              <div class="mc-delta">items need attention</div>
+            </div>
+          </div>
+
+          <!-- Mini bar chart -->
+          <div class="mb-wrap" id="lpBars">
+            <div class="mb" style="height:38%;animation-delay:.05s"></div>
+            <div class="mb" style="height:55%;animation-delay:.1s"></div>
+            <div class="mb" style="height:72%;animation-delay:.15s"></div>
+            <div class="mb active" style="height:91%;animation-delay:.2s"></div>
+            <div class="mb" style="height:64%;animation-delay:.25s"></div>
+            <div class="mb" style="height:78%;animation-delay:.3s"></div>
+            <div class="mb" style="height:47%;animation-delay:.35s"></div>
+          </div>
+
+          <!-- Alert list -->
+          <div class="ai-list" id="lpAlerts">
+            <div class="ai">
+              <span class="ai-dot warn"></span>
+              <span><span class="ai-sku">Blueberry Ice 30ml</span> — low stock, 4 units left</span>
+            </div>
+            <div class="ai">
+              <span class="ai-dot warn"></span>
+              <span><span class="ai-sku">Mango Saltnic 50mg</span> — reorder point reached</span>
+            </div>
+            <div class="ai">
+              <span class="ai-dot"></span>
+              <span><span class="ai-sku">Lychee Disposable 5000</span> — forecast spike next week</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="lp-divider"></div>
+
+<!-- ── Features ── -->
+<section class="lp-section">
+  <div class="lp-wrap">
+    <p class="lp-section-label">System modules</p>
+    <h2 class="lp-section-title">The tools you use every day.</h2>
+
+    <div class="lp-grid">
+      <div class="lp-feat" style="animation-delay:.05s">
+        <div class="lp-feat-icon">📈</div>
+        <div class="lp-feat-title">Demand Forecasting</div>
+        <div class="lp-feat-desc">Analyze your sales history to estimate upcoming demand and plan purchases with confidence.</div>
+      </div>
+      <div class="lp-feat" style="animation-delay:.1s">
+        <div class="lp-feat-icon">📊</div>
+        <div class="lp-feat-title">Sales Analytics</div>
+        <div class="lp-feat-desc">Track revenue, units sold, and product performance over any date range with clear visual breakdowns.</div>
+      </div>
+      <div class="lp-feat" style="animation-delay:.15s">
+        <div class="lp-feat-icon">🔔</div>
+        <div class="lp-feat-title">Restock Alerts</div>
+        <div class="lp-feat-desc">Get notified when any SKU crosses its reorder threshold so you never miss a restocking window.</div>
+      </div>
+      <div class="lp-feat" style="animation-delay:.2s">
+        <div class="lp-feat-icon">📄</div>
+        <div class="lp-feat-title">Reports &amp; Import</div>
+        <div class="lp-feat-desc">Export inventory and sales reports, or bulk-import product data via CSV to keep records up to date.</div>
+      </div>
     </div>
 
-    <!-- Login Modal -->
-    <div id="loginModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Login</h2>
-                <span class="close" onclick="closeModal('loginModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div id="login-messages"></div>
-                <form id="loginForm">
-                    <div class="form-group">
-                        <label for="login-username">Username:</label>
-                        <input type="text" id="login-username" name="username" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="login-password">Password:</label>
-                        <input type="password" id="login-password" name="password" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Login</button>
-                </form>
-                <p class="modal-footer-text">Don't have an account? <a href="#" onclick="switchModal('registerModal')">Register here</a></p>
-            </div>
-        </div>
+    <!-- Stats bar -->
+    <div class="lp-stats" style="margin-top: 56px;">
+      <div class="lp-stat">
+        <div class="lp-stat-num" style="color:#34d399">&#x25CF; Live</div>
+        <div class="lp-stat-label">System status</div>
+      </div>
+      <div class="lp-stat">
+        <div class="lp-stat-num">4</div>
+        <div class="lp-stat-label">Active modules</div>
+      </div>
+      <div class="lp-stat">
+        <div class="lp-stat-num">Staff</div>
+        <div class="lp-stat-label">Access level</div>
+      </div>
+      <div class="lp-stat">
+        <div class="lp-stat-num">VapeCrib</div>
+        <div class="lp-stat-label">Exclusive use</div>
+      </div>
     </div>
+  </div>
+</section>
 
-    <!-- Register Modal -->
-    <div id="registerModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Register</h2>
-                <span class="close" onclick="closeModal('registerModal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div id="register-messages"></div>
-                <form id="registerForm">
-                    <div class="form-group">
-                        <label for="register-username">Username:</label>
-                        <input type="text" id="register-username" name="username" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="register-email">Email:</label>
-                        <input type="email" id="register-email" name="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="register-password">Password:</label>
-                        <input type="password" id="register-password" name="password" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="register-role">Role:</label>
-                        <select id="register-role" name="role">
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Register</button>
-                </form>
-                <p class="modal-footer-text">Already have an account? <a href="#" onclick="switchModal('loginModal')">Login here</a></p>
-            </div>
-        </div>
+<div class="lp-divider"></div>
+
+<!-- ── CTA ── -->
+<section class="lp-cta-section">
+  <div class="lp-wrap">
+    <div class="lp-cta-card">
+      <h2 class="lp-cta-title">Ready to get to work?</h2>
+      <p class="lp-cta-sub">Sign in with your staff credentials to access the dashboard. New to the team? Register a staff account to get access.</p>
+      <div class="lp-cta-btns">
+        <button class="btn-hero-primary" id="ctaLogin">Sign in</button>
+        <button class="btn-hero-secondary" id="ctaRegister">Register staff account →</button>
+      </div>
     </div>
+  </div>
+</section>
 
-    <script src="{{ url_for('static', filename='utils.js') }}"></script>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-    <script>
-        // Ensure modal functions are accessible after page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Page loaded, checking modal functions...');
-            console.log('openModal function exists:', typeof openModal === 'function');
-            
-            // Attach click handlers to buttons if onclick doesn't work
-            const loginBtn = document.querySelector('.btn-primary');
-            const registerBtn = document.querySelector('.btn-secondary');
-            
-            if (loginBtn && registerBtn) {
-                loginBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    console.log('Login button clicked');
-                    openModal('loginModal');
-                });
-                
-                registerBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    console.log('Register button clicked');
-                    openModal('registerModal');
-                });
-                
-                console.log('Event listeners attached to buttons');
-            }
-        });
-    </script>
+<!-- ── Footer ── -->
+<footer class="lp-footer">
+  <div class="lp-footer-inner">
+    <span class="lp-footer-brand">VapeCrib</span>
+    <span class="lp-footer-copy">Internal Operations System &mdash; Staff use only</span>
+  </div>
+</footer>
+
+
+<!-- ══════════════════════════════════════════
+     LOGIN MODAL
+════════════════════════════════════════════ -->
+<div class="lp-overlay" id="loginOverlay">
+  <div class="lp-modal">
+    <div class="lp-modal-head">
+      <span class="lp-modal-title">Sign in</span>
+      <button class="lp-modal-close" id="loginClose">✕</button>
+    </div>
+    <div id="login-messages"></div>
+    <form id="loginForm" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <div class="lp-form-group">
+        <label for="login-username">Username</label>
+        <input type="text" id="login-username" name="username" placeholder="your username" autocomplete="username" required />
+      </div>
+      <div class="lp-form-group">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" name="password" placeholder="••••••••" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="lp-form-submit">Sign in</button>
+    </form>
+    <div class="lp-form-footer">
+      No account? <a id="switchToRegister">Create one</a>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     REGISTER MODAL
+════════════════════════════════════════════ -->
+<div class="lp-overlay" id="registerOverlay">
+  <div class="lp-modal">
+    <div class="lp-modal-head">
+      <span class="lp-modal-title">Create account</span>
+      <button class="lp-modal-close" id="registerClose">✕</button>
+    </div>
+    <div id="register-messages"></div>
+    <form id="registerForm" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <div class="lp-form-group">
+        <label for="reg-username">Username</label>
+        <input type="text" id="reg-username" name="username" placeholder="choose a username" autocomplete="username" required />
+      </div>
+      <div class="lp-form-group">
+        <label for="reg-email">Email</label>
+        <input type="email" id="reg-email" name="email" placeholder="you@example.com" autocomplete="email" required />
+      </div>
+      <div class="lp-form-group">
+        <label for="reg-password">Password</label>
+        <input type="password" id="reg-password" name="password" placeholder="min. 8 characters" autocomplete="new-password" required />
+      </div>
+      <button type="submit" class="lp-form-submit">Create account</button>
+    </form>
+    <div class="lp-form-footer">
+      Already have one? <a id="switchToLogin">Sign in</a>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Scripts ── -->
+<script src="{{ url_for('static', filename='utils.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script>
+(function () {
+  /* ── Particle canvas ── */
+  const canvas = document.getElementById('lp-canvas');
+  const ctx    = canvas.getContext('2d');
+  let W, H, particles = [];
+  const COUNT = 65;
+  const MAX_DIST = 130;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  for (let i = 0; i < COUNT; i++) {
+    particles.push({
+      x: Math.random() * (W || 1400),
+      y: Math.random() * (H || 900),
+      vx: (Math.random() - .5) * .32,
+      vy: (Math.random() - .5) * .32,
+      r: Math.random() * 1.6 + .4,
+      a: Math.random() * .18 + .04
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (let i = 0; i < COUNT; i++) {
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(163,163,163,${p.a})`;
+      ctx.fill();
+
+      for (let j = i + 1; j < COUNT; j++) {
+        const q = particles[j];
+        const dx = p.x - q.x, dy = p.y - q.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < MAX_DIST) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = `rgba(61,61,61,${(1 - d / MAX_DIST) * .35})`;
+          ctx.lineWidth = .5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  /* ── Modal helpers ── */
+  const loginOv    = document.getElementById('loginOverlay');
+  const registerOv = document.getElementById('registerOverlay');
+
+  function openModal(ov)  { ov.classList.add('open'); }
+  function closeModal(ov) { ov.classList.remove('open'); }
+
+  document.getElementById('navLoginBtn')    .addEventListener('click', () => openModal(loginOv));
+  document.getElementById('heroSignIn')     .addEventListener('click', () => openModal(loginOv));
+  document.getElementById('ctaLogin')       .addEventListener('click', () => openModal(loginOv));
+  document.getElementById('navRegisterBtn') .addEventListener('click', () => openModal(registerOv));
+  document.getElementById('heroGetStarted') .addEventListener('click', () => openModal(registerOv));
+  document.getElementById('ctaRegister')    .addEventListener('click', () => openModal(registerOv));
+
+  document.getElementById('loginClose')    .addEventListener('click', () => closeModal(loginOv));
+  document.getElementById('registerClose') .addEventListener('click', () => closeModal(registerOv));
+
+  document.getElementById('switchToRegister').addEventListener('click', () => { closeModal(loginOv);    openModal(registerOv); });
+  document.getElementById('switchToLogin')   .addEventListener('click', () => { closeModal(registerOv); openModal(loginOv);    });
+
+  loginOv.addEventListener('click',    e => { if (e.target === loginOv)    closeModal(loginOv); });
+  registerOv.addEventListener('click', e => { if (e.target === registerOv) closeModal(registerOv); });
+
+  /* ── Count-up animations ── */
+  function countUp(el, target, suffix, duration) {
+    if (!el) return;
+    const start = performance.now();
+    function frame(now) {
+      const p = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(target * ease) + suffix;
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      io.unobserve(e.target);
+      /* stats are now static labels — no count-up needed */
+    });
+  }, { threshold: .3 });
+  const statsEl = document.querySelector('.lp-stats');
+  if (statsEl) io.observe(statsEl);
+
+  /* ── Hero metric chips ── */
+  countUp(document.getElementById('lpSkuCount'), 38, '', 1000);
+  countUp(document.getElementById('lpLowStock'),  5, '', 800);
+
+  /* ── Alert cycle ── */
+  const ALERTS = [
+    { warn: true,  sku:'Blueberry Ice 30ml',     note:'low stock, 4 units left'        },
+    { warn: true,  sku:'Mango Saltnic 50mg',      note:'reorder point reached'          },
+    { warn: false, sku:'Lychee Disposable 5000',  note:'forecast spike next week'       },
+    { warn: true,  sku:'Cool Mint 3% pod',        note:'only 2 boxes remaining'         },
+    { warn: false, sku:'Strawberry Watermelon',   note:'trending — high velocity sales' },
+    { warn: true,  sku:'Grape Ice Disposable',    note:'expired batch flagged'          },
+  ];
+  let alertIdx = 0;
+  const alertEls = document.querySelectorAll('.ai');
+
+  function rotateAlerts() {
+    alertEls.forEach((el, i) => {
+      el.classList.remove('visible');
+      setTimeout(() => {
+        const data = ALERTS[(alertIdx + i) % ALERTS.length];
+        el.querySelector('.ai-dot').className = 'ai-dot' + (data.warn ? ' warn' : '');
+        el.querySelector('.ai-sku').textContent = data.sku;
+        el.querySelector('.ai-sku').nextSibling.textContent = ' — ' + data.note;
+        el.classList.add('visible');
+      }, i * 80);
+    });
+    alertIdx = (alertIdx + 1) % ALERTS.length;
+  }
+  setTimeout(() => {
+    alertEls.forEach(el => el.classList.add('visible'));
+    setInterval(rotateAlerts, 3800);
+  }, 600);
+
+  /* ── Bar chart pulse ── */
+  const barHeights = [38, 55, 72, 91, 64, 78, 47];
+  let barFrame = 0;
+  setInterval(() => {
+    const bars = document.querySelectorAll('.mb');
+    bars.forEach((b, i) => {
+      const shift = (i + barFrame) % barHeights.length;
+      b.style.height = barHeights[shift] + '%';
+      b.classList.toggle('active', shift === 3);
+    });
+    barFrame++;
+  }, 1400);
+
+  // Login and register form submissions are handled by app.js (posts to /login and /register)
+
+})();
+</script>
 </body>
 </html>

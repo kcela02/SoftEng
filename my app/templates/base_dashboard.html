@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}VapeCrib Dashboard{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v={{ range(1, 99999) | random }}">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Exo+2:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" crossorigin="anonymous"></script>
     {% block extra_head %}{% endblock %}
@@ -16,7 +18,7 @@
             <div class="header-content">
                 <div class="logo">
                     <img src="{{ url_for('static', filename='vc_logo_round.png') }}" alt="VapeCrib Logo" class="nav-logo">
-                    <h1>VapeCrib Dashboard</h1>
+                    <h1>VapeCrib</h1>
                 </div>
                 <nav class="nav">
                     <a href="{{ url_for('main.dashboard') }}" class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}">Dashboard</a>
@@ -24,9 +26,11 @@
                     <a href="{{ url_for('main.products_page') }}" class="nav-link {% if request.endpoint == 'main.products_page' %}active{% endif %}">Products</a>
                     <a href="{{ url_for('main.reports') }}" class="nav-link {% if request.endpoint == 'main.reports' %}active{% endif %}">Reports</a>
                     <a href="{{ url_for('main.settings') }}" class="nav-link {% if request.endpoint == 'main.settings' %}active{% endif %}">Settings</a>
+                </nav>
+                <div class="nav-actions">
                     <span class="user-info">Welcome, {{ current_user.username }} ({{ current_user.role }})</span>
                     <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
-                </nav>
+                </div>
             </div>
         </header>
 
@@ -37,21 +41,21 @@
         <!-- Floating Action Button (FAB) -->
         <div id="fab-container" class="fab-container {% if request.endpoint == 'main.settings' %}fab-hidden{% endif %}">
             <button id="fab-main" class="fab-main" title="Controls">
-                <span class="fab-icon">⚙️</span>
+                <span class="fab-icon"><i class="fas fa-cog"></i></span>
             </button>
             <div id="fab-menu" class="fab-menu">
                 {% if current_user.role == 'admin' %}
                 <button class="fab-action" onclick="refreshAllForecasts()" title="Refresh Forecasts">
-                    <span class="fab-action-icon">🔄</span>
+                    <span class="fab-action-icon"><i class="fas fa-sync-alt"></i></span>
                     <span class="fab-action-label">Refresh Forecasts</span>
                 </button>
                 <button class="fab-action" onclick="openManageUsersModal()" title="Manage Users">
-                    <span class="fab-action-icon">👥</span>
+                    <span class="fab-action-icon"><i class="fas fa-users"></i></span>
                     <span class="fab-action-label">Manage Users</span>
                 </button>
                 {% endif %}
                 <button class="fab-action" onclick="showDownloadOptions()" title="Download App">
-                    <span class="fab-action-icon">📱</span>
+                    <span class="fab-action-icon"><i class="fas fa-mobile-alt"></i></span>
                     <span class="fab-action-label">Download App</span>
                 </button>
             </div>
@@ -63,26 +67,26 @@
     <div id="manage-users-modal" class="modal" aria-hidden="true">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
-                <h3>👥 Manage Users</h3>
+                <h3><i class="fas fa-users"></i> Manage Users</h3>
                 <span class="modal-close" onclick="closeModal('manage-users-modal')">&times;</span>
             </div>
             <div class="modal-body">
-                <p style="color: #666; margin-bottom: 20px;">View and manage user accounts in the system.</p>
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">View and manage user accounts in the system.</p>
                 
                 <div id="users-loading" style="text-align: center; padding: 20px;">
-                    <p style="color: #64748b;">Loading users...</p>
+                    <p style="color: var(--color-text-secondary);">Loading users...</p>
                 </div>
                 
                 <div id="users-container" style="display: none;">
                     <div style="overflow-x: auto;">
                         <table style="width: 100%; border-collapse: collapse;">
                             <thead>
-                                <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Username</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Email</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Role</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Created</th>
-                                    <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Actions</th>
+                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Username</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Email</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Role</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Created</th>
+                                    <th style="padding: 12px; text-align: center; font-weight: 600; color: var(--color-text-primary);">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="users-table-body">
@@ -146,9 +150,9 @@
             if (adminStatus) {
                 adminStatus.style.display = 'block';
                 adminStatus.style.background = '#3b82f6';
-                adminStatus.innerHTML = '<span>⏳ Refreshing forecasts...</span>';
+                adminStatus.innerHTML = '<span><i class="fas fa-spinner fa-spin"></i> Refreshing forecasts...</span>';
             } else {
-                alert('⏳ Refreshing forecasts...');
+                alert('Refreshing forecasts...');
             }
             
             try {
@@ -163,7 +167,7 @@
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    const message = `✅ Success! Refreshed ${data.count || 0} forecasts`;
+                    const message = `<i class="fas fa-check-circle"></i> Success! Refreshed ${data.count || 0} forecasts`;
                     if (adminStatus) {
                         adminStatus.style.background = '#10b981';
                         adminStatus.innerHTML = `<span>${message}</span>`;
@@ -174,7 +178,7 @@
                         alert(message);
                     }
                 } else {
-                    const message = `❌ Error: ${data.error || 'Failed to refresh forecasts'}`;
+                    const message = `<i class="fas fa-times-circle"></i> Error: ${data.error || 'Failed to refresh forecasts'}`;
                     if (adminStatus) {
                         adminStatus.style.background = '#ef4444';
                         adminStatus.innerHTML = `<span>${message}</span>`;
@@ -186,7 +190,7 @@
                     }
                 }
             } catch (error) {
-                const message = `❌ Error: ${error.message}`;
+                const message = `<i class="fas fa-times-circle"></i> Error: ${error.message}`;
                 if (adminStatus) {
                     adminStatus.style.background = '#ef4444';
                     adminStatus.innerHTML = `<span>${message}</span>`;
@@ -241,26 +245,45 @@
                             row.style.borderBottom = '1px solid #e5e7eb';
                             
                             const isCurrentUser = user.username === '{{ current_user.username }}';
+                            const isOwner = user.is_owner === true;
+                            const lockControls = isCurrentUser || isOwner;
                             
                             row.innerHTML = `
-                                <td style="padding: 12px;">${user.username}${isCurrentUser ? ' <span style="color: #3b82f6; font-size: 0.85em;">(You)</span>' : ''}</td>
+                                <td style="padding: 12px;">
+                                    ${user.username}
+                                    ${isOwner ? ' <span style="color: #f59e0b; font-size: 0.8em; font-weight: 700;" title="Owner — protected account">&#9733; Owner</span>' : ''}
+                                    ${isCurrentUser && !isOwner ? ' <span style="color: #3b82f6; font-size: 0.85em;">(You)</span>' : ''}
+                                </td>
                                 <td style="padding: 12px;">${user.email}</td>
                                 <td style="padding: 12px;">
-                                    <select onchange="changeUserRole(${user.id}, this.value)" 
-                                            style="padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: ${user.role === 'admin' ? '#4f46e5' : '#64748b'}; color: white; font-weight: 600;"
-                                            ${isCurrentUser ? 'disabled' : ''}>
-                                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
-                                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
-                                    </select>
+                                    ${isOwner
+                                        ? `<span style="padding: 4px 10px; border-radius: 4px; background: #4f46e5; color: white; font-weight: 600; font-size: 0.85em;">Admin</span>`
+                                        : `<select onchange="changeUserRole(${user.id}, this.value)"
+                                                style="padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: ${user.role === 'admin' ? '#4f46e5' : '#64748b'}; color: white; font-weight: 600;"
+                                                ${isCurrentUser ? 'disabled' : ''}>
+                                            <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                                            <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                           </select>`
+                                    }
                                 </td>
                                 <td style="padding: 12px; font-size: 0.9em; color: #64748b;">${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</td>
                                 <td style="padding: 12px; text-align: center;">
-                                    <button onclick="deleteUser(${user.id}, '${user.username}')" 
-                                            class="btn btn-danger" 
-                                            style="padding: 6px 12px; font-size: 0.85em; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;"
-                                            ${isCurrentUser ? 'disabled' : ''}>
-                                        Delete
-                                    </button>
+                                    ${isOwner
+                                        ? `<span style="font-size: 0.8em; color: #9ca3af; font-style: italic;">Protected</span>`
+                                        : `<div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
+                                            <button onclick="resetUserPassword(${user.id}, '${user.username}')"
+                                                    style="padding: 5px 10px; font-size: 0.8em; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                                                    ${isCurrentUser ? 'disabled title="Use Settings to change your own password"' : ''}>
+                                                <i class="fas fa-key"></i> Reset Pwd
+                                            </button>
+                                            <button onclick="deleteUser(${user.id}, '${user.username}')"
+                                                    class="btn btn-danger"
+                                                    style="padding: 5px 10px; font-size: 0.8em; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                                                    ${isCurrentUser ? 'disabled' : ''}>
+                                                Delete
+                                            </button>
+                                          </div>`
+                                    }
                                 </td>
                             `;
                             
@@ -306,7 +329,7 @@
         }
         
         function deleteUser(userId, username) {
-            if (!confirm(`⚠️ Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+            if (!confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
                 return;
             }
             
@@ -325,6 +348,25 @@
             .catch(error => {
                 alert('Error: ' + error.message);
             });
+        }
+
+        async function resetUserPassword(userId, username) {
+            const newPassword = prompt(`Set a new password for "${username}":\n\nPassword requirements: min. 8 characters, must include uppercase, lowercase, and a number.`);
+            if (newPassword === null) return; // cancelled
+            if (!newPassword.trim()) { alert('Password cannot be empty.'); return; }
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                    body: JSON.stringify({ new_password: newPassword }),
+                    credentials: 'same-origin'
+                });
+                const data = await res.json();
+                alert(data.success ? `Password for "${username}" has been reset. They will be prompted to change it on next login.` : `Error: ${data.error}`);
+            } catch(err) {
+                alert('Network error — please try again.');
+            }
         }
     </script>
 

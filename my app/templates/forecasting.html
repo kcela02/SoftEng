@@ -5,22 +5,22 @@
 {% block content %}
 <!-- 1. Synchronized Daily & Weekly Forecasts Section -->
 <div style="margin-bottom: 30px;">
-    <h3 style="color: #374151; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-        <span style="font-size: 1.5em;">📊</span>
+    <h3 style="color: var(--color-text-primary); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.5em;"><i class="fas fa-chart-line"></i></span>
         Sales Forecasting & Analysis
     </h3>
     
     <!-- Product Selector for Both Charts -->
-    <div style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <div style="margin-bottom: 20px; padding: 20px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.4);">
         <div style="display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start;">
             <!-- Product Selection -->
             <div>
-                <label for="sync-forecast-product-select" style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px; font-size: 0.9em;">
-                    📦 Product
+                <label for="sync-forecast-product-select" style="display: block; font-weight: 600; color: var(--color-text-primary); margin-bottom: 8px; font-size: 0.9em;">
+                    <i class="fas fa-box"></i> Product
                 </label>
                 <select 
                     id="sync-forecast-product-select" 
-                    style="padding: 10px 14px; border: 2px solid #d1d5db; border-radius: 8px; font-size: 0.95em; min-width: 250px; background: white;"
+                    style="padding: 10px 14px; border: 2px solid rgba(255,255,255,0.12); border-radius: 8px; font-size: 0.95em; min-width: 250px; background: var(--color-primary); color: var(--color-text-primary);"
                     onchange="loadSynchronizedForecasts(this.value)"
                 >
                     <option value="">-- Select Product --</option>
@@ -29,21 +29,21 @@
 
             <!-- Date Period Selectors -->
             <div>
-                <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px; font-size: 0.9em;">
-                    📅 Time Period
+                <label style="display: block; font-weight: 600; color: var(--color-text-primary); margin-bottom: 8px; font-size: 0.9em;">
+                    <i class="fas fa-calendar-alt"></i> Time Period
                 </label>
                 <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                     <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <span style="font-size: 0.75em; color: var(--color-text-secondary); font-weight: 500;">Year</span>
-                        <select id="forecast-year" style="padding: 8px 12px; border: 2px solid #d1d5db; border-radius: 8px; background: white; min-width: 100px;"></select>
+                        <span style="font-size: 0.75em; color: #6b7280; font-weight: 500;">Year</span>
+                        <select id="forecast-year" style="padding: 8px 12px; border: 2px solid rgba(255,255,255,0.12); border-radius: 8px; background: var(--color-primary); color: var(--color-text-primary); min-width: 100px;"></select>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <span style="font-size: 0.75em; color: var(--color-text-secondary); font-weight: 500;">Month</span>
-                        <select id="forecast-month" style="padding: 8px 12px; border: 2px solid #d1d5db; border-radius: 8px; background: white; min-width: 130px;"></select>
+                        <span style="font-size: 0.75em; color: #6b7280; font-weight: 500;">Month</span>
+                        <select id="forecast-month" style="padding: 8px 12px; border: 2px solid rgba(255,255,255,0.12); border-radius: 8px; background: var(--color-primary); color: var(--color-text-primary); min-width: 130px;"></select>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <span style="font-size: 0.75em; color: var(--color-text-secondary); font-weight: 500;">Week</span>
-                        <select id="forecast-week" style="padding: 8px 12px; border: 2px solid #d1d5db; border-radius: 8px; background: white; min-width: 130px;"></select>
+                        <span style="font-size: 0.75em; color: #6b7280; font-weight: 500;">Week</span>
+                        <select id="forecast-week" style="padding: 8px 12px; border: 2px solid rgba(255,255,255,0.12); border-radius: 8px; background: var(--color-primary); color: var(--color-text-primary); min-width: 130px;"></select>
                     </div>
                     <button 
                         onclick="loadSynchronizedForecasts()" 
@@ -51,7 +51,7 @@
                         onmouseover="this.style.background='#059669'; this.style.transform='translateY(-1px)'"
                         onmouseout="this.style.background='#10b981'; this.style.transform='translateY(0)'"
                     >
-                        🔄 Load Forecast
+                        <i class="fas fa-sync-alt"></i> Load Forecast
                     </button>
                 </div>
             </div>
@@ -62,9 +62,9 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
         
         <!-- Daily Forecast Chart -->
-        <div class="card" style="padding: 20px;">
-            <h4 style="color: #374151; margin-top: 0; display: flex; align-items: center; gap: 10px;">
-                📊 Daily Forecast
+        <div class="card vc-section-header" style="padding: 20px;">
+            <h4 style="color: var(--color-text-primary); margin-top: 0; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-chart-bar"></i> Daily Forecast
             </h4>
             <p style="color: var(--color-text-secondary); font-size: 0.85em; margin-bottom: 15px;">
                 <strong style="color: #28a745;">●</strong> Actual Sales | <strong style="color: #007bff;">●</strong> Forecast | <strong style="color: #ffc107;">- -</strong> Previous Year
@@ -75,11 +75,11 @@
         </div>
         
         <!-- Weekly Forecast Chart -->
-        <div class="card" style="padding: 20px;">
-            <h4 style="color: #374151; margin-top: 0; display: flex; align-items: center; gap: 10px;">
-                📅 Weekly Forecast
+        <div class="card vc-section-header" style="padding: 20px;">
+            <h4 style="color: var(--color-text-primary); margin-top: 0; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-calendar-week"></i> Weekly Forecast
             </h4>
-            <p style="color: #6b7280; font-size: 0.85em; margin-bottom: 15px;">
+            <p style="color: var(--color-text-secondary); font-size: 0.85em; margin-bottom: 15px;">
                 <strong style="color: #28a745;">●</strong> Actual Sales | <strong style="color: #007bff;">●</strong> Forecast
             </p>
             <div id="weekly-forecast-chart-container" style="position: relative; height: 350px;">
@@ -92,9 +92,9 @@
 
 <!-- 2. Weekly Forecast Preview Table (7-Day Demand Forecast) -->
 <div class="card" style="margin-bottom: 20px; padding: 20px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div class="vc-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
-            📅 7-Day Demand Forecast
+            <i class="fas fa-calendar-day"></i> 7-Day Demand Forecast
         </h3>
         <div style="display: flex; gap: 15px; font-size: 0.85em;">
             <span><span style="color: #ef4444;">●</span> Critical (<span id="critical-count">0</span>)</span>
@@ -102,18 +102,18 @@
             <span><span style="color: #10b981;">●</span> OK</span>
         </div>
     </div>
-    <p style="color: #6b7280; margin-bottom: 15px; font-size: 0.9em;">
+    <p style="color: var(--color-text-secondary); margin-bottom: 15px; font-size: 0.9em;">
         Predicted demand for next 7 days vs current stock levels. Plan restocking accordingly.
     </p>
     <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
         <table style="width: 100%; border-collapse: collapse;">
             <thead style="position: sticky; top: 0; background: var(--color-primary); z-index: 1;">
-                <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Product</th>
-                    <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Current Stock</th>
-                    <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">7-Day Forecast</th>
-                    <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Status</th>
-                    <th style="padding: 12px; text-align: center; font-weight: 600; color: #374151;">Action</th>
+                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Product</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; color: var(--color-text-primary);">Current Stock</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; color: var(--color-text-primary);">7-Day Forecast</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; color: var(--color-text-primary);">Status</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; color: var(--color-text-primary);">Action</th>
                 </tr>
             </thead>
             <tbody id="weekly-forecast-table">

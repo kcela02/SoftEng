@@ -14,13 +14,13 @@ app = create_app('development')
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🚀 Starting VapeCrib Dashboard - Development Server")
+    print("[START] VapeCrib Dashboard - Development Server")
     print("=" * 60)
-    print(f"📍 Server running on: http://127.0.0.1:5000")
-    print(f"🔧 Debug Mode: {app.debug}")
-    print(f"💾 Database: {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured')}")
+    print(f"[INFO] Server running on: http://127.0.0.1:5000")
+    print(f"[INFO] Debug Mode: {app.debug}")
+    print(f"[INFO] Database: {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured')}")
     print("=" * 60)
-    print("\n✨ Press Ctrl+C to stop the server\n")
+    print("\n[INFO] Press Ctrl+C to stop the server\n")
     
     # Get socketio instance from app after it's been created
     from app import socketio

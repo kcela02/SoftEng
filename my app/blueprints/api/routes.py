@@ -1,6 +1,7 @@
 # blueprints/api/routes.py
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, current_app
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
 from models import db, User, Product, Sale, Inventory, Log, Forecast, ImportLog, Alert, ForecastSnapshot, InventoryBatch, BatchTransaction
 from models.regression import forecast_linear_regression
 from utils import ActivityLogger
@@ -10,6 +11,7 @@ from sqlalchemy import func, case as sa_case, and_ as sa_and
 import pandas as pd
 import csv
 import io
+import os
 from . import api_bp
 
 
@@ -34,6 +36,64 @@ def api_before_request():
     # Flask-Login's @login_required will automatically check authentication
     # but we need to ensure 401s return JSON structure
     pass
+
+
+# ============================================================================
+# Security Helper Functions
+# ============================================================================
+def validate_csv_file(file):
+    """
+    Validate uploaded CSV file for security.
+    Returns (is_valid, error_message)
+    """
+    if not file:
+        return False, 'No file provided'
+    
+    if not file.filename:
+        return False, 'No file selected'
+    
+    # Secure the filename to prevent path traversal attacks
+    filename = secure_filename(file.filename)
+    if not filename:
+        return False, 'Invalid filename'
+    
+    # Check file extension
+    allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS', {'csv'})
+    if not filename.lower().endswith('.csv'):
+        return False, 'Only CSV files are allowed'
+    
+    # Read first few bytes to validate it's actually a text file
+    try:
+        file.stream.seek(0)
+        header = file.stream.read(1024)  # Read first 1KB
+        file.stream.seek(0)  # Reset for later reading
+        
+        # Check if it's valid text (detect binary files disguised as CSV)
+        try:
+            header.decode('utf-8')
+        except UnicodeDecodeError:
+            return False, 'File does not appear to be a valid CSV file'
+        
+        # Basic CSV structure validation - should have commas
+        if b',' not in header and b';' not in header:
+            return False, 'File does not appear to be a valid CSV format'
+        
+    except Exception as e:
+        return False, f'Error reading file: {str(e)}'
+    
+    # Check file size (already enforced by Flask MAX_CONTENT_LENGTH, but double-check)
+    max_size = current_app.config.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024)
+    file.stream.seek(0, os.SEEK_END)
+    size = file.stream.tell()
+    file.stream.seek(0)
+    
+    if size > max_size:
+        return False, f'File too large (max {max_size // (1024*1024)}MB)'
+    
+    if size == 0:
+        return False, 'File is empty'
+    
+    return True, None
 
 
 def trigger_metrics_broadcast():
@@ -84,7 +144,7 @@ def check_low_stock_and_alert(product: Product):
             shortage = forecast_1day - current_stock
             recommended_qty = int(forecast_7day * 1.2) if forecast_7day else int(shortage * 1.5)
             message = (
-                f"🔴 CRITICAL: {product.name} stock ({current_stock}) below 1-day demand ({forecast_1day:.0f}). "
+                f"[CRITICAL] {product.name} stock ({current_stock}) below 1-day demand ({forecast_1day:.0f}). "
                 f"Shortage: {shortage:.0f} units. Recommend ordering {recommended_qty} units immediately."
             )
         
@@ -94,7 +154,7 @@ def check_low_stock_and_alert(product: Product):
             shortage = forecast_7day - current_stock
             recommended_qty = int(forecast_7day * 1.2) if forecast_7day else int(shortage * 1.5)
             message = (
-                f"🟡 HIGH: {product.name} stock ({current_stock}) below 7-day demand ({forecast_7day:.0f}). "
+                f"[HIGH] {product.name} stock ({current_stock}) below 7-day demand ({forecast_7day:.0f}). "
                 f"Shortage: {shortage:.0f} units. Recommend ordering {recommended_qty} units this week."
             )
         
@@ -104,7 +164,7 @@ def check_low_stock_and_alert(product: Product):
             shortage = forecast_30day - current_stock
             recommended_qty = int(forecast_30day * 1.2) if forecast_30day else int(shortage * 1.5)
             message = (
-                f"🟢 MEDIUM: {product.name} stock ({current_stock}) below 30-day demand ({forecast_30day:.0f}). "
+                f"[MEDIUM] {product.name} stock ({current_stock}) below 30-day demand ({forecast_30day:.0f}). "
                 f"Shortage: {shortage:.0f} units. Recommend ordering {recommended_qty} units this month."
             )
         
@@ -896,6 +956,10 @@ def download_all_data():
 @login_required
 def upload_csv_file():
     """Admin/Manager only: Upload and process CSV file (sales, products, or inventory)."""
+    # Apply rate limiting for uploads
+    limiter = current_app.limiter
+    limiter.limit("10 per hour")(lambda: None)()  # Max 10 uploads per hour
+    
     user_role = getattr(current_user, 'role', 'user')
     if user_role not in ('admin', 'manager'):
         return jsonify({'error': 'Unauthorized'}), 403
@@ -906,11 +970,13 @@ def upload_csv_file():
     file = request.files['file']
     data_type = request.form.get('data_type', 'sales')
     
-    if not file.filename:
-        return jsonify({'error': 'No file selected'}), 400
-        
-    if not file.filename.endswith('.csv'):
-        return jsonify({'error': 'Only CSV files allowed'}), 400
+    # Validate file security
+    is_valid, error_msg = validate_csv_file(file)
+    if not is_valid:
+        return jsonify({'error': error_msg}), 400
+    
+    # Get secure filename
+    filename = secure_filename(file.filename)
     
     # Schema definitions for validation
     SCHEMA_DEFINITIONS = {
@@ -1198,7 +1264,7 @@ def upload_csv_file():
                     error_details.append(f"... and {len(unknown_products) - 10} more unknown products")
                 
                 error_msg = (
-                    f"⚠️ Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
+                    f"[WARNING] Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
                     f"All products must exist in the system before importing sales.\n"
                     f"Please add missing products manually or fix typos in your CSV.\n\n"
                     f"Unknown Products:\n" + "\n".join(error_details)
@@ -1216,7 +1282,7 @@ def upload_csv_file():
                     'total_unknown': len(unknown_products)
                 }), 400
             
-            print(f"[CSV Upload] ✅ Validation passed - all {len(valid_product_map)} products exist")
+            print(f"[CSV Upload] [OK] Validation passed - all {len(valid_product_map)} products exist")
             
             # ALL products validated - proceed with import
             for idx, row in df.iterrows():
@@ -1366,7 +1432,7 @@ def upload_csv_file():
                     error_details.append(f"... and {len(unknown_products) - 10} more unknown products")
                 
                 error_msg = (
-                    f"⚠️ Batch Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
+                    f"[WARNING] Batch Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
                     f"All products must exist before importing batches.\n"
                     f"Please add missing products first.\n\n"
                     f"Unknown Products:\n" + "\n".join(error_details)
@@ -1384,7 +1450,7 @@ def upload_csv_file():
                     'total_unknown': len(unknown_products)
                 }), 400
             
-            print(f"[CSV Upload] ✅ Batch validation passed - all {len(valid_product_map)} products exist")
+            print(f"[CSV Upload] [OK] Batch validation passed - all {len(valid_product_map)} products exist")
             
             # NEW: Process batch inventory with expiration tracking
             from utils.batch_manager import BatchManager
@@ -1480,7 +1546,7 @@ def upload_csv_file():
             print(f"[CSV Upload] Checking {len(products_with_sales)} products for forecast eligibility...")
             
             if len(products_with_sales) == 0:
-                retraining_stats['errors'].append("⚠️ No products found with sales data. Cannot generate forecasts.")
+                retraining_stats['errors'].append("[WARNING] No products found with sales data. Cannot generate forecasts.")
                 print("[CSV Upload] No products with sales found")
             
             for product in products_with_sales:
@@ -1510,7 +1576,7 @@ def upload_csv_file():
                         if existing_forecasts == 0:
                             # This is a newly forecasted product
                             newly_forecasted_products.append(product.name)
-                        print(f"[CSV Upload] Product {product.id} ({product.name}): Forecasts generated ✓")
+                        print(f"[CSV Upload] Product {product.id} ({product.name}): Forecasts generated [OK]")
                     else:
                         retraining_stats['failed'] += 1
                         error_msg = f"Product '{product.name}' (ID: {product.id}): Forecast generation returned False"
@@ -1585,14 +1651,14 @@ def upload_csv_file():
         # CRITICAL: Check if forecast generation was attempted but failed completely
         if forecast_generation_attempted and retraining_stats['retrained'] == 0:
             if retraining_stats['failed'] > 0:
-                warnings.append(f"⚠️ FORECAST GENERATION FAILED for all products! {retraining_stats['failed']} products had errors. Please re-upload the CSV or run manual forecast generation.")
+                warnings.append(f"[WARNING] FORECAST GENERATION FAILED for all products! {retraining_stats['failed']} products had errors. Please re-upload the CSV or run manual forecast generation.")
             elif retraining_stats['skipped'] > 0:
-                warnings.append(f"⚠️ No forecasts generated. All {retraining_stats['skipped']} products need more data (minimum 7 sales required).")
+                warnings.append(f"[WARNING] No forecasts generated. All {retraining_stats['skipped']} products need more data (minimum 7 sales required).")
             else:
-                warnings.append("⚠️ Forecast generation was attempted but no forecasts were created. Please check your data.")
+                warnings.append("[WARNING] Forecast generation was attempted but no forecasts were created. Please check your data.")
         
         if retraining_stats['failed'] > 0:
-            warnings.append(f"⚠️ {retraining_stats['failed']} products failed to generate forecasts. Check errors below.")
+            warnings.append(f"[WARNING] {retraining_stats['failed']} products failed to generate forecasts. Check errors below.")
         
         if retraining_stats['skipped'] > 0:
             message += f" ({retraining_stats['skipped']} skipped - need more data)"
@@ -1952,11 +2018,11 @@ def delete_product(product_id):
                 'warning': 'This action cannot be undone. All related data will be permanently deleted.',
                 'data_to_be_deleted': impact,
                 'alerts': [
-                    f"⚠️  Will delete {impact['sales_records']} sales records (history of transactions)",
-                    f"⚠️  Will delete {impact['future_forecasts']} FUTURE forecasts (predictions for upcoming days)",
-                    f"⚠️  Will delete {impact['historical_forecasts']} PAST forecasts (history of predictions for accuracy tracking)",
-                    f"⚠️  Will delete {impact['inventory_batches']} inventory batches if tracked",
-                    f"⚠️  Will delete {impact['alerts']} active alerts for this product",
+                    f"[WARNING] Will delete {impact['sales_records']} sales records (history of transactions)",
+                    f"[WARNING] Will delete {impact['future_forecasts']} FUTURE forecasts (predictions for upcoming days)",
+                    f"[WARNING] Will delete {impact['historical_forecasts']} PAST forecasts (history of predictions for accuracy tracking)",
+                    f"[WARNING] Will delete {impact['inventory_batches']} inventory batches if tracked",
+                    f"[WARNING] Will delete {impact['alerts']} active alerts for this product",
                 ]
             },
             'next_step': 'Call this endpoint again with ?confirm=true to proceed with deletion',
@@ -1997,7 +2063,7 @@ def delete_product(product_id):
         # Delete forecasts related to this product (CRITICAL: This loses historical prediction data)
         deleted_forecasts = Forecast.query.filter_by(product_id=product_id).delete()
         if deleted_forecasts:
-            print(f"  ⚠️  Deleted {deleted_forecasts} forecast records (including {impact['historical_forecasts']} historical)")
+            print(f"  [WARNING] Deleted {deleted_forecasts} forecast records (including {impact['historical_forecasts']} historical)")
         
         # Delete forecast snapshots related to this product
         deleted_snapshots = db.session.query(db.func.count()).select_entity_from(
@@ -2018,7 +2084,7 @@ def delete_product(product_id):
         db.session.delete(product)
         db.session.commit()
         
-        print(f"  ✓ Successfully deleted product {product_id}")
+        print(f"  [OK] Successfully deleted product {product_id}")
         
         # Log activity with product details
         ActivityLogger.log_product_action(
@@ -2041,14 +2107,14 @@ def delete_product(product_id):
                 'inventory': deleted_inventory
             },
             'next_steps': [
-                '✓ All data for this product has been removed',
-                '⚠️  Forecasting models may need to be retrained if this product was part of aggregate predictions',
-                '💡 Run Dashboard > Settings > "Refresh Forecasts" to regenerate forecasts for remaining products'
+                '[OK] All data for this product has been removed',
+                '[WARNING] Forecasting models may need to be retrained if this product was part of aggregate predictions',
+                '[TIP] Run Dashboard > Settings > "Refresh Forecasts" to regenerate forecasts for remaining products'
             ]
         })
     except Exception as e:
         db.session.rollback()
-        print(f"  ✗ Error deleting product: {str(e)}")
+        print(f"  [ERROR] Error deleting product: {str(e)}")
         return jsonify({'error': f'Error deleting product: {str(e)}'}), 400
 
 
@@ -4353,6 +4419,7 @@ def get_all_users():
                 'username': user.username,
                 'email': user.email,
                 'role': user.role,
+                'is_owner': bool(user.is_owner),
                 'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else None
             })
         
@@ -4386,6 +4453,10 @@ def update_user_role(user_id):
         # Prevent admin from changing their own role
         if user.id == current_user.id:
             return jsonify({'success': False, 'error': 'Cannot change your own role.'}), 400
+
+        # Prevent anyone from demoting the owner
+        if user.is_owner:
+            return jsonify({'success': False, 'error': 'The owner account role cannot be changed.'}), 403
         
         old_role = user.role
         user.role = new_role
@@ -4432,6 +4503,10 @@ def delete_user(user_id):
         # Prevent admin from deleting themselves
         if user.id == current_user.id:
             return jsonify({'success': False, 'error': 'Cannot delete your own account.'}), 400
+
+        # Prevent anyone from deleting the owner
+        if user.is_owner:
+            return jsonify({'success': False, 'error': 'The owner account cannot be deleted.'}), 403
         
         username = user.username
         db.session.delete(user)
@@ -4456,6 +4531,34 @@ def delete_user(user_id):
         print(f"Error deleting user: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/admin/users/<int:user_id>/reset-password', methods=['PUT'])
+@login_required
+def admin_reset_user_password(user_id):
+    """Admin reset of another user's password."""
+    if current_user.role != 'admin':
+        return jsonify({'success': False, 'error': 'Unauthorized. Admin access required.'}), 403
+    data = request.get_json() or {}
+    new_password = data.get('new_password', '')
+    if not new_password:
+        return jsonify({'success': False, 'error': 'Password cannot be empty.'}), 400
+    is_valid, err_msg = User.validate_password_strength(new_password)
+    if not is_valid:
+        return jsonify({'success': False, 'error': err_msg}), 400
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'error': 'User not found.'}), 404
+    if user.is_owner:
+        return jsonify({'success': False, 'error': 'The owner password cannot be reset by an admin.'}), 403
+    if user.id == current_user.id:
+        return jsonify({'success': False, 'error': 'Use Settings to change your own password.'}), 400
+    user.set_password(new_password)
+    user.force_password_change = True
+    db.session.commit()
+    ActivityLogger.log(ActivityLogger.USER_LOGIN, user_id=current_user.id,
+                       details=f"Admin reset password for user: {user.username}")
+    return jsonify({'success': True, 'message': f"Password for '{user.username}' has been reset."})
 
 
 @api_bp.route('/admin/logs', methods=['GET'])
@@ -4655,7 +4758,7 @@ def refresh_forecasts():
                 results['failed'] += 1
                 error_msg = f"Product {product.id} ({product.name}): {str(product_error)}"
                 results['errors'].append(error_msg)
-                print(f"  ✗ {error_msg}")
+                print(f"  [ERROR] {error_msg}")
         
         db.session.commit()
         
@@ -4674,10 +4777,10 @@ def refresh_forecasts():
             'message': f'Forecasts regenerated for {results["successful"]}/{results["total_products"]} products',
             'results': results,
             'next_steps': [
-                '✓ All future forecasts have been regenerated',
-                '✓ Historical forecasts have been preserved',
-                '💡 This helps keep predictions accurate after major data changes or product deletions',
-                '🔄 Consider running this monthly or after significant sales pattern changes'
+                '[OK] All future forecasts have been regenerated',
+                '[OK] Historical forecasts have been preserved',
+                '[TIP] This helps keep predictions accurate after major data changes or product deletions',
+                '[INFO] Consider running this monthly or after significant sales pattern changes'
             ]
         })
         
@@ -4691,8 +4794,171 @@ def refresh_forecasts():
         }), 500
 
 
+@api_bp.route('/admin/wipe-data', methods=['POST'])
+@login_required
+def wipe_database_data():
+    """Wipe all data from specific tables (keeps schema/structure) - Admin only."""
+    try:
+        if current_user.role != 'admin':
+            return jsonify({'success': False, 'error': 'Unauthorized. Admin access required.'}), 403
+        
+        data = request.get_json()
+        wipe_type = data.get('wipe_type', 'all')  # 'all', 'sales', 'products', 'forecasts'
+        confirm_password = data.get('password', '')
+        
+        # Verify admin password
+        if not current_user.check_password(confirm_password):
+            return jsonify({'success': False, 'error': 'Invalid password. Data wipe cancelled.'}), 401
+        
+        stats = {
+            'sales_deleted': 0,
+            'products_deleted': 0,
+            'forecasts_deleted': 0,
+            'inventory_deleted': 0,
+            'batches_deleted': 0,
+            'alerts_deleted': 0,
+            'logs_deleted': 0,
+            'forecast_snapshots_deleted': 0
+        }
+        
+        # Wipe based on type
+        if wipe_type in ['all', 'sales']:
+            stats['sales_deleted'] = Sale.query.delete()
+        
+        if wipe_type in ['all', 'products']:
+            # Delete products will cascade to related data
+            stats['products_deleted'] = Product.query.filter(Product.id != 0).delete()  # Keep structure
+        
+        if wipe_type in ['all', 'forecasts']:
+            stats['forecasts_deleted'] = Forecast.query.delete()
+            stats['forecast_snapshots_deleted'] = ForecastSnapshot.query.delete()
+        
+        if wipe_type == 'all':
+            stats['inventory_deleted'] = Inventory.query.delete()
+            stats['batches_deleted'] = InventoryBatch.query.delete()
+            stats['alerts_deleted'] = Alert.query.delete()
+            # Keep user preferences and websocket sessions
+            # Delete system logs except recent admin actions
+            from datetime import datetime, timedelta
+            cutoff_date = datetime.utcnow() - timedelta(days=7)
+            stats['logs_deleted'] = Log.query.filter(Log.timestamp < cutoff_date).delete()
+        
+        db.session.commit()
+        
+        # Log the wipe action
+        log_entry = Log(
+            user_id=current_user.id,
+            action=f"Database wipe performed: {wipe_type} - {sum(stats.values())} records deleted"
+        )
+        db.session.add(log_entry)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Data wipe completed successfully',
+            'wipe_type': wipe_type,
+            'statistics': stats,
+            'total_deleted': sum(stats.values())
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"Error wiping data: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@api_bp.route('/admin/train-model', methods=['POST'])
+@login_required
+def train_model():
+    """Retrain Linear Regression model with current data - Admin/Manager only."""
+    try:
+        user_role = getattr(current_user, 'role', 'user')
+        if user_role not in ('admin', 'manager'):
+            return jsonify({'success': False, 'error': 'Unauthorized. Admin or Manager access required.'}), 403
+        
+        from utils.model_trainer import ForecastingPipeline
+        
+        data = request.get_json() or {}
+        mode = data.get('mode', 'standard')  # 'standard' or 'incremental'
+        
+        # Log training start
+        ActivityLogger.log(
+            action_type=ActivityLogger.FORECAST,
+            user_id=current_user.id,
+            action='Model retraining initiated',
+            details=f'Mode: {mode}'
+        )
+        
+        if mode == 'standard':
+            # Standard retraining - retrain all products with sales data
+            results = ForecastingPipeline.retrain_on_csv_upload(user_id=current_user.id)
+        else:
+            # Incremental learning mode - preserve historical patterns
+            results = ForecastingPipeline.retrain_on_csv_upload(user_id=current_user.id)
+        
+        if 'error' in results:
+            return jsonify({
+                'success': False,
+                'error': results['error']
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'message': 'Model training completed successfully',
+            'mode': mode,
+            'statistics': {
+                'retrained': results.get('retrained', 0),
+                'skipped': results.get('skipped', 0),
+                'failed': results.get('failed', 0),
+                'total_products': results.get('total_products', 0)
+            },
+            'details': [
+                f"[OK] {results.get('retrained', 0)} products retrained with Linear Regression",
+                f"[SKIP] {results.get('skipped', 0)} products skipped (insufficient data)",
+                f"[FAILED] {results.get('failed', 0)} products failed",
+                "[TIP] Model uses incremental learning to preserve historical patterns"
+            ]
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error training model: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/admin/training-history', methods=['GET'])
+@login_required
+def get_training_history():
+    """Get model training history - Admin/Manager only."""
+    try:
+        user_role = getattr(current_user, 'role', 'user')
+        if user_role not in ('admin', 'manager'):
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+        
+        # Get training logs from activity logs
+        training_logs = Log.query.filter(
+            Log.action.like('%retrain%') | Log.action.like('%forecast%')
+        ).order_by(Log.timestamp.desc()).limit(50).all()
+        
+        history = []
+        for log in training_logs:
+            history.append({
+                'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'action': log.action,
+                'user_id': log.user_id
+            })
+        
+        return jsonify({
+            'success': True,
+            'history': history
+        })
+        
+    except Exception as e:
+        print(f"Error fetching training history: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 

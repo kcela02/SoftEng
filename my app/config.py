@@ -9,6 +9,25 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///app.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
+    # Security Settings
+    WTF_CSRF_ENABLED = True
+    WTF_CSRF_TIME_LIMIT = None  # CSRF tokens don't expire (adjust if needed)
+    WTF_CSRF_SSL_STRICT = False  # Set to True in production with HTTPS
+    WTF_CSRF_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']  # Methods that require CSRF
+    WTF_CSRF_HEADERS = ['X-CSRFToken', 'X-CSRF-Token']  # Header names to check
+    
+    # Rate Limiting
+    RATELIMIT_ENABLED = True
+    RATELIMIT_DEFAULTS = ["200 per day", "50 per hour"]
+    RATELIMIT_STORAGE_URI = "memory://"  # Use Redis in production for distributed systems
+    
+    # Password Policy
+    PASSWORD_MIN_LENGTH = 8
+    PASSWORD_REQUIRE_UPPERCASE = True
+    PASSWORD_REQUIRE_LOWERCASE = True
+    PASSWORD_REQUIRE_NUMBERS = True
+    PASSWORD_REQUIRE_SPECIAL = False  # Optional: require special characters
+    
     # Forecasting Settings
     DEFAULT_FORECAST_DAYS = 7
     ACCURACY_THRESHOLD = 0.80 # Target accuracy for top 10 sellers
@@ -26,6 +45,19 @@ class DevelopmentConfig(Config):
     """Development configuration"""
     DEBUG = True
     TESTING = False
+    # Higher rate limits for local development/testing
+    RATELIMIT_DEFAULTS = ["2000 per day", "500 per hour"]
+    
+    # CORS Configuration - Allow localhost and local network for development and mobile testing
+    CORS_ORIGINS = [
+        "http://localhost:5000",
+        "http://localhost:3000",
+        "http://127.0.0.1:5000",
+        "http://127.0.0.1:3000",
+        # Regex patterns for local network IPs (192.168.x.x, 10.x.x.x) for mobile testing
+        r"http://192\.168\.\d{1,3}\.\d{1,3}:\d+",
+        r"http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+"
+    ]
 
 
 class ProductionConfig(Config):
@@ -36,6 +68,12 @@ class ProductionConfig(Config):
     # module in development mode doesn't raise errors.
     SECRET_KEY = os.environ.get('SECRET_KEY', '')
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', '')
+    
+    # CORS Configuration - Only allow your Render deployment and optional frontend
+    CORS_ORIGINS = [
+        "https://vapecrib.onrender.com",
+        os.environ.get('FRONTEND_URL', 'https://vapecrib.onrender.com')
+    ]
 
     # Fix for Render: Replace postgres:// with postgresql://
     if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
@@ -50,9 +88,15 @@ class ProductionConfig(Config):
             raise ValueError("DATABASE_URL environment variable must be set in production")
     
     # Security settings
+    WTF_CSRF_SSL_STRICT = True  # Enforce HTTPS for CSRF
+    WTF_CSRF_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']  # Methods that require CSRF
+    WTF_CSRF_HEADERS = ['X-CSRFToken', 'X-CSRF-Token']  # Header names to check
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    
+    # Rate Limiting - Use Redis for distributed rate limiting
+    RATELIMIT_STORAGE_URI = os.environ.get('REDIS_URL', 'memory://')
 
 
 class TestingConfig(Config):

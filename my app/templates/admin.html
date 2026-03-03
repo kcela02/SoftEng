@@ -26,7 +26,7 @@
                 <!-- Date Range Filter (NEW) -->
                 <div class="filter-bar" style="background: var(--color-primary); padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.6); margin-bottom: 20px; border: 1px solid var(--color-divider);">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                        <h3 style="margin: 0; color: var(--color-text-primary);">📅 Dashboard Time Period</h3>
+                        <h3 style="margin: 0; color: var(--color-text-primary);"><i class="fas fa-calendar-alt"></i> Dashboard Time Period</h3>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                             <button class="period-btn active" data-period="7d">Last 7 Days</button>
                             <button class="period-btn" data-period="30d">Last 30 Days</button>
@@ -84,7 +84,7 @@
 
                 <!-- Period Comparison Section (NEW) -->
                 <div class="comparison-section" style="margin: 30px 0;">
-                    <h3 style="margin-bottom: 20px; color: var(--color-text-primary);">📊 Period Comparisons</h3>
+                    <h3 style="margin-bottom: 20px; color: var(--color-text-primary);"><i class="fas fa-chart-bar"></i> Period Comparisons</h3>
                     
                     <div class="comparison-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
                         <!-- Month-over-Month Revenue -->
@@ -168,8 +168,8 @@
                 <div class="charts-section">
                     <div class="chart-container">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <h3 style="margin: 0;">📊 Forecast Trend Analysis</h3>
-                            <div style="font-size: 0.85em; color: #6b7280;">
+                            <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Forecast Trend Analysis</h3>
+                            <div style="font-size: 0.85em; color: var(--color-text-secondary);">
                                 <span style="color: #28a745;">●</span> Actual Revenue
                                 <span style="margin-left: 12px; color: #007bff;">●</span> Forecasted Revenue
                             </div>
@@ -178,13 +178,13 @@
                     </div>
                     <div class="chart-container" id="monthly-chart-container">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <h3 style="margin: 0;">📈 Historical Performance</h3>
+                            <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Historical Performance</h3>
                             <div style="display: flex; gap: 8px;">
                                 <button id="chart-view-monthly" class="chart-view-btn active" style="padding: 6px 12px; border: 2px solid #007bff; background: #007bff; color: white; border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: 600; transition: all 0.2s;">
-                                    📊 Monthly Bars
+                                    <i class="fas fa-chart-bar"></i> Monthly Bars
                                 </button>
                                 <button id="chart-view-daily" class="chart-view-btn" style="padding: 6px 12px; border: 2px solid #d1d5db; background: transparent; color: var(--color-text-primary); border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: 600; transition: all 0.2s;">
-                                    📉 Daily Trend
+                                    <i class="fas fa-chart-line"></i> Daily Trend
                                 </button>
                             </div>
                         </div>
@@ -197,11 +197,11 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                             <h3 style="margin: 0;">Restock Alerts</h3>
                             {% if can_edit %}
-                            <button class="btn btn-secondary" id="export-alerts-csv" style="padding: 6px 12px; font-size: 0.85em;">📥 Export CSV</button>
+                            <button class="btn btn-secondary" id="export-alerts-csv" style="padding: 6px 12px; font-size: 0.85em;"><i class="fas fa-download"></i> Export CSV</button>
                             {% endif %}
                         </div>
-                        <div class="hint" style="font-size: 0.85em; color: #6b7280; margin-bottom: 12px;">
-                            🔴 CRITICAL: Stock < 1-day forecast | 🟠 HIGH: Stock < 7-day forecast | 🟡 MEDIUM: Stock < 30-day forecast
+                        <div class="hint" style="font-size: 0.85em; color: var(--color-text-secondary); margin-bottom: 12px;">
+                            <i class="fas fa-square" style="color: #dc2626;"></i> CRITICAL: Stock < 1-day forecast | <i class="fas fa-square" style="color: #f97316;"></i> HIGH: Stock < 7-day forecast | <i class="fas fa-square" style="color: #eab308;"></i> MEDIUM: Stock < 30-day forecast
                         </div>
                         <div id="alerts-list">
                             <div class="loading-message">Loading alerts...</div>
@@ -209,8 +209,8 @@
                     </div>
                     <div class="activity-panel">
                         <h3>Recent Activity</h3>
-                        <div class="hint" style="font-size: 0.85em; color: #6b7280; margin-bottom: 12px;">
-                            📦 Inventory tracked with real-time stock levels
+                        <div class="hint" style="font-size: 0.85em; color: var(--color-text-secondary); margin-bottom: 12px;">
+                            <i class="fas fa-box"></i> Inventory tracked with real-time stock levels
                         </div>
                         <ul id="activity-list">
                             <li style="color: #999;">Loading recent activity...</li>
@@ -221,9 +221,9 @@
                 <!-- Top Products Section -->
                 <div class="top-products-section" style="margin-top: 40px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="margin: 0; color: #f5f5f5;">📊 Sales Ranking - Top Products</h3>
+                        <h3 style="margin: 0; color: #f5f5f5;"><i class="fas fa-chart-bar"></i> Sales Ranking - Top Products</h3>
                         <button class="btn btn-secondary" id="export-top-products-btn" style="padding: 8px 16px; font-size: 0.9em; background: var(--color-accent); color: var(--color-text-primary); border: 1px solid var(--color-accent);">
-                            📥 Export
+                            <i class="fas fa-download"></i> Export
                         </button>
                     </div>
                     <div class="controls" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
@@ -359,20 +359,25 @@
                     const a = document.getElementById('alerts-count');
                     if(a) a.textContent = fmtInt(m.active_alerts);
                 });
-                // Toast helper
-                function showToast(message, tone){
+                // Toast helper — Tier 3: corner-cut panels
+                function showToast(message, tone) {
                     const cont = document.getElementById('toast-container');
-                    if(!cont) return;
+                    if (!cont) return;
                     const item = document.createElement('div');
-                    item.style.padding = '10px 12px';
-                    item.style.borderRadius = '6px';
+                    item.className = 'vc-toast';
                     item.style.color = '#fff';
-                    item.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-                    item.style.background = tone==='error' ? '#ef4444' : (tone==='warn' ? '#f59e0b' : '#10b981');
+                    item.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)';
+                    item.style.background = tone === 'error' ? '#ef4444' : (tone === 'warn' ? '#f59e0b' : '#10b981');
                     item.textContent = message;
                     cont.appendChild(item);
-                    setTimeout(()=>{ item.style.opacity='0'; item.style.transition='opacity .4s'; setTimeout(()=>cont.removeChild(item), 400); }, 3000);
+                    setTimeout(() => {
+                        item.style.opacity = '0';
+                        item.style.transform = 'translateX(20px)';
+                        item.style.transition = 'opacity 0.28s, transform 0.28s';
+                        setTimeout(() => { if (cont.contains(item)) cont.removeChild(item); }, 300);
+                    }, 3000);
                 }
+                window.showToast = showToast;
                 // Alerts live update
                     // Note: Enhanced restock alerts are now handled by fetchEnhancedRestockAlerts() in app.js
                     // This WebSocket handler is disabled to prevent conflicts
@@ -498,13 +503,13 @@
     <div id="delete-modal" class="modal">
         <div class="modal-content modal-small">
             <div class="modal-header">
-                <h3>⚠️ Confirm Deletion</h3>
+                <h3><i class="fas fa-exclamation-triangle"></i> Confirm Deletion</h3>
                 <span class="modal-close" onclick="closeDeleteModal()">&times;</span>
             </div>
             <div class="modal-body">
                 <p id="delete-modal-message">Are you sure you want to delete this product?</p>
                 <p id="delete-modal-warning" class="warning-text" style="display: none;">
-                    ⚠️ This product has sales records. Deleting it may affect your reports.
+                    <i class="fas fa-exclamation-triangle"></i> This product has sales records. Deleting it may affect your reports.
                 </p>
             </div>
             <div class="modal-footer">
@@ -518,7 +523,7 @@
     <div id="inventory-modal" class="modal">
         <div class="modal-content modal-small">
             <div class="modal-header">
-                <h3>📦 Adjust Inventory</h3>
+                <h3><i class="fas fa-box"></i> Adjust Inventory</h3>
                 <span class="modal-close" onclick="closeInventoryModal()">&times;</span>
             </div>
             <form id="inventory-modal-form">

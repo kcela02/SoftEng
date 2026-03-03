@@ -60,7 +60,7 @@ def clean_non_vape_products():
             
             for product in products:
                 if is_non_vape_product(product.name, product.category):
-                    print(f"❌ Removing: {product.name} (Category: {product.category or 'N/A'})")
+                    print(f"[DELETE] Removing: {product.name} (Category: {product.category or 'N/A'})")
                     
                     # Delete related records
                     # Get batch IDs first
@@ -80,20 +80,20 @@ def clean_non_vape_products():
                     db.session.delete(product)
                     removed_count += 1
                 else:
-                    print(f"✅ Keeping: {product.name} (Category: {product.category or 'N/A'})")
+                    print(f"[KEEP] Keeping: {product.name} (Category: {product.category or 'N/A'})")
                     kept_count += 1
             
             db.session.commit()
             
             print("-" * 60)
-            print(f"\n✅ Cleanup complete!")
+            print(f"\n[OK] Cleanup complete!")
             print(f"   Removed: {removed_count} non-vape products")
             print(f"   Kept: {kept_count} vape-related products")
-            print(f"\n💡 You can now import the clean vape CSV files to populate with vape products only.")
+            print(f"\n[TIP] You can now import the clean vape CSV files to populate with vape products only.")
             
         except Exception as e:
             db.session.rollback()
-            print(f"\n❌ Error during cleanup: {str(e)}")
+            print(f"\n[ERROR] Error during cleanup: {str(e)}")
             import traceback
             traceback.print_exc()
 
@@ -111,4 +111,4 @@ if __name__ == '__main__':
     if response in ['yes', 'y']:
         clean_non_vape_products()
     else:
-        print("\n❌ Cleanup cancelled.")
+        print("\n[INFO] Cleanup cancelled.")

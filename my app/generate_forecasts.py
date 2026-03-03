@@ -40,26 +40,26 @@ def generate_all_forecasts():
             print(f"  Sales records: {sales_count}")
             
             if sales_count < 7:
-                print(f"  ⚠️  SKIPPED - Need at least 7 sales (has {sales_count})")
+                print(f"  [WARNING] SKIPPED - Need at least 7 sales (has {sales_count})")
                 skip_count += 1
                 continue
             
             try:
                 # Generate forecasts
-                print(f"  🔄 Generating forecasts...")
+                print(f"  [PROCESSING] Generating forecasts...")
                 success = ForecastingPipeline.generate_multi_horizon_forecasts(
                     product.id,
                     horizons=[1, 7, 30]
                 )
                 
                 if success:
-                    print(f"  ✅ SUCCESS")
+                    print(f"  [OK] SUCCESS")
                     success_count += 1
                 else:
-                    print(f"  ❌ FAILED")
+                    print(f"  [ERROR] FAILED")
                     fail_count += 1
             except Exception as e:
-                print(f"  ❌ ERROR: {str(e)}")
+                print(f"  [ERROR] {str(e)}")
                 fail_count += 1
                 import traceback
                 traceback.print_exc()
@@ -69,15 +69,15 @@ def generate_all_forecasts():
         print("=" * 70)
         print("  SUMMARY")
         print("=" * 70)
-        print(f"✅ Successfully generated forecasts: {success_count} products")
-        print(f"⚠️  Skipped (insufficient data): {skip_count} products")
-        print(f"❌ Failed: {fail_count} products")
+        print(f"[OK] Successfully generated forecasts: {success_count} products")
+        print(f"[WARNING] Skipped (insufficient data): {skip_count} products")
+        print(f"[ERROR] Failed: {fail_count} products")
         print()
         
         # Verify forecasts were created
         from models import Forecast
         total_forecasts = Forecast.query.count()
-        print(f"📈 Total forecasts in database: {total_forecasts}")
+        print(f"[INFO] Total forecasts in database: {total_forecasts}")
         
         if total_forecasts > 0:
             today = datetime.now().date()

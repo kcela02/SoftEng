@@ -1,3 +1,141 @@
+// ============= CSRF Token Helper =============
+/**
+ * Get CSRF token from meta tag or form
+ */
+function getCsrfToken() {
+    const metaToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (metaToken) return metaToken;
+    
+    const formToken = document.querySelector('input[name="csrf_token"]')?.value;
+    if (formToken) return formToken;
+    
+    return '';
+}
+
+/**
+ * Fetch with CSRF token automatically included
+ */
+async function fetchWithCsrf(url, options = {}) {
+    const csrfToken = getCsrfToken();
+    const headers = {
+        'X-CSRFToken': csrfToken,
+        ...options.headers
+    };
+    
+    return fetch(url, {
+        ...options,
+        headers
+    });
+}
+
+// ============= VapeCrib Dashboard Animations =============
+(function initVCAnimations() {
+    /**
+     * Animate a numeric value counting up from 0 to target.
+     * @param {Element} el - the element whose textContent gets updated
+     * @param {number}  target - final value
+     * @param {string}  prefix - e.g. '₱'
+     * @param {string}  suffix - e.g. '%'
+     * @param {number}  duration - ms
+     */
+    window.vcCountUp = function(el, target, prefix, suffix, duration) {
+        if (!el) return;
+        prefix  = prefix  || '';
+        suffix  = suffix  || '';
+        duration = duration || 1400;
+        const start = performance.now();
+        const tick  = (now) => {
+            const pct  = Math.min((now - start) / duration, 1);
+            const ease = 1 - Math.pow(1 - pct, 3); // cubic ease-out
+            const cur  = Math.floor(ease * target);
+            el.textContent = prefix + cur.toLocaleString() + suffix;
+            if (pct < 1) requestAnimationFrame(tick);
+            else {
+                el.textContent = prefix + target.toLocaleString() + suffix;
+                el.classList.add('vc-metric-pop');
+                setTimeout(() => el.classList.remove('vc-metric-pop'), 500);
+            }
+        };
+        requestAnimationFrame(tick);
+    };
+
+    /**
+     * Replace element content with skeleton shimmer temporarily,
+     * then restore after fetchFn resolves.
+     */
+    window.vcSkeleton = function(el, fetchFn) {
+        if (!el) return fetchFn();
+        const original = el.innerHTML;
+        const h = el.offsetHeight || 20;
+        el.innerHTML = `<span class="vc-skeleton" style="display:block;height:${h}px;width:80%;"></span>`;
+        return fetchFn().finally(() => {
+            // caller is responsible for setting el.innerHTML after resolve
+        });
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Only run inside the dashboard (not on the landing page)
+        if (!document.querySelector('.dashboard')) return;
+
+        // 1. Stagger summary cards entrance
+
+        // 2. Stagger summary cards entrance
+        const summaryCards = document.querySelectorAll('.summary-cards .card');
+        summaryCards.forEach((card, i) => {
+            card.style.animationDelay = (0.05 + i * 0.07) + 's';
+            // small rAF to let browser paint before animating
+            requestAnimationFrame(() => card.classList.add('vc-card-in'));
+        });
+
+        // 3. Stagger any generic card grids (charts-section, etc.)
+        const otherCards = document.querySelectorAll(
+            '.charts-section .card, .alerts-section .card'
+        );
+        otherCards.forEach((card, i) => {
+            card.style.animationDelay = (0.1 + i * 0.09) + 's';
+            requestAnimationFrame(() => card.classList.add('vc-card-in'));
+        });
+
+        // 4. Chart canvas — wrap parent in entrance class
+        document.querySelectorAll('canvas').forEach((canvas) => {
+            const wrapper = canvas.closest('.card') || canvas.parentElement;
+            if (wrapper) {
+                wrapper.style.animationDelay = '0.2s';
+                wrapper.classList.add('vc-chart-in');
+            }
+        });
+
+        // 5. Alert row items slide-in via IntersectionObserver
+        const alertObserver = new IntersectionObserver((entries) => {
+            entries.forEach((e) => {
+                if (e.isIntersecting) {
+                    e.target.classList.add('vc-alert-in');
+                    alertObserver.unobserve(e.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.alert-item, .alert').forEach((el, i) => {
+            el.style.animationDelay = (i * 0.08) + 's';
+            alertObserver.observe(el);
+        });
+
+        // 6. Count-up for all .metric elements already in DOM
+        document.querySelectorAll('.metric, .metric-value').forEach((el) => {
+            const raw = el.textContent.trim();
+            const match = raw.match(/^([^\d]*)(\d[\d,.]*)(.*)$/);
+            if (!match) return;
+            const prefix = match[1];
+            const suffix = match[3];
+            const target = parseFloat(match[2].replace(/,/g, ''));
+            if (!isNaN(target) && target > 0) {
+                el.textContent = prefix + '0' + suffix;
+                vcCountUp(el, target, prefix, suffix, 1200);
+            }
+        });
+    });
+})();
+
 // Modal functionality
 window.openModal = function(modalId) {
     const modal = document.getElementById(modalId);
@@ -172,25 +310,26 @@ window.updateMonthlyChartView = function(viewType) {
         window.monthlyChart.data.datasets = [{
             label: 'Monthly Sales',
             data: chartData.monthly.data,
-            backgroundColor: '#007bff',
-            borderColor: '#0056b3',
-            borderWidth: 1
+            backgroundColor: 'rgba(99,102,241,0.75)',
+            borderColor: 'rgba(129,140,248,0.5)',
+            borderWidth: 0,
+            borderRadius: 6,
+            borderSkipped: false
         }];
-        
+
         window.monthlyChart.options.plugins.title.text = `Monthly Sales Performance (Last ${chartData.monthly.labels.length} Month${chartData.monthly.labels.length !== 1 ? 's' : ''})`;
         window.monthlyChart.options.plugins.subtitle = {
             display: true,
-            text: '📊 Aggregated revenue by month',
+            text: 'Aggregated revenue by month',
             font: { size: 11 },
             color: '#6b7280',
             padding: { bottom: 10 }
         };
     } else {
         // Line Chart: Daily actual sales trend (no forecast)
-        // Filter out null values (future dates) for clean historical view
         const filteredData = [];
         const filteredLabels = [];
-        
+
         chartData.daily.labels.forEach((label, index) => {
             const value = chartData.daily.data[index];
             if (value !== null && value !== undefined) {
@@ -198,30 +337,30 @@ window.updateMonthlyChartView = function(viewType) {
                 filteredData.push(value);
             }
         });
-        
+
         console.log(`Filtered daily data: ${filteredData.length} days with actual sales`);
-        
+
         window.monthlyChart.config.type = 'line';
         window.monthlyChart.data.labels = filteredLabels;
         window.monthlyChart.data.datasets = [{
             label: 'Daily Sales',
             data: filteredData,
-            borderColor: '#28a745',
-            backgroundColor: 'rgba(40, 167, 69, 0.15)',
-            borderWidth: 3,
-            tension: 0.3,
+            borderColor: '#34d399',
+            backgroundColor: 'rgba(52,211,153,0.15)',
+            borderWidth: 2.5,
+            tension: 0.4,
             fill: true,
-            pointRadius: 3,
+            pointRadius: 2,
             pointHoverRadius: 6,
-            pointBackgroundColor: '#28a745',
-            pointBorderColor: '#ffffff',
+            pointBackgroundColor: '#34d399',
+            pointBorderColor: '#121212',
             pointBorderWidth: 2
         }];
-        
+
         window.monthlyChart.options.plugins.title.text = `Daily Sales Trend (${filteredData.length} Days of Actual Revenue)`;
         window.monthlyChart.options.plugins.subtitle = {
             display: true,
-            text: '📈 Historical day-by-day sales performance (no predictions)',
+            text: 'Historical day-by-day sales performance',
             font: { size: 11 },
             color: '#6b7280',
             padding: { bottom: 10 }
@@ -530,13 +669,13 @@ function updateAccuracyMetric(horizon, accuracy) {
     
     // Color-code based on performance thresholds
     if (accuracy >= 85) {
-        statusEl.textContent = '✓ Excellent';
+        statusEl.textContent = '[OK] Excellent';
         statusEl.style.color = '#4ade80'; // Green
     } else if (accuracy >= 70) {
-        statusEl.textContent = '⚠ Good';
+        statusEl.textContent = '[OK] Good';
         statusEl.style.color = '#fbbf24'; // Yellow
     } else {
-        statusEl.textContent = '✗ Needs Improvement';
+        statusEl.textContent = '[WARNING] Needs Improvement';
         statusEl.style.color = '#f87171'; // Red
     }
 }
@@ -582,17 +721,17 @@ async function fetchWeeklyForecast() {
                 <tr>
                     <td colspan="5" style="padding: 30px; text-align: center;">
                         <div style="color: #6b7280; margin-bottom: 15px; font-size: 1.1em;">
-                            📊 <strong>No Forecast Data Available Yet</strong>
+                            <i class="fas fa-chart-bar"></i> <strong>No Forecast Data Available Yet</strong>
                         </div>
                         <div style="color: #9ca3af; font-size: 0.95em; line-height: 1.6;">
                             <p style="margin: 10px 0;">To generate 7-day demand forecasts, the system needs sales history:</p>
                             <ol style="text-align: left; display: inline-block; margin: 15px auto;">
-                                <li style="margin: 8px 0;">📁 Upload sales CSV data (at least 7 days of history)</li>
-                                <li style="margin: 8px 0;">🤖 System automatically trains the forecasting model</li>
-                                <li style="margin: 8px 0;">📈 Forecasts appear here after processing</li>
+                                <li style="margin: 8px 0;"><i class="fas fa-folder"></i> Upload sales CSV data (at least 7 days of history)</li>
+                                <li style="margin: 8px 0;"><i class="fas fa-robot"></i> System automatically trains the forecasting model</li>
+                                <li style="margin: 8px 0;"><i class="fas fa-chart-line"></i> Forecasts appear here after processing</li>
                             </ol>
                             <p style="margin-top: 15px; color: #6b7280;">
-                                💡 <em>Tip: More historical data = More accurate forecasts</em>
+                                <i class="fas fa-lightbulb"></i> <em>Tip: More historical data = More accurate forecasts</em>
                             </p>
                         </div>
                     </td>
@@ -644,11 +783,11 @@ async function fetchWeeklyForecast() {
 // Helper function to create status badge
 function getStatusBadge(status, color) {
     const badges = {
-        'CRITICAL': `<span style="background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🔴 CRITICAL</span>`,
-        'HIGH': `<span style="background: #fed7aa; color: #9a3412; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🟠 HIGH</span>`,
-        'MEDIUM': `<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🟡 MEDIUM</span>`,
-        'LOW': `<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🟡 LOW</span>`,
-        'OK': `<span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;">🟢 OK</span>`
+        'CRITICAL': `<span style="background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;"><i class="fas fa-circle" style="color: #dc2626;"></i> CRITICAL</span>`,
+        'HIGH': `<span style="background: #fed7aa; color: #9a3412; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;"><i class="fas fa-circle" style="color: #f97316;"></i> HIGH</span>`,
+        'MEDIUM': `<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;"><i class="fas fa-circle" style="color: #eab308;"></i> MEDIUM</span>`,
+        'LOW': `<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;"><i class="fas fa-circle" style="color: #eab308;"></i> LOW</span>`,
+        'OK': `<span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;"><i class="fas fa-check-circle" style="color: #10b981;"></i> OK</span>`
     };
     
     return badges[status] || `<span style="color: ${color};">${status}</span>`;
@@ -707,7 +846,7 @@ function renderEnhancedAlerts(alerts, summary) {
     if (!alerts || alerts.length === 0) {
         alertsList.innerHTML = `
             <div style="padding: 20px; text-align: center; color: #6b7280;">
-                <div style="font-size: 2em; margin-bottom: 10px;">✅</div>
+                <div style="font-size: 2em; margin-bottom: 10px;"><i class="fas fa-check-circle" style="color: #10b981;"></i></div>
                 <div style="font-size: 1.1em; font-weight: 600; margin-bottom: 5px;">No Restock Alerts</div>
                 <div style="font-size: 0.9em;">All products have sufficient stock based on forecasts</div>
             </div>
@@ -719,10 +858,10 @@ function renderEnhancedAlerts(alerts, summary) {
     let html = `
         <div style="display: flex; gap: 8px; margin-bottom: 12px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
             <span style="flex: 1; text-align: center; padding: 6px; background: #fee2e2; color: #991b1b; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
-                🔴 ${summary.critical_count || 0}
+                <i class="fas fa-square" style="color: #dc2626;"></i> ${summary.critical_count || 0}
             </span>
             <span style="flex: 1; text-align: center; padding: 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
-                🟠 ${summary.high_count || 0}
+                <i class="fas fa-square" style="color: #f97316;"></i> ${summary.high_count || 0}
             </span>
         </div>
     `;
@@ -730,10 +869,10 @@ function renderEnhancedAlerts(alerts, summary) {
     // Render each alert in a more compact, scannable format
     alerts.forEach((alert, index) => {
         const urgencyIcon = {
-            'CRITICAL': '🔴',
-            'HIGH': '🟠',
-            'MEDIUM': '🟡'
-        }[alert.urgency] || '⚠️';
+            'CRITICAL': '<i class="fas fa-square" style="color: #dc2626;"></i>',
+            'HIGH': '<i class="fas fa-square" style="color: #f97316;"></i>',
+            'MEDIUM': '<i class="fas fa-square" style="color: #eab308;"></i>'
+        }[alert.urgency] || '<i class="fas fa-exclamation-triangle"></i>';
         
         const bgColor = {
             'CRITICAL': '#fee2e2',  // Darker red background
@@ -790,7 +929,7 @@ function renderEnhancedAlerts(alerts, summary) {
                 <!-- Action Row: Recommended Order -->
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: ${{'CRITICAL': '#fecaca', 'HIGH': '#fde047', 'MEDIUM': '#86efac'}[alert.urgency] || '#e5e7eb'}; border-radius: 4px;">
                     <div style="font-size: 0.85em; font-weight: 600; color: ${textColor};">
-                        📦 Order: <span style="font-size: 1.1em; font-weight: 700;">${alert.recommended_order_qty}</span> units
+                        <i class="fas fa-box"></i> Order: <span style="font-size: 1.1em; font-weight: 700;">${alert.recommended_order_qty}</span> units
                     </div>
                     <button class="btn btn-primary" style="padding: 5px 12px; font-size: 0.8em; background: ${borderColor}; border: none; cursor: pointer; color: white; border-radius: 4px; font-weight: 600;" onclick="quickRestock(${alert.product_id}, ${alert.recommended_order_qty})">
                         Order Now
@@ -1308,8 +1447,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Guard flags to prevent double-submission on login/register forms
+let _loginInProgress = false;
+let _registerInProgress = false;
+
 async function handleLogin(event) {
     event.preventDefault();
+    if (_loginInProgress) return;
+    _loginInProgress = true;
 
     const form = event.target;
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -1325,8 +1470,10 @@ async function handleLogin(event) {
         password: formData.get('password')
     };
 
+    let _loginSucceeded = false;
+
     try {
-        const response = await fetch('/login', {
+        const response = await fetchWithCsrf('/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1337,26 +1484,31 @@ async function handleLogin(event) {
         const result = await response.json();
 
         if (response.ok && result.success) {
+            _loginSucceeded = true;
             showMessage('login-messages', 'Login successful! Redirecting...', 'success');
             setTimeout(() => {
-                // Use safe redirect with validation
                 const redirectUrl = result.redirect || '/dashboard';
                 window.location.href = getSafeRedirectUrl(redirectUrl, '/dashboard');
-            }, 1000);
+            }, 500);
         } else {
             showMessage('login-messages', result.message || 'Login failed', 'error');
         }
     } catch (error) {
         showMessage('login-messages', 'Network error. Please try again.', 'error');
     } finally {
-        // Reset button state
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
+        if (!_loginSucceeded) {
+            // Only unlock on failure - on success keep button disabled and lock held during redirect window
+            _loginInProgress = false;
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
     }
 }
 
 async function handleRegister(event) {
     event.preventDefault();
+    if (_registerInProgress) return;
+    _registerInProgress = true;
 
     const form = event.target;
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -1375,7 +1527,7 @@ async function handleRegister(event) {
     };
 
     try {
-        const response = await fetch('/register', {
+        const response = await fetchWithCsrf('/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1396,6 +1548,7 @@ async function handleRegister(event) {
     } catch (error) {
         showMessage('register-messages', 'Network error. Please try again.', 'error');
     } finally {
+        _registerInProgress = false;
         // Reset button state
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
@@ -1407,6 +1560,24 @@ function showMessage(containerId, message, type) {
     if (container) {
         container.innerHTML = `<div class="alert ${type}">${message}</div>`;
     }
+}
+
+/* ── Dark-mode Chart.js defaults (applied once before any chart is created) ── */
+function setupChartDefaults() {
+    if (typeof Chart === 'undefined') return;
+    Chart.defaults.color = '#a3a3a3';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.07)';
+    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15,15,15,0.96)';
+    Chart.defaults.plugins.tooltip.titleColor = '#f5f5f5';
+    Chart.defaults.plugins.tooltip.bodyColor = '#a3a3a3';
+    Chart.defaults.plugins.tooltip.borderColor = 'rgba(255,255,255,0.1)';
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.padding = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.legend.labels.color = '#a3a3a3';
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.padding = 16;
+    Chart.defaults.font.family = "'Roboto', sans-serif";
 }
 
 // Store chart instances globally so we can update them
@@ -1421,6 +1592,8 @@ window.monthlyChartData = null; // Store data for view switching
 
 // Chart initialization function
 function initializeCharts() {
+    setupChartDefaults();
+
     // Initialize empty charts - will be populated with real data from API
     const labels = [];
     const emptyData = [];
@@ -1428,62 +1601,63 @@ function initializeCharts() {
     // Trend Chart (Line Chart) - Forecast Validation: Actual vs Forecasted Revenue
     const trendCtx = document.getElementById('trendChart');
     if (trendCtx) {
-        trendChart = new Chart(trendCtx.getContext('2d'), {
+        const tc = trendCtx.getContext('2d');
+        const grad1 = tc.createLinearGradient(0, 0, 0, 380);
+        grad1.addColorStop(0, 'rgba(52,211,153,0.35)');
+        grad1.addColorStop(1, 'rgba(52,211,153,0.0)');
+        const grad2 = tc.createLinearGradient(0, 0, 0, 380);
+        grad2.addColorStop(0, 'rgba(129,140,248,0.28)');
+        grad2.addColorStop(1, 'rgba(129,140,248,0.0)');
+
+        trendChart = new Chart(tc, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
                     label: 'Actual Revenue',
                     data: emptyData,
-                    borderColor: '#28a745',
-                    backgroundColor: 'rgba(40, 167, 69, 0.15)',
-                    tension: 0.3,
+                    borderColor: '#34d399',
+                    backgroundColor: grad1,
+                    tension: 0.4,
                     fill: true,
-                    pointRadius: 5,
+                    pointRadius: 4,
                     pointHoverRadius: 7,
-                    pointBackgroundColor: '#28a745',
-                    pointBorderColor: '#ffffff',
+                    pointBackgroundColor: '#34d399',
+                    pointBorderColor: '#121212',
                     pointBorderWidth: 2
                 }, {
                     label: 'Forecasted Revenue',
                     data: emptyData,
-                    borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.15)',
-                    tension: 0.3,
+                    borderColor: '#818cf8',
+                    backgroundColor: grad2,
+                    tension: 0.4,
                     fill: true,
-                    pointRadius: 5,
+                    pointRadius: 4,
                     pointHoverRadius: 7,
-                    pointBackgroundColor: '#007bff',
-                    pointBorderColor: '#ffffff',
+                    pointBackgroundColor: '#818cf8',
+                    pointBorderColor: '#121212',
                     pointBorderWidth: 2,
-                    borderDash: [5, 5]
+                    borderDash: [6, 3]
                 }]
             },
             options: {
                 responsive: true,
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
                     title: {
                         display: true,
                         text: 'Forecast Validation: Actual vs Predicted Revenue',
-                        font: {
-                            size: 14,
-                            weight: 'bold'
-                        }
+                        color: '#f5f5f5',
+                        font: { size: 14, weight: '500' }
                     },
                     subtitle: {
                         display: true,
-                        text: '🎯 Compare predictions with actual sales to validate model accuracy',
+                        text: 'Compare predictions with actual sales to validate model accuracy',
                         font: { size: 11 },
                         color: '#6b7280',
                         padding: { bottom: 10 }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        padding: 12,
                         callbacks: {
                             label: function(context) {
                                 return context.dataset.label + ': ' + formatPHP(context.parsed.y);
@@ -1492,16 +1666,14 @@ function initializeCharts() {
                                 const idx = tooltipItems[0].dataIndex;
                                 const actual = tooltipItems[0].chart.data.datasets[0].data[idx];
                                 const forecast = tooltipItems[0].chart.data.datasets[1].data[idx];
-                                
                                 if (actual && forecast && actual > 0) {
                                     const diff = forecast - actual;
-                                    const errorPct = Math.abs(diff / actual) * 100;
-                                    const accuracy = Math.max(0, 100 - errorPct);
+                                    const accuracy = Math.max(0, 100 - Math.abs(diff / actual) * 100);
                                     return [
                                         '',
-                                        '🎯 Prediction Accuracy: ' + accuracy.toFixed(1) + '%',
-                                        '   Difference: ' + (diff >= 0 ? '+' : '') + formatPHP(diff),
-                                        accuracy >= 90 ? '   ✓ Excellent!' : (accuracy >= 80 ? '   ✓ Good' : '   ⚠ Needs improvement')
+                                        'Accuracy: ' + accuracy.toFixed(1) + '%',
+                                        'Diff: ' + (diff >= 0 ? '+' : '') + formatPHP(diff),
+                                        accuracy >= 90 ? 'Excellent' : (accuracy >= 80 ? 'Good' : 'Needs improvement')
                                     ];
                                 }
                                 return [];
@@ -1510,37 +1682,45 @@ function initializeCharts() {
                     }
                 },
                 scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.06)' },
+                        ticks: { color: '#a3a3a3' }
+                    },
                     y: {
                         beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.06)' },
                         ticks: {
-                            callback: function(value) {
-                                return formatPHP(value);
-                            }
+                            color: '#a3a3a3',
+                            callback: function(value) { return formatPHP(value); }
                         },
-                        title: {
-                            display: true,
-                            text: 'Revenue (₱)'
-                        }
+                        title: { display: true, text: 'Revenue (₱)', color: '#a3a3a3' }
                     }
                 }
             }
         });
-        window.trendChart = trendChart; // Expose to window
+        window.trendChart = trendChart;
     }
 
     // Monthly Performance Chart (Switchable: Bar Chart for Monthly / Line Chart for Daily)
     const monthlyCtx = document.getElementById('monthlyChart');
     if (monthlyCtx) {
-        monthlyChart = new Chart(monthlyCtx.getContext('2d'), {
+        const mc = monthlyCtx.getContext('2d');
+        const barGrad = mc.createLinearGradient(0, 0, 0, 380);
+        barGrad.addColorStop(0, 'rgba(99,102,241,0.9)');
+        barGrad.addColorStop(1, 'rgba(67,56,202,0.55)');
+
+        monthlyChart = new Chart(mc, {
             type: 'bar',
             data: {
                 labels: [],
                 datasets: [{
                     label: 'Monthly Sales',
                     data: [],
-                    backgroundColor: '#007bff',
-                    borderColor: '#0056b3',
-                    borderWidth: 1
+                    backgroundColor: barGrad,
+                    borderColor: 'rgba(129,140,248,0.6)',
+                    borderWidth: 0,
+                    borderRadius: 6,
+                    borderSkipped: false
                 }]
             },
             options: {
@@ -1549,10 +1729,8 @@ function initializeCharts() {
                     title: {
                         display: true,
                         text: 'Monthly Sales Performance',
-                        font: {
-                            size: 14,
-                            weight: 'bold'
-                        }
+                        color: '#f5f5f5',
+                        font: { size: 14, weight: '500' }
                     },
                     tooltip: {
                         callbacks: {
@@ -1563,181 +1741,26 @@ function initializeCharts() {
                     }
                 },
                 scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.06)' },
+                        ticks: { color: '#a3a3a3' }
+                    },
                     y: {
                         beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.06)' },
                         ticks: {
-                            callback: function(value) {
-                                return formatPHP(value);
-                            }
+                            color: '#a3a3a3',
+                            callback: function(value) { return formatPHP(value); }
                         },
-                        title: {
-                            display: true,
-                            text: 'Revenue (₱)'
-                        }
+                        title: { display: true, text: 'Revenue (₱)', color: '#a3a3a3' }
                     }
                 }
             }
         });
-        window.monthlyChart = monthlyChart; // Expose to window
+        window.monthlyChart = monthlyChart;
     }
 
-    // Fetch and update metrics dynamically from database (skip if live WS metrics enabled)
-    if (!window.USE_WEBSOCKET_METRICS) {
-    fetch('/api/metrics', { credentials: 'same-origin' })
-        .then(response => response.json())
-        .then(data => {
-            // Update metric cards
-            const totalUnits = document.getElementById('total-units');
-            const totalRevenue = document.getElementById('total-revenue');
-                const totalInventoryValue = document.getElementById('total-inventory-value');
-            const accuracy = document.getElementById('accuracy');
-            const alertsCount = document.getElementById('alerts-count');
-
-            if (totalUnits) totalUnits.textContent = data.total_units_sold + ' units';
-                if (totalRevenue) totalRevenue.textContent = formatPHP(data.total_revenue);
-                if (totalInventoryValue) totalInventoryValue.textContent = formatPHP(data.total_inventory_value || 0);
-            // Accuracy is managed by fetchForecastAccuracy() - don't overwrite it here
-            // if (accuracy) {
-            //     const accuracyValue = typeof data.accuracy === 'number' ? data.accuracy : parseFloat(data.accuracy) || 0;
-            //     accuracy.textContent = accuracyValue.toFixed(1) + '%';
-            // }
-            if (alertsCount) alertsCount.textContent = data.alerts;
-
-            // Update change indicators (only show if data exists)
-            const changeUnits = document.getElementById('change-units');
-            const changeRevenue = document.getElementById('change-revenue');
-            
-            if (changeUnits && data.units_change !== null && data.units_change !== undefined) {
-                const isPositive = data.units_change >= 0;
-                changeUnits.textContent = (isPositive ? '+' : '') + data.units_change + '%';
-                changeUnits.className = 'change ' + (isPositive ? 'positive' : 'negative');
-                changeUnits.style.display = 'block';
-            }
-            
-            if (changeRevenue && data.revenue_change !== null && data.revenue_change !== undefined) {
-                const isPositive = data.revenue_change >= 0;
-                changeRevenue.textContent = (isPositive ? '+' : '') + data.revenue_change + '%';
-                changeRevenue.className = 'change ' + (isPositive ? 'positive' : 'negative');
-                changeRevenue.style.display = 'block';
-            }
-
-            // Update Month-over-Month Comparison Cards (NEW)
-            updateComparisonCard(
-                'current-month-revenue',
-                'last-month-revenue',
-                'month-revenue-change',
-                data.current_month_revenue,
-                data.last_month_revenue,
-                data.month_revenue_change,
-                true  // is currency
-            );
-
-            updateComparisonCard(
-                'current-month-units',
-                'last-month-units',
-                'month-units-change',
-                data.current_month_units,
-                data.last_month_units,
-                data.month_units_change,
-                false  // not currency
-            );
-
-            // Update Year-over-Year Comparison Cards (NEW)
-            updateComparisonCard(
-                'current-year-revenue',
-                'last-year-revenue',
-                'year-revenue-change',
-                data.current_month_revenue,  // Current month this year
-                data.year_ago_revenue,
-                data.year_revenue_change,
-                true  // is currency
-            );
-
-            updateComparisonCard(
-                'current-year-units',
-                'last-year-units',
-                'year-units-change',
-                data.current_month_units,  // Current month this year
-                data.year_ago_units,
-                data.year_units_change,
-                false  // not currency
-            );
-
-            // Update Trend Chart with monthly daily revenue (actual vs forecast)
-            if (trendChart) {
-                const labels = data.monthly_daily_labels || [];
-                const actualData = data.monthly_daily_sales || [];
-                const forecastData = data.monthly_daily_forecasts || [];
-                
-                trendChart.data.labels = labels;
-                trendChart.data.datasets[0].data = actualData;
-                trendChart.data.datasets[1].data = forecastData;
-                trendChart.update();
-            }
-
-            // Store data for monthly chart view switching
-            window.monthlyChartData = {
-                monthly: {
-                    labels: data.monthly_labels || [],
-                    data: data.monthly_data || []
-                },
-                daily: {
-                    labels: data.monthly_daily_labels || [],
-                    data: data.monthly_daily_sales || []
-                }
-            };
-            
-            // Update Monthly Chart based on current view
-            if (monthlyChart && window.monthlyChartData) {
-                updateMonthlyChartView(window.monthlyChartView);
-            }
-        })
-        .catch(error => {
-            console.log('Could not load metrics:', error);
-            // Fallback to 0 if API fails
-            const totalUnits = document.getElementById('total-units');
-            const totalRevenue = document.getElementById('total-revenue');
-            const accuracy = document.getElementById('accuracy');
-            const alertsCount = document.getElementById('alerts-count');
-            if (totalUnits) totalUnits.textContent = '0 units';
-            if (totalRevenue) totalRevenue.textContent = '₱0.00';
-            // Accuracy is managed by fetchForecastAccuracy() - don't overwrite it here
-            // if (accuracy) accuracy.textContent = '0%';
-            if (alertsCount) alertsCount.textContent = '0';
-        });
-    }
-
-    // Fetch and display restock alerts (skip if live WS alerts enabled)
-    if (!window.USE_WEBSOCKET_ALERTS) {
-    fetch('/api/restock-alerts', { credentials: 'same-origin' })
-        .then(response => response.json())
-        .then(alerts => {
-            const alertsList = document.getElementById('alerts-list');
-            if (!alertsList) return;
-            
-            if (alerts.length === 0) {
-                alertsList.innerHTML = '<div class="no-alerts">No restock alerts at this time. All inventory levels are adequate.</div>';
-            } else {
-                alertsList.innerHTML = alerts.map(alert => {
-                    const alertClass = alert.status === 'CRITICAL' ? 'critical' : 'warning';
-                    return `
-                        <div class="alert ${alertClass}">
-                            <strong>${alert.product_name || 'Product ' + alert.product_id}:</strong> 
-                            ${alert.recommendation}
-                            <br><small>Current stock: ${alert.current_stock} units | 7-day demand: ${alert.demand_7d} units</small>
-                        </div>
-                    `;
-                }).join('');
-            }
-        })
-        .catch(error => {
-            console.log('Could not load alerts:', error);
-            const alertsList = document.getElementById('alerts-list');
-            if (alertsList) {
-                alertsList.innerHTML = '<div class="no-alerts">Unable to load alerts. Please try again later.</div>';
-            }
-        });
-    }
+    // Alerts are handled by fetchEnhancedRestockAlerts() called on DOMContentLoaded
 
     console.log('Enhanced dashboard loaded with charts');
 }
@@ -1850,7 +1873,7 @@ window.openDeleteModal = function(productId, productName) {
             // Update modal message
             message.innerHTML = `
                 <div style="margin-bottom: 12px;">
-                    <strong>⚠️ DELETE "${productName}"?</strong>
+                    <strong><i class="fas fa-exclamation-triangle"></i> DELETE "${productName}"?</strong>
                     <p style="font-size: 0.9em; color: #6b7280; margin-top: 4px;">This action <strong>cannot be undone</strong>. The following data will be permanently deleted:</p>
                 </div>
             `;
@@ -1858,13 +1881,13 @@ window.openDeleteModal = function(productId, productName) {
             // Format the warnings
             const warningHTML = `
                 <div style="background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-                    <p style="color: #991b1b; font-weight: 600; margin: 0 0 8px 0;">⚠️ Data Impact:</p>
+                    <p style="color: #991b1b; font-weight: 600; margin: 0 0 8px 0;"><i class="fas fa-exclamation-triangle"></i> Data Impact:</p>
                     <ul style="margin: 0; padding-left: 20px; color: #7f1d1d; font-size: 0.9em; line-height: 1.6;">
                         ${alerts.map(alert => `<li>${alert}</li>`).join('')}
                     </ul>
                 </div>
                 <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; border-radius: 4px; font-size: 0.85em; color: #78350f;">
-                    <strong>💡 Recommendation:</strong> Consider archiving or disabling the product instead of permanent deletion.
+                    <strong><i class="fas fa-lightbulb"></i> Recommendation:</strong> Consider archiving or disabling the product instead of permanent deletion.
                     <br><strong>Next Step:</strong> After deletion, you may need to regenerate forecasts for other products.
                 </div>
             `;
@@ -1875,7 +1898,7 @@ window.openDeleteModal = function(productId, productName) {
             // Update the delete button to trigger actual deletion
             const confirmBtn = document.getElementById('confirm-delete-btn');
             if (confirmBtn) {
-                confirmBtn.innerHTML = '🗑️ Yes, Delete Permanently';
+                confirmBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Yes, Delete Permanently';
                 confirmBtn.style.backgroundColor = '#dc2626';
                 confirmBtn.style.color = 'white';
             }
@@ -1883,7 +1906,7 @@ window.openDeleteModal = function(productId, productName) {
     })
     .catch(error => {
         console.error('Error getting impact assessment:', error);
-        warning.innerHTML = `⚠️ Error: ${error.message}`;
+        warning.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${error.message}`;
     });
     
     modal.classList.add('show');
@@ -2049,7 +2072,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Build success message with warnings
                         let statusHtml = `
                             <div style="color: #28a745; padding: 10px; background: #d4edda; border-radius: 4px; border-left: 4px solid #28a745;">
-                                <strong>✓ CSV Upload Complete!</strong><br/>
+                                <strong><i class="fas fa-check-circle"></i> CSV Upload Complete!</strong><br/>
                                 <small style="white-space: pre-wrap;">${result.message}</small>
                             </div>
                         `;
@@ -2058,7 +2081,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (result.warnings && result.warnings.length > 0) {
                             statusHtml += `
                                 <div style="color: #856404; padding: 12px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107; margin-top: 10px;">
-                                    <strong>⚠️ Warnings:</strong><br/>
+                                    <strong><i class="fas fa-exclamation-triangle"></i> Warnings:</strong><br/>
                                     <ul style="margin: 8px 0 0 20px; padding: 0;">
                                         ${result.warnings.map(w => `<li style="margin: 4px 0;">${w}</li>`).join('')}
                                     </ul>
@@ -2071,7 +2094,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (result.forecast_errors && result.forecast_errors.length > 0) {
                             statusHtml += `
                                 <div style="color: #721c24; padding: 12px; background: #f8d7da; border-radius: 4px; border-left: 4px solid #dc3545; margin-top: 10px;">
-                                    <strong>🚨 Forecast Generation Errors:</strong><br/>
+                                    <strong><i class="fas fa-exclamation-circle"></i> Forecast Generation Errors:</strong><br/>
                                     <ul style="margin: 8px 0 0 20px; padding: 0; max-height: 200px; overflow-y: auto;">
                                         ${result.forecast_errors.map(e => `<li style="margin: 4px 0; font-size: 0.9em;">${e}</li>`).join('')}
                                     </ul>
@@ -2195,13 +2218,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <br/>
                                 <small style="color: #666;">
                                     ${imp.upload_date} | ${imp.data_type || 'unknown'} | 
-                                    ✅ New: ${imp.rows_processed} | 
-                                    ${imp.rows_skipped > 0 ? `⏭️ Skipped: ${imp.rows_skipped} | ` : ''}
-                                    ${imp.rows_failed > 0 ? `❌ Failed: ${imp.rows_failed} | ` : ''}
+                                    <i class="fas fa-check"></i> New: ${imp.rows_processed} | 
+                                    ${imp.rows_skipped > 0 ? `<i class="fas fa-forward"></i> Skipped: ${imp.rows_skipped} | ` : ''}
+                                    ${imp.rows_failed > 0 ? `<i class="fas fa-times"></i> Failed: ${imp.rows_failed} | ` : ''}
                                     User: ${imp.username}
                                 </small>
-                                ${imp.validation_errors ? `<br/><small style="color: #856404; background: #fff3cd; padding: 2px 6px; border-radius: 3px;">⚠️ ${imp.validation_errors}</small>` : ''}
-                                ${imp.error_message ? `<br/><small style="color: #dc3545;">❌ ${imp.error_message.substring(0, 100)}</small>` : ''}
+                                ${imp.validation_errors ? `<br/><small style="color: #856404; background: #fff3cd; padding: 2px 6px; border-radius: 3px;"><i class="fas fa-exclamation-triangle"></i> ${imp.validation_errors}</small>` : ''}
+                                ${imp.error_message ? `<br/><small style="color: #dc3545;"><i class="fas fa-times-circle"></i> ${imp.error_message.substring(0, 100)}</small>` : ''}
                             </div>
                         `;
                     }).join('');
@@ -2213,9 +2236,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error loading imports:', error);
                 importsList.innerHTML = `
                     <div style="text-align: center; padding: 20px;">
-                        <p style="color: #dc3545; margin: 0 0 12px;">⚠️ Error: ${error.message}</p>
+                        <p style="color: #dc3545; margin: 0 0 12px;"><i class="fas fa-exclamation-triangle"></i> Error: ${error.message}</p>
                         <button onclick="loadImportsList()" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem;">
-                            🔄 Retry
+                            <i class="fas fa-sync-alt"></i> Retry
                         </button>
                     </div>
                 `;
@@ -2254,12 +2277,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     const summary = result.summary;
                     statusDiv.innerHTML = `
                         <div style="color: #28a745; background: #d4edda; padding: 12px; border-radius: 4px; border: 1px solid #c3e6cb;">
-                            <strong>✓ Import Successful</strong><br/>
+                            <strong><i class="fas fa-check-circle"></i> Import Successful</strong><br/>
                             <div style="margin-top: 8px; font-size: 13px; line-height: 1.6;">
-                                📊 Total Rows: <strong>${summary.total_rows}</strong><br/>
-                                ✅ New Records: <strong>${summary.new_records}</strong><br/>
-                                ${summary.duplicates_found > 0 ? `⏭️ Duplicates Skipped: <strong>${summary.duplicates_found}</strong><br/>` : ''}
-                                ${summary.failed > 0 ? `❌ Failed: <strong>${summary.failed}</strong>` : ''}
+                                <i class="fas fa-chart-bar"></i> Total Rows: <strong>${summary.total_rows}</strong><br/>
+                                <i class="fas fa-check-circle"></i> New Records: <strong>${summary.new_records}</strong><br/>
+                                ${summary.duplicates_found > 0 ? `<i class="fas fa-forward"></i> Duplicates Skipped: <strong>${summary.duplicates_found}</strong><br/>` : ''}
+                                ${summary.failed > 0 ? `<i class="fas fa-times-circle"></i> Failed: <strong>${summary.failed}</strong>` : ''}
                             </div>
                         </div>
                     `;
@@ -2292,13 +2315,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     statusDiv.innerHTML = `
                         <div style="color: #991b1b; background: #fee2e2; padding: 16px; border-radius: 6px; border: 2px solid #fecaca; max-height: 400px; overflow-y: auto;">
-                            <strong style="font-size: 1.1em;">❌ Import Rejected</strong><br/>
+                            <strong style="font-size: 1.1em;"><i class="fas fa-times-circle"></i> Import Rejected</strong><br/>
                             <div style="margin-top: 12px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
                                 ${errorHTML}
                             </div>
                             ${result.total_unknown ? `
                                 <div style="margin-top: 12px; padding: 10px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px; color: #78350f; font-size: 0.85em;">
-                                    <strong>💡 Next Steps:</strong><br/>
+                                    <strong><i class="fas fa-lightbulb"></i> Next Steps:</strong><br/>
                                     1. Add missing products manually using the "Add Product" button above<br/>
                                     2. OR fix typos in your CSV file and re-upload<br/>
                                     3. Check product names match exactly (case-sensitive)
@@ -2310,7 +2333,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 statusDiv.innerHTML = `
                     <div style="color: #dc3545; background: #f8d7da; padding: 12px; border-radius: 4px; border: 1px solid #f5c6cb;">
-                        <strong>❌ Upload Error</strong><br/>
+                        <strong><i class="fas fa-times-circle"></i> Upload Error</strong><br/>
                         ${error.message}
                     </div>
                 `;
@@ -2360,20 +2383,20 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="product-info">
                                     <div class="product-name">${product.name}</div>
                                     <div class="product-meta">
-                                        <span>📁 ${product.category || 'Uncategorized'}</span>
-                                        <span>💰 ₱${parseFloat(product.unit_cost || 0).toFixed(2)}</span>
-                                        <span class="stock-badge ${stockClass}">📦 ${stock} units</span>
+                                        <span><i class="fas fa-folder"></i> ${product.category || 'Uncategorized'}</span>
+                                        <span><i class="fas fa-money-bill-wave"></i> ₱${parseFloat(product.unit_cost || 0).toFixed(2)}</span>
+                                        <span class="stock-badge ${stockClass}"><i class="fas fa-box"></i> ${stock} units</span>
                                     </div>
                                 </div>
                                 <div class="product-actions">
                                     <button class="btn-stock" onclick="openInventoryModal(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${stock})">
-                                        📦 Update
+                                        <i class="fas fa-box"></i> Update
                                     </button>
                                     <button class="btn-edit" onclick="openEditProductModal(${product.id})">
-                                        ✏️ Edit
+                                        <i class="fas fa-edit"></i> Edit
                                     </button>
                                     <button class="btn-delete" onclick="openDeleteModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')">
-                                        🗑️ Delete
+                                        <i class="fas fa-trash-alt"></i> Delete
                                     </button>
                                 </div>
                             </div>
@@ -2382,7 +2405,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     productsList.innerHTML = `
                         <div style="text-align: center; padding: 60px 20px;">
-                            <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">📦</div>
+                            <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;"><i class="fas fa-box" style="font-size: 3rem;"></i></div>
                             <p style="color: #9ca3af; font-size: 1rem; margin: 0;">No products found</p>
                             <p style="color: #d1d5db; font-size: 0.875rem; margin-top: 8px;">Try adjusting your search or add a new product</p>
                         </div>
@@ -2393,11 +2416,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error loading products:', error);
                 productsList.innerHTML = `
                     <div style="text-align: center; padding: 60px 20px;">
-                        <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">⚠️</div>
+                        <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;"><i class="fas fa-exclamation-triangle" style="font-size: 3rem;"></i></div>
                         <p style="color: #ef4444; font-size: 1rem; margin: 0;">Error loading products</p>
                         <p style="color: #fca5a5; font-size: 0.875rem; margin-top: 8px;">${error.message}</p>
                         <button onclick="loadProducts()" style="margin-top: 16px; padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem;">
-                            🔄 Retry
+                            <i class="fas fa-sync-alt"></i> Retry
                         </button>
                     </div>
                 `;
@@ -2488,16 +2511,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Show success with next steps
                     const nextSteps = result.next_steps ? result.next_steps.join('\n') : '';
-                    showNotification(`✓ ${result.message}\n${nextSteps}`, 'success');
+                    showNotification(`[OK] ${result.message}\n${nextSteps}`, 'success');
                 } else {
                     showNotification(`Error: ${result.error}`, 'error');
                     confirmDeleteBtn.disabled = false;
-                    confirmDeleteBtn.innerHTML = '🗑️ Yes, Delete Permanently';
+                    confirmDeleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Yes, Delete Permanently';
                 }
             } catch (error) {
                 showNotification(`Error: ${error.message}`, 'error');
                 confirmDeleteBtn.disabled = false;
-                confirmDeleteBtn.innerHTML = '🗑️ Yes, Delete Permanently';
+                confirmDeleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Yes, Delete Permanently';
             }
         });
     }
@@ -3101,7 +3124,7 @@ async function loadDailyForecastChart(productId = null) {
         if (container) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #9ca3af;">
-                    <p style="font-size: 1.1em; margin-bottom: 10px;">⚠️ Unable to load daily forecast</p>
+                    <p style="font-size: 1.1em; margin-bottom: 10px;"><i class="fas fa-exclamation-triangle"></i> Unable to load daily forecast</p>
                     <p style="font-size: 0.9em;">${error.message}</p>
                     <p style="font-size: 0.85em; margin-top: 10px; color: #6b7280;">Upload sales data to generate forecasts</p>
                 </div>
@@ -3215,80 +3238,77 @@ function renderDailyForecastChart(data) {
                 {
                     label: 'Actual Sales',
                     data: actualData,
-                    borderColor: '#28a745',
-                    backgroundColor: 'rgba(40, 167, 69, 0.15)',
-                    borderWidth: 3,
+                    borderColor: '#34d399',
+                    backgroundColor: 'rgba(52,211,153,0.15)',
+                    borderWidth: 2.5,
                     pointRadius: function(context) {
-                        // Show larger points where we have both actual and forecast (for comparison)
                         const idx = context.dataIndex;
                         return (actualData[idx] !== null && forecastData[idx] !== null) ? 5 : 0;
                     },
                     pointHoverRadius: 7,
-                    pointBackgroundColor: '#28a745',
-                    pointBorderColor: '#ffffff',
+                    pointBackgroundColor: '#34d399',
+                    pointBorderColor: '#121212',
                     pointBorderWidth: 2,
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.4,
                     order: 2
                 },
                 {
                     label: 'Forecasted Sales',
                     data: forecastData,
-                    borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.15)',
-                    borderWidth: 3,
+                    borderColor: '#818cf8',
+                    backgroundColor: 'rgba(129,140,248,0.12)',
+                    borderWidth: 2.5,
                     borderDash: function(context) {
-                        // Dashed line for future forecasts, solid for past comparisons
                         const idx = context.dataIndex;
-                        return actualData[idx] === null ? [5, 5] : [];
+                        return actualData[idx] === null ? [6, 3] : [];
                     },
                     pointRadius: function(context) {
-                        // Show points where we have both actual and forecast
                         const idx = context.dataIndex;
                         return (actualData[idx] !== null && forecastData[idx] !== null) ? 5 : 3;
                     },
                     pointHoverRadius: 7,
-                    pointBackgroundColor: '#007bff',
-                    pointBorderColor: '#ffffff',
+                    pointBackgroundColor: '#818cf8',
+                    pointBorderColor: '#121212',
                     pointBorderWidth: 2,
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.4,
                     order: 1
                 },
                 {
                     label: 'Last Year Same Period',
                     data: yoyData,
-                    borderColor: '#ffc107',
-                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                    borderWidth: 2,
-                    borderDash: [3, 3],
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251,191,36,0.08)',
+                    borderWidth: 1.5,
+                    borderDash: [4, 3],
                     pointRadius: 0,
                     pointHoverRadius: 5,
-                    pointBackgroundColor: '#ffc107',
+                    pointBackgroundColor: '#fbbf24',
                     fill: false,
-                    tension: 0.3,
+                    tension: 0.4,
                     order: 3
                 },
                 {
                     label: 'Confidence Upper',
                     data: confidenceUpper,
-                    borderColor: 'rgba(0, 123, 255, 0.3)',
-                    backgroundColor: 'rgba(0, 123, 255, 0.08)',
+                    borderColor: 'rgba(129,140,248,0.25)',
+                    backgroundColor: 'rgba(129,140,248,0.07)',
                     borderWidth: 1,
                     pointRadius: 0,
                     fill: '+1',
-                    tension: 0.3,
+                    tension: 0.4,
                     order: 4
                 },
                 {
                     label: 'Confidence Lower',
                     data: confidenceLower,
-                    borderColor: 'rgba(0, 123, 255, 0.3)',
-                    backgroundColor: 'rgba(0, 123, 255, 0.08)',
+                    borderColor: 'rgba(129,140,248,0.25)',
+                    backgroundColor: 'rgba(129,140,248,0.07)',
                     borderWidth: 1,
                     pointRadius: 0,
                     fill: false,
-                    tension: 0.3,
+                    tension: 0.4,
                     order: 4
                 }
             ]
@@ -3304,18 +3324,19 @@ function renderDailyForecastChart(data) {
                 title: {
                     display: true,
                     text: `Daily Sales Trend & Forecast${data.history_start ? ' (Historical Context: ' + data.history_start + ')' : ''}`,
-                    font: { size: 16, weight: 'bold' },
+                    color: '#f5f5f5',
+                    font: { size: 16, weight: '500' },
                     padding: { bottom: 5 }
                 },
                 subtitle: {
                     display: true,
                     text: [
-                        data.accuracy ? `✓ Yesterday's Accuracy: ${data.accuracy.toFixed(1)}%` : 'Model: Linear Regression with seasonal patterns',
-                        avgAccuracy !== null ? `📊 Average Accuracy (past ${predictionErrors.length} days): ${avgAccuracy.toFixed(1)}%` : '',
-                        `Period: ${data.week_start} to ${data.week_end}` + (data.yoy_data && data.yoy_data.length > 0 ? ' • 📈 Yellow = Same period last year' : '')
+                        data.accuracy ? `Yesterday's Accuracy: ${data.accuracy.toFixed(1)}%` : 'Model: Linear Regression with seasonal patterns',
+                        avgAccuracy !== null ? `Avg Accuracy (past ${predictionErrors.length} days): ${avgAccuracy.toFixed(1)}%` : '',
+                        `Period: ${data.week_start} to ${data.week_end}` + (data.yoy_data && data.yoy_data.length > 0 ? ' · Amber = Same period last year' : '')
                     ].filter(t => t),
                     font: { size: 11 },
-                    color: data.accuracy ? (data.accuracy >= 85 ? '#28a745' : (data.accuracy >= 70 ? '#007bff' : '#ef4444')) : '#6b7280',
+                    color: data.accuracy ? (data.accuracy >= 85 ? '#34d399' : (data.accuracy >= 70 ? '#818cf8' : '#ef4444')) : '#6b7280',
                     padding: { bottom: 15 }
                 },
                 legend: {
@@ -3331,9 +3352,8 @@ function renderDailyForecastChart(data) {
                 tooltip: {
                     mode: 'index',
                     intersect: false,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
                     padding: 12,
-                    titleFont: { size: 13, weight: 'bold' },
+                    titleFont: { size: 13, weight: '600' },
                     bodyFont: { size: 12 },
                     callbacks: {
                         title: function(tooltipItems) {
@@ -3341,12 +3361,8 @@ function renderDailyForecastChart(data) {
                         },
                         label: function(context) {
                             let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += Math.round(context.parsed.y) + ' units';
-                            }
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) label += Math.round(context.parsed.y) + ' units';
                             return label;
                         },
                         afterBody: function(tooltipItems) {
@@ -3355,27 +3371,20 @@ function renderDailyForecastChart(data) {
                             const forecast = forecastData[idx];
                             const yoy = yoyData[idx];
                             const lines = [];
-                            
-                            // Show prediction accuracy if both exist
+
                             if (actual !== null && forecast !== null && actual > 0) {
-                                const error = Math.abs(forecast - actual);
-                                const errorPct = (error / actual) * 100;
-                                const accuracy = Math.max(0, 100 - errorPct);
+                                const accuracy = Math.max(0, 100 - Math.abs((forecast - actual) / actual) * 100);
                                 const diff = forecast - actual;
                                 lines.push('');
-                                lines.push(`🎯 Prediction Accuracy: ${accuracy.toFixed(1)}%`);
-                                lines.push(`   Difference: ${diff >= 0 ? '+' : ''}${Math.round(diff)} units (${diff >= 0 ? '+' : ''}${((diff/actual)*100).toFixed(1)}%)`);
-                                if (accuracy >= 90) lines.push('   ✓ Excellent prediction!');
-                                else if (accuracy >= 80) lines.push('   ✓ Good prediction');
-                                else if (accuracy >= 70) lines.push('   ⚠ Fair prediction');
-                                else lines.push('   ⚠ Model needs adjustment');
+                                lines.push(`Accuracy: ${accuracy.toFixed(1)}%`);
+                                lines.push(`Diff: ${diff >= 0 ? '+' : ''}${Math.round(diff)} units`);
+                                lines.push(accuracy >= 90 ? 'Excellent' : (accuracy >= 80 ? 'Good' : (accuracy >= 70 ? 'Fair' : 'Needs improvement')));
                             }
-                            
-                            // Show year-over-year comparison
+
                             if (yoy !== null && actual !== null && actual > 0) {
                                 const yoyGrowth = ((actual - yoy) / yoy) * 100;
                                 lines.push('');
-                                lines.push(`📅 vs Last Year: ${yoyGrowth >= 0 ? '+' : ''}${yoyGrowth.toFixed(1)}%`);
+                                lines.push(`vs Last Year: ${yoyGrowth >= 0 ? '+' : ''}${yoyGrowth.toFixed(1)}%`);
                             }
                             
                             // Show confidence range for forecasts
@@ -3451,7 +3460,7 @@ async function loadWeeklyForecastChart(productId = null) {
         if (container) {
             container.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #9ca3af;">
-                    <p style="font-size: 1.1em; margin-bottom: 10px;">⚠️ Unable to load weekly forecast</p>
+                    <p style="font-size: 1.1em; margin-bottom: 10px;"><i class="fas fa-exclamation-triangle"></i> Unable to load weekly forecast</p>
                     <p style="font-size: 0.9em;">${error.message}</p>
                     <p style="font-size: 0.85em; margin-top: 10px; color: #6b7280;">Upload sales data to generate forecasts</p>
                 </div>
@@ -3551,59 +3560,59 @@ function renderWeeklyForecastChart(data) {
                 {
                     label: 'Actual Sales',
                     data: actualData,
-                    borderColor: '#28a745',
-                    backgroundColor: 'rgba(40, 167, 69, 0.15)',
-                    borderWidth: 3,
+                    borderColor: '#34d399',
+                    backgroundColor: 'rgba(52,211,153,0.15)',
+                    borderWidth: 2.5,
                     pointRadius: function(context) {
                         const idx = context.dataIndex;
                         return (actualData[idx] !== null && forecastData[idx] !== null) ? 6 : 4;
                     },
                     pointHoverRadius: 8,
-                    pointBackgroundColor: '#28a745',
-                    pointBorderColor: '#ffffff',
+                    pointBackgroundColor: '#34d399',
+                    pointBorderColor: '#121212',
                     pointBorderWidth: 2,
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.4,
                     order: 1
                 },
                 {
                     label: 'Forecasted Sales',
                     data: forecastData,
-                    borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.15)',
-                    borderWidth: 3,
+                    borderColor: '#818cf8',
+                    backgroundColor: 'rgba(129,140,248,0.12)',
+                    borderWidth: 2.5,
                     borderDash: function(context) {
                         const idx = context.dataIndex;
-                        return actualData[idx] === null ? [5, 5] : [];
+                        return actualData[idx] === null ? [6, 3] : [];
                     },
                     pointRadius: function(context) {
                         const idx = context.dataIndex;
                         return (actualData[idx] !== null && forecastData[idx] !== null) ? 6 : 4;
                     },
                     pointHoverRadius: 8,
-                    pointBackgroundColor: '#007bff',
-                    pointBorderColor: '#ffffff',
+                    pointBackgroundColor: '#818cf8',
+                    pointBorderColor: '#121212',
                     pointBorderWidth: 2,
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.4,
                     order: 2
                 },
                 {
                     label: 'Confidence Upper',
                     data: confidenceUpper,
-                    borderColor: 'rgba(0, 123, 255, 0.3)',
-                    backgroundColor: 'rgba(0, 123, 255, 0.08)',
+                    borderColor: 'rgba(129,140,248,0.25)',
+                    backgroundColor: 'rgba(129,140,248,0.07)',
                     borderWidth: 1,
                     pointRadius: 0,
                     fill: '+1',
-                    tension: 0.3,
+                    tension: 0.4,
                     order: 3
                 },
                 {
                     label: 'Confidence Lower',
                     data: confidenceLower,
-                    borderColor: 'rgba(0, 123, 255, 0.3)',
-                    backgroundColor: 'rgba(0, 123, 255, 0.08)',
+                    borderColor: 'rgba(129,140,248,0.25)',
+                    backgroundColor: 'rgba(129,140,248,0.07)',
                     borderWidth: 1,
                     pointRadius: 0,
                     fill: false,
@@ -3629,11 +3638,11 @@ function renderWeeklyForecastChart(data) {
                 subtitle: {
                     display: true,
                     text: [
-                        data.accuracy !== null && data.accuracy !== undefined ? `✓ Last Week's Accuracy: ${data.accuracy.toFixed(1)}%` : 'Model: Aggregated daily forecasts',
-                        avgWeeklyAccuracy !== null ? `📊 Average Accuracy (${weeklyPredictionErrors.length} weeks): ${avgWeeklyAccuracy.toFixed(1)}%` : ''
+                        data.accuracy !== null && data.accuracy !== undefined ? `Last Week's Accuracy: ${data.accuracy.toFixed(1)}%` : 'Model: Aggregated daily forecasts',
+                        avgWeeklyAccuracy !== null ? `Avg Accuracy (${weeklyPredictionErrors.length} weeks): ${avgWeeklyAccuracy.toFixed(1)}%` : ''
                     ].filter(t => t),
                     font: { size: 11 },
-                    color: data.accuracy ? (data.accuracy >= 85 ? '#28a745' : (data.accuracy >= 70 ? '#007bff' : '#ef4444')) : '#6b7280',
+                    color: data.accuracy ? (data.accuracy >= 85 ? '#34d399' : (data.accuracy >= 70 ? '#818cf8' : '#ef4444')) : '#6b7280',
                     padding: { bottom: 15 }
                 },
                 legend: {
@@ -3649,9 +3658,8 @@ function renderWeeklyForecastChart(data) {
                 tooltip: {
                     mode: 'index',
                     intersect: false,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
                     padding: 12,
-                    titleFont: { size: 13, weight: 'bold' },
+                    titleFont: { size: 13, weight: '600' },
                     bodyFont: { size: 12 },
                     callbacks: {
                         title: function(tooltipItems) {
@@ -3659,12 +3667,8 @@ function renderWeeklyForecastChart(data) {
                         },
                         label: function(context) {
                             let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += Math.round(context.parsed.y) + ' units';
-                            }
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) label += Math.round(context.parsed.y) + ' units';
                             return label;
                         },
                         afterBody: function(tooltipItems) {
@@ -3672,20 +3676,14 @@ function renderWeeklyForecastChart(data) {
                             const actual = actualData[idx];
                             const forecast = forecastData[idx];
                             const lines = [];
-                            
-                            // Show prediction accuracy if both exist
+
                             if (actual !== null && forecast !== null && actual > 0) {
-                                const error = Math.abs(forecast - actual);
-                                const errorPct = (error / actual) * 100;
-                                const accuracy = Math.max(0, 100 - errorPct);
+                                const accuracy = Math.max(0, 100 - Math.abs((forecast - actual) / actual) * 100);
                                 const diff = forecast - actual;
                                 lines.push('');
-                                lines.push(`🎯 Prediction Accuracy: ${accuracy.toFixed(1)}%`);
-                                lines.push(`   Difference: ${diff >= 0 ? '+' : ''}${Math.round(diff)} units (${diff >= 0 ? '+' : ''}${((diff/actual)*100).toFixed(1)}%)`);
-                                if (accuracy >= 90) lines.push('   ✓ Excellent prediction!');
-                                else if (accuracy >= 80) lines.push('   ✓ Good prediction');
-                                else if (accuracy >= 70) lines.push('   ⚠ Fair prediction');
-                                else lines.push('   ⚠ Model needs improvement');
+                                lines.push(`Accuracy: ${accuracy.toFixed(1)}%`);
+                                lines.push(`Diff: ${diff >= 0 ? '+' : ''}${Math.round(diff)} units`);
+                                lines.push(accuracy >= 90 ? 'Excellent' : (accuracy >= 80 ? 'Good' : (accuracy >= 70 ? 'Fair' : 'Needs improvement')));
                             }
                             
                             // Show confidence range for forecasts
@@ -3922,7 +3920,7 @@ async function saveUserPreferences() {
         });
         
         if (response.ok) {
-            messageDiv.textContent = '✓ Settings saved successfully!';
+            messageDiv.textContent = '[OK] Settings saved successfully!';
             messageDiv.style.color = '#10b981';
             messageDiv.style.display = 'block';
             
@@ -3938,13 +3936,13 @@ async function saveUserPreferences() {
             }, 3000);
         } else {
             const error = await response.json();
-            messageDiv.textContent = '✗ Error: ' + (error.error || 'Failed to save settings');
+            messageDiv.textContent = '[ERROR] ' + (error.error || 'Failed to save settings');
             messageDiv.style.color = '#ef4444';
             messageDiv.style.display = 'block';
         }
     } catch (error) {
         console.error('Error saving preferences:', error);
-        messageDiv.textContent = '✗ Error: Failed to save settings';
+        messageDiv.textContent = '[ERROR] Failed to save settings';
         messageDiv.style.color = '#ef4444';
         messageDiv.style.display = 'block';
     } finally {
@@ -4024,7 +4022,7 @@ async function populateProductSelectors() {
                 
                 const message = `
                     <div style="text-align: center; padding: 40px; color: #6b7280;">
-                        <p style="font-size: 1.2em; margin-bottom: 10px;">📊 No Forecast Data Available</p>
+                        <p style="font-size: 1.2em; margin-bottom: 10px;"><i class="fas fa-chart-bar"></i> No Forecast Data Available</p>
                         <p style="font-size: 0.95em;">Generate forecasts by uploading sales data or running the forecast generation script.</p>
                     </div>
                 `;

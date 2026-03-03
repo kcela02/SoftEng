@@ -28,6 +28,11 @@ my app/models/instance/
 my app/instance/models/
 *.pkl
 
+# ── Data / handoff folder (share privately, not via git) ──
+_for_collaborators/
+my app/data/*.csv
+my app/sample_*.csv
+
 # ── OS / editor ────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

@@ -4,17 +4,17 @@
 
 {% block content %}
             <div class="container" style="max-width: 1400px; padding: 20px;">
-                <h2 style="margin-bottom: 10px;">📊 Reports & Analytics</h2>
-                <p style="color: #666; margin-bottom: 30px;">Download comprehensive reports and insights about your business performance.</p>
+                <h2 style="margin-bottom: 10px;"><i class="fas fa-chart-bar"></i> Reports & Analytics</h2>
+                <p style="color: var(--color-text-secondary); margin-bottom: 30px;">Download comprehensive reports and insights about your business performance.</p>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">📈 Sales Report</h3>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-chart-line"></i> Sales Report</h3>
                             <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Detailed sales transactions and trends</p>
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Time Period:</label>
+                            <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 8px;">Time Period:</label>
                             <select id="sales-report-period" class="form-control" style="width: 100%;">
                                 <option value="7d">Last 7 days</option>
                                 <option value="30d">Last 30 days</option>
@@ -28,11 +28,11 @@
 
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">📦 Inventory Report</h3>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-box"></i> Inventory Report</h3>
                             <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Current stock levels and inventory valuation</p>
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Report Type:</label>
+                            <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 8px;">Report Type:</label>
                             <select id="inventory-report-type" class="form-control" style="width: 100%;">
                                 <option value="current">Current Stock Levels</option>
                                 <option value="low">Low Stock Items</option>
@@ -44,11 +44,11 @@
 
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 18px;">📋 Import History</h3>
-                            <p style="color: #374151; font-size: 14px; margin: 0;">CSV upload and processing logs</p>
+                            <h3 style="color: #1f2937; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-clipboard-list"></i> Import History</h3>
+                            <p style="color: var(--color-text-primary); font-size: 14px; margin: 0;">CSV upload and processing logs</p>
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 8px;">Show Records:</label>
+                            <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 8px;">Show Records:</label>
                             <select id="import-history-limit" class="form-control" style="width: 100%;">
                                 <option value="10">Last 10 imports</option>
                                 <option value="25">Last 25 imports</option>
@@ -61,11 +61,11 @@
                 </div>
 
             <!-- Sales Report Modal -->
-            <div id="salesReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-                <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
-                    <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-                        <h2 style="margin: 0; color: #1f2937;">📈 Sales Report</h2>
-                        <button onclick="closeSalesReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+            <div id="salesReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);">
+                <div style="background-color: var(--color-primary); border: 1px solid var(--color-divider); margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
+                    <div style="padding: 20px; border-bottom: 1px solid var(--color-divider); display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="margin: 0; color: var(--color-text-primary);"><i class="fas fa-chart-line"></i> Sales Report</h2>
+                        <button onclick="closeSalesReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-secondary);">&times;</button>
                     </div>
                     <div style="padding: 20px; overflow-y: auto; flex: 1;">
                         <div id="salesReportContent">Loading...</div>
@@ -78,11 +78,11 @@
             </div>
 
             <!-- Inventory Report Modal -->
-            <div id="inventoryReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-                <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
-                    <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-                        <h2 style="margin: 0; color: #1f2937;">📦 Inventory Report</h2>
-                        <button onclick="closeInventoryReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+            <div id="inventoryReportModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);">
+                <div style="background-color: var(--color-primary); border: 1px solid var(--color-divider); margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
+                    <div style="padding: 20px; border-bottom: 1px solid var(--color-divider); display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="margin: 0; color: var(--color-text-primary);"><i class="fas fa-box"></i> Inventory Report</h2>
+                        <button onclick="closeInventoryReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-secondary);">&times;</button>
                     </div>
                     <div style="padding: 20px; overflow-y: auto; flex: 1;">
                         <div id="inventoryReportContent">Loading...</div>
@@ -95,11 +95,11 @@
             </div>
 
             <!-- Import History Modal -->
-            <div id="importHistoryModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-                <div style="background-color: white; margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
-                    <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-                        <h2 style="margin: 0; color: #1f2937;">📋 Import History</h2>
-                        <button onclick="closeImportHistoryModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+            <div id="importHistoryModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);">
+                <div style="background-color: var(--color-primary); border: 1px solid var(--color-divider); margin: 50px auto; padding: 0; border-radius: 8px; width: 90%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column;">
+                    <div style="padding: 20px; border-bottom: 1px solid var(--color-divider); display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="margin: 0; color: var(--color-text-primary);"><i class="fas fa-clipboard-list"></i> Import History</h2>
+                        <button onclick="closeImportHistoryModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-secondary);">&times;</button>
                     </div>
                     <div style="padding: 20px; overflow-y: auto; flex: 1;">
                         <div id="importHistoryContent">Loading...</div>
@@ -128,32 +128,32 @@
             .then(data => {
                 if (data.sales && data.sales.length > 0) {
                     let html = '<div style="margin-bottom: 20px;">';
-                    html += '<h3 style="color: #111827; margin: 0 0 5px 0;">Sales Summary</h3>';
-                    html += '<p style="color: #4b5563; margin: 0;">Total Sales: ' + data.sales.length + ' | Total Revenue: ₱' + (data.total_revenue || 0).toFixed(2) + '</p>';
+                    html += '<h3 style="color: #f5f5f5; margin: 0 0 5px 0;">Sales Summary</h3>';
+                    html += '<p style="color: #a3a3a3; margin: 0;">Total Sales: ' + data.sales.length + ' | Total Revenue: ₱' + (data.total_revenue || 0).toFixed(2) + '</p>';
                     html += '</div><div style="overflow-x: auto;">';
                     html += '<table style="width: 100%; border-collapse: collapse; font-size: 14px;">';
-                    html += '<thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">';
-                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Date</th>';
-                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Product</th>';
-                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Quantity</th>';
-                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Price</th>';
-                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Total</th>';
+                    html += '<thead><tr style="background: rgba(255,255,255,0.08); border-bottom: 2px solid rgba(255,255,255,0.1);">';
+                    html += '<th style="padding: 12px; text-align: left; color: #e5e5e5;">Date</th>';
+                    html += '<th style="padding: 12px; text-align: left; color: #e5e5e5;">Product</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #e5e5e5;">Quantity</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #e5e5e5;">Price</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #e5e5e5;">Total</th>';
                     html += '</tr></thead><tbody>';
                     
                     data.sales.forEach(sale => {
-                        html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
-                        html += '<td style="padding: 12px; color: #374151;">' + new Date(sale.date).toLocaleDateString() + '</td>';
-                        html += '<td style="padding: 12px; color: #374151;">' + (sale.product_name || 'N/A') + '</td>';
-                        html += '<td style="padding: 12px; text-align: right; color: #374151;">' + sale.quantity + '</td>';
-                        html += '<td style="padding: 12px; text-align: right; color: #374151;">₱' + (sale.price || 0).toFixed(2) + '</td>';
-                        html += '<td style="padding: 12px; text-align: right; color: #374151; font-weight: 500;">₱' + (sale.revenue || 0).toFixed(2) + '</td>';
+                        html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.07);">';
+                        html += '<td style="padding: 12px; color: #e5e5e5;">' + new Date(sale.date).toLocaleDateString() + '</td>';
+                        html += '<td style="padding: 12px; color: #e5e5e5;">' + (sale.product_name || 'N/A') + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #e5e5e5;">' + sale.quantity + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #e5e5e5;">₱' + (sale.price || 0).toFixed(2) + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #e5e5e5; font-weight: 500;">₱' + (sale.revenue || 0).toFixed(2) + '</td>';
                         html += '</tr>';
                     });
                     
                     html += '</tbody></table></div>';
                     content.innerHTML = html;
                 } else {
-                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #4b5563;"><p>No sales data found for this period.</p></div>';
+                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #a3a3a3;"><p>No sales data found for this period.</p></div>';
                 }
             })
             .catch(error => {
@@ -185,30 +185,30 @@
             .then(data => {
                 if (data.inventory && data.inventory.length > 0) {
                     let html = '<div style="margin-bottom: 20px;">';
-                    html += '<h3 style="color: #111827; margin: 0 0 5px 0;">Inventory Summary</h3>';
-                    html += '<p style="color: #4b5563; margin: 0;">Total Items: ' + data.inventory.length + ' | Total Value: ₱' + (data.total_value || 0).toFixed(2) + '</p>';
+                    html += '<h3 style="color: #f5f5f5; margin: 0 0 5px 0;">Inventory Summary</h3>';
+                    html += '<p style="color: #a3a3a3; margin: 0;">Total Items: ' + data.inventory.length + ' | Total Value: ₱' + (data.total_value || 0).toFixed(2) + '</p>';
                     html += '</div><div style="overflow-x: auto;">';
                     html += '<table style="width: 100%; border-collapse: collapse; font-size: 14px;">';
-                    html += '<thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">';
-                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Product</th>';
-                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Stock</th>';
-                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Price</th>';
-                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Total Value</th>';
+                    html += '<thead><tr style="background: rgba(255,255,255,0.08); border-bottom: 2px solid rgba(255,255,255,0.1);">';
+                    html += '<th style="padding: 12px; text-align: left; color: #e5e5e5;">Product</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #e5e5e5;">Stock</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #e5e5e5;">Price</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #e5e5e5;">Total Value</th>';
                     html += '</tr></thead><tbody>';
                     
                     data.inventory.forEach(item => {
-                        html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
-                        html += '<td style="padding: 12px; color: #374151;">' + (item.product_name || 'N/A') + '</td>';
-                        html += '<td style="padding: 12px; text-align: right; color: #374151;">' + (item.current_stock || 0) + '</td>';
-                        html += '<td style="padding: 12px; text-align: right; color: #374151;">₱' + (item.unit_cost || 0).toFixed(2) + '</td>';
-                        html += '<td style="padding: 12px; text-align: right; color: #374151; font-weight: 500;">₱' + (item.total_value || 0).toFixed(2) + '</td>';
+                        html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.07);">';
+                        html += '<td style="padding: 12px; color: #e5e5e5;">' + (item.product_name || 'N/A') + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #e5e5e5;">' + (item.current_stock || 0) + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #e5e5e5;">₱' + (item.unit_cost || 0).toFixed(2) + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #e5e5e5; font-weight: 500;">₱' + (item.total_value || 0).toFixed(2) + '</td>';
                         html += '</tr>';
                     });
                     
                     html += '</tbody></table></div>';
                     content.innerHTML = html;
                 } else {
-                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #4b5563;"><p>No inventory data found.</p></div>';
+                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #a3a3a3;"><p>No inventory data found.</p></div>';
                 }
             })
             .catch(error => {
@@ -242,31 +242,31 @@
             .then(data => {
                 if (data.imports && data.imports.length > 0) {
                     let html = '<div style="margin-bottom: 20px;">';
-                    html += '<h3 style="color: #111827; margin: 0 0 5px 0;">Import History</h3>';
-                    html += '<p style="color: #4b5563; margin: 0;">Total Imports: ' + data.imports.length + '</p>';
+                    html += '<h3 style="color: #f5f5f5; margin: 0 0 5px 0;">Import History</h3>';
+                    html += '<p style="color: #a3a3a3; margin: 0;">Total Imports: ' + data.imports.length + '</p>';
                     html += '</div><div style="overflow-x: auto;">';
                     html += '<table style="width: 100%; border-collapse: collapse; font-size: 14px;">';
-                    html += '<thead><tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">';
-                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Date</th>';
-                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Filename</th>';
-                    html += '<th style="padding: 12px; text-align: right; color: #1f2937;">Records</th>';
-                    html += '<th style="padding: 12px; text-align: left; color: #1f2937;">Status</th>';
+                    html += '<thead><tr style="background: rgba(255,255,255,0.08); border-bottom: 2px solid rgba(255,255,255,0.1);">';
+                    html += '<th style="padding: 12px; text-align: left; color: #e5e5e5;">Date</th>';
+                    html += '<th style="padding: 12px; text-align: left; color: #e5e5e5;">Filename</th>';
+                    html += '<th style="padding: 12px; text-align: right; color: #e5e5e5;">Records</th>';
+                    html += '<th style="padding: 12px; text-align: left; color: #e5e5e5;">Status</th>';
                     html += '</tr></thead><tbody>';
                     
                     data.imports.forEach(imp => {
-                        const status = imp.status === 'completed' ? '<span style="color: #10b981;">✓ Completed</span>' : '<span style="color: #f59e0b;">⚠ ' + imp.status + '</span>';
-                        html += '<tr style="border-bottom: 1px solid #e5e7eb;">';
-                        html += '<td style="padding: 12px; color: #374151;">' + new Date(imp.import_date).toLocaleString() + '</td>';
-                        html += '<td style="padding: 12px; color: #374151;">' + imp.filename + '</td>';
-                        html += '<td style="padding: 12px; text-align: right; color: #374151;">' + imp.record_count + '</td>';
-                        html += '<td style="padding: 12px; color: #374151;">' + status + '</td>';
+                        const status = imp.status === 'completed' ? '<span style="color: #10b981;"><i class="fas fa-check-circle"></i> Completed</span>' : '<span style="color: #f59e0b;"><i class="fas fa-exclamation-circle"></i> ' + imp.status + '</span>';
+                        html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.07);">';
+                        html += '<td style="padding: 12px; color: #e5e5e5;">' + new Date(imp.import_date).toLocaleString() + '</td>';
+                        html += '<td style="padding: 12px; color: #e5e5e5;">' + imp.filename + '</td>';
+                        html += '<td style="padding: 12px; text-align: right; color: #e5e5e5;">' + imp.record_count + '</td>';
+                        html += '<td style="padding: 12px; color: #e5e5e5;">' + status + '</td>';
                         html += '</tr>';
                     });
                     
                     html += '</tbody></table></div>';
                     content.innerHTML = html;
                 } else {
-                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #4b5563;"><p>No import history found.</p></div>';
+                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: #a3a3a3;"><p>No import history found.</p></div>';
                 }
             })
             .catch(error => {

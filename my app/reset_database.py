@@ -38,6 +38,6 @@ with app.app_context():
     # Commit the changes
     db.session.commit()
     
-    print("\n✅ Database reset complete!")
+    print("\n[OK] Database reset complete!")
     print("All products, sales, forecasts, and related data have been cleared.")
     print("You can now upload your CSV file again.")

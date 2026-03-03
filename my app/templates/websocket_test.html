@@ -163,15 +163,15 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔴 WebSocket Real-Time Dashboard</h1>
+        <h1><i class="fas fa-circle" style="color: #dc2626;"></i> WebSocket Real-Time Dashboard</h1>
         
         <div class="status-bar">
             <div class="status">
                 <div class="status-indicator" id="statusIndicator"></div>
                 <span id="statusText">Disconnected</span>
                 <div style="margin-left: auto;">
-                    <button class="btn" onclick="requestMetrics()">🔄 Request Metrics</button>
-                    <button class="btn" onclick="clearLogs()">🗑️ Clear Logs</button>
+                    <button class="btn" onclick="requestMetrics()"><i class="fas fa-sync-alt"></i> Request Metrics</button>
+                    <button class="btn" onclick="clearLogs()"><i class="fas fa-trash-alt"></i> Clear Logs</button>
                 </div>
             </div>
         </div>
@@ -207,7 +207,7 @@
         </div>
 
         <div class="logs-section">
-            <h2>📋 WebSocket Event Log</h2>
+            <h2><i class="fas fa-clipboard-list"></i> WebSocket Event Log</h2>
             <div id="eventLogs"></div>
         </div>
     </div>
@@ -333,12 +333,12 @@
             });
 
             socket.on('new_alert', (alert) => {
-                addLog(`🚨 NEW ALERT: ${alert.message} (${alert.severity})`, 'alert');
+                addLog(`[ALERT] NEW ALERT: ${alert.message} (${alert.severity})`, 'alert');
                 // Could add browser notification here
                 if (Notification.permission === 'granted') {
                     new Notification('New Alert', {
                         body: alert.message,
-                        icon: '🚨'
+                        icon: '/static/favicon.ico'
                     });
                 }
             });

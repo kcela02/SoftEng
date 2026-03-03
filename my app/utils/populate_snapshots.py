@@ -94,8 +94,8 @@ def populate_snapshots_from_rolling_forecasts():
     # Final commit
     db.session.commit()
     
-    print(f"✓ Created {snapshots_created} snapshots")
-    print(f"✓ {snapshots_with_actuals} snapshots have actual sales data")
+    print(f"[OK] Created {snapshots_created} snapshots")
+    print(f"[OK] {snapshots_with_actuals} snapshots have actual sales data")
     
     return snapshots_created, snapshots_with_actuals
 

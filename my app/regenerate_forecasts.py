@@ -31,7 +31,7 @@ with app.app_context():
     
     db.session.commit()
     
-    print(f'\n✓ Generated forecasts for {success_count}/{len(products)} products\n')
+    print(f'\n[OK] Generated forecasts for {success_count}/{len(products)} products\n')
     
     # Verification
     print('Step 3: Verifying coverage...')
@@ -66,7 +66,7 @@ with app.app_context():
         for i in range(7):
             d = week_start + timedelta(days=i)
             day_name = d.strftime('%A')
-            status = '✓' if d in week_dates else '✗'
+            status = '[OK]' if d in week_dates else '[MISS]'
             print(f'    {status} {day_name}: {d}')
     
     print('\n=== Regeneration Complete ===')

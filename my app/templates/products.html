@@ -6,19 +6,19 @@
 {% if can_edit %}
 <div class="product-management">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <div>
-            <h3 style="margin: 0;">📦 Product Management</h3>
+        <div class="vc-section-header">
+            <h3 style="margin: 0;"><i class="fas fa-box"></i> Product Management</h3>
             <p style="margin: 4px 0 0; font-size: 0.85em; color: var(--color-text-secondary);">
                 Manage your product catalog and inventory levels
             </p>
         </div>
         <button type="button" class="btn btn-primary" onclick="openProductModal()" style="padding: 6px 12px !important; font-size: 13px !important; font-weight: 500; white-space: nowrap;">
-            ➕ Add New Product
+            <i class="fas fa-plus"></i> Add New Product
         </button>
     </div>
     
     <div style="margin-bottom: 15px;">
-        <input type="text" id="product-search" placeholder="🔍 Search products by name or category..." style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--color-divider); width: 100%; font-size: 14px; transition: all 0.2s; background: var(--color-primary-light); color: var(--color-text-primary);">
+        <input type="text" id="product-search" placeholder="Search products by name or category..." style="padding: 12px 16px; border-radius: 8px; border: 1px solid var(--color-divider); width: 100%; font-size: 14px; transition: all 0.2s; background: var(--color-primary-light); color: var(--color-text-primary);">
     </div>
     
     <div id="products-list" style="max-height: 600px; overflow-y: auto; padding: 12px; background: var(--color-primary); border-radius: 8px;">
@@ -30,18 +30,18 @@
 </div>
 
 <!-- Data Management Section -->
-<div class="data-management" style="margin-top: 30px;">
-    <h3>📊 Data Management</h3>
+<div class="data-management vc-section-header" style="margin-top: 30px;">
+    <h3><i class="fas fa-chart-bar"></i> Data Management</h3>
     
     <!-- CSV Upload Instructions -->
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(102,126,234,0.2);">
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <span style="font-size: 2em;">📁</span>
+            <span style="font-size: 2em;"><i class="fas fa-file-csv"></i></span>
             <strong style="font-size: 1.2rem; font-weight: 600;">CSV Upload Guide - Multiple Formats Supported</strong>
         </div>
         
         <div style="padding: 12px; background: rgba(255,255,255,0.15); border-radius: 8px;">
-            <strong style="display: block; margin-bottom: 8px;">📊 Sales Data (unified_sales):</strong>
+            <strong style="display: block; margin-bottom: 8px;"><i class="fas fa-chart-bar"></i> Sales Data (unified_sales):</strong>
             <p style="margin: 4px 0; font-size: 0.95em; line-height: 1.6;">
                 Columns: <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">product_name</code>, 
                 <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">quantity_sold</code>, 
@@ -49,7 +49,7 @@
                 <code style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 4px; font-size: 0.9em;">sale_date</code>
             </p>
             <p style="margin: 4px 0 0; font-size: 0.85em; opacity: 0.9;">
-                💡 Optional: category, unit_cost, stock_after_sale
+                <i class="fas fa-info-circle"></i> Optional: category, unit_cost, stock_after_sale
             </p>
         </div>
     </div>
@@ -58,7 +58,7 @@
         <div class="control-group">
             <h4>Import Data</h4>
             <input type="file" id="csv-import" accept=".csv" style="margin-bottom: 10px;" />
-            <button class="btn btn-primary" id="upload-csv-btn">📤 Upload CSV File</button>
+            <button class="btn btn-primary" id="upload-csv-btn"><i class="fas fa-file-upload"></i> Upload CSV File</button>
             <div id="import-status" style="margin-top: 10px;"></div>
         </div>
         
@@ -80,7 +80,7 @@
 </div>
 {% else %}
 <div class="card" style="padding:16px;">
-    <h3>📦 Products</h3>
+    <h3><i class="fas fa-box"></i> Products</h3>
     <p style="color: var(--color-text-secondary);">View products and inventory levels. Product management requires admin or manager privileges.</p>
 </div>
 {% endif %}
@@ -96,25 +96,25 @@
             <input type="hidden" id="modal-product-id" />
             <div class="form-group" style="margin-bottom: 24px;">
                 <label for="modal-product-name" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--color-text-primary); font-size: 14px; margin-bottom: 8px;">
-                    <span style="font-size: 18px;">📦</span> Product Name *
+                    <span style="font-size: 18px;"><i class="fas fa-box"></i></span> Product Name *
                 </label>
                 <input type="text" id="modal-product-name" required style="width: 100%; padding: 14px 16px; border: 2px solid var(--color-divider); border-radius: 10px; font-size: 15px; transition: all 0.2s; background: var(--color-primary-light); color: var(--color-text-primary);" />
             </div>
             <div class="form-group" style="margin-bottom: 24px;">
                 <label for="modal-product-category" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--color-text-primary); font-size: 14px; margin-bottom: 8px;">
-                    <span style="font-size: 18px;">🏷️</span> Category
+                    <span style="font-size: 18px;"><i class="fas fa-tag"></i></span> Category
                 </label>
                 <input type="text" id="modal-product-category" style="width: 100%; padding: 14px 16px; border: 2px solid var(--color-divider); border-radius: 10px; font-size: 15px; transition: all 0.2s; background: var(--color-primary-light); color: var(--color-text-primary);" />
             </div>
             <div class="form-group" style="margin-bottom: 24px;">
                 <label for="modal-product-cost" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--color-text-primary); font-size: 14px; margin-bottom: 8px;">
-                    <span style="font-size: 18px;">💰</span> Unit Cost (₱)
+                    <span style="font-size: 18px;"><i class="fas fa-dollar-sign"></i></span> Unit Cost (₱)
                 </label>
                 <input type="number" id="modal-product-cost" step="0.01" min="0" style="width: 100%; padding: 14px 16px; border: 2px solid var(--color-divider); border-radius: 10px; font-size: 15px; transition: all 0.2s; background: var(--color-primary-light); color: var(--color-text-primary);" />
             </div>
             <div class="form-group" style="margin-bottom: 24px;">
                 <label for="modal-product-stock" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--color-text-primary); font-size: 14px; margin-bottom: 8px;">
-                    <span style="font-size: 18px;">📦</span> Initial Stock
+                    <span style="font-size: 18px;"><i class="fas fa-box"></i></span> Initial Stock
                 </label>
                 <input type="number" id="modal-product-stock" value="0" min="0" style="width: 100%; padding: 14px 16px; border: 2px solid var(--color-divider); border-radius: 10px; font-size: 15px; transition: all 0.2s; background: var(--color-primary-light); color: var(--color-text-primary);" />
             </div>
@@ -132,7 +132,7 @@
     <div class="modal-content modal-small" style="max-width: 460px;">
         <div class="modal-header" style="background: var(--color-primary); border-bottom: 1px solid var(--color-divider); padding: 28px 32px;">
             <h3 style="color: var(--color-text-primary); font-size: 1.3rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 12px;">
-                <span style="font-size: 24px;">⚠️</span> Confirm Deletion
+                <span style="font-size: 24px;"><i class="fas fa-exclamation-triangle"></i></span> Confirm Deletion
             </h3>
             <span class="modal-close" onclick="closeDeleteModal()" style="color: var(--color-text-primary); opacity: 0.9; font-size: 28px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; transition: all 0.2s;">&times;</span>
         </div>
@@ -152,7 +152,7 @@
     <div class="modal-content modal-small" style="max-width: 520px;">
         <div class="modal-header" style="background: var(--color-primary); border-bottom: 1px solid var(--color-divider); padding: 28px 32px;">
             <h3 style="color: var(--color-text-primary); font-size: 1.3rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 12px;">
-                <span style="font-size: 24px;">📦</span> Update Inventory
+                <span style="font-size: 24px;"><i class="fas fa-box"></i></span> Update Inventory
             </h3>
             <span class="modal-close" onclick="closeInventoryModal()" style="color: var(--color-text-primary); opacity: 0.9; font-size: 28px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; transition: all 0.2s;">&times;</span>
         </div>
@@ -168,22 +168,22 @@
             </div>
             <div class="form-group" style="margin-bottom: 24px;">
                 <label for="inventory-operation" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--color-text-primary); font-size: 14px; margin-bottom: 8px;">
-                    <span style="font-size: 18px;">🔄</span> Operation
+                    <span style="font-size: 18px;"><i class="fas fa-sync-alt"></i></span> Operation
                 </label>
                 <select id="inventory-operation" required style="width: 100%; padding: 14px 16px; border: 2px solid var(--color-divider); border-radius: 10px; font-size: 15px; transition: all 0.2s; background: var(--color-primary-light); color: var(--color-text-primary); cursor: pointer;">
-                    <option value="add">➕ Add Stock</option>
-                    <option value="remove">➖ Remove Stock</option>
+                    <option value="add">Add Stock</option>
+                    <option value="remove">Remove Stock</option>
                 </select>
             </div>
             <div class="form-group" style="margin-bottom: 24px;">
                 <label for="inventory-quantity" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--color-text-primary); font-size: 14px; margin-bottom: 8px;">
-                    <span style="font-size: 18px;">🔢</span> Quantity *
+                    <span style="font-size: 18px;"><i class="fas fa-sort-numeric-up"></i></span> Quantity *
                 </label>
                 <input type="number" id="inventory-quantity" min="1" required style="width: 100%; padding: 14px 16px; border: 2px solid var(--color-divider); border-radius: 10px; font-size: 15px; transition: all 0.2s; background: var(--color-primary-light); color: var(--color-text-primary);" />
             </div>
             <div class="form-group" style="margin-bottom: 28px;">
                 <label for="inventory-reason" style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--color-text-primary); font-size: 14px; margin-bottom: 8px;">
-                    <span style="font-size: 18px;">📝</span> Reason (optional)
+                    <span style="font-size: 18px;"><i class="fas fa-sticky-note"></i></span> Reason (optional)
                 </label>
                 <input type="text" id="inventory-reason" placeholder="e.g., Received shipment, Damaged goods..." style="width: 100%; padding: 14px 16px; border: 2px solid var(--color-divider); border-radius: 10px; font-size: 15px; transition: all 0.2s; background: var(--color-primary-light); color: var(--color-text-primary);" />
             </div>

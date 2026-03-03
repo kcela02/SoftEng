@@ -4,35 +4,35 @@
 
 {% block content %}
             <div class="container" style="max-width: 1200px; padding: 20px;">
-                <h2 style="margin-bottom: 10px;">⚙️ Settings</h2>
-                <p style="color: #666; margin-bottom: 30px;">Manage your account and system preferences.</p>
+                <h2 style="margin-bottom: 10px;"><i class="fas fa-cog"></i> Settings</h2>
+                <p style="color: var(--color-text-secondary); margin-bottom: 30px;">Manage your account and system preferences.</p>
                 
                 <div style="display: grid; gap: 20px;">
                     <!-- Account Settings -->
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">👤 Account Settings</h3>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-user"></i> Account Settings</h3>
                             <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Your profile information</p>
                         </div>
                         
                         <div style="display: grid; gap: 15px;">
                             <div>
-                                <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 6px; font-weight: 500;">Username:</label>
-                                <div style="padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; color: #1f2937;">
+                                <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 6px; font-weight: 500;">Username:</label>
+                                <div style="padding: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--color-text-primary);">
                                     {{ current_user.username }}
                                 </div>
                             </div>
                             
                             <div>
-                                <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 6px; font-weight: 500;">Email:</label>
-                                <div style="padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; color: #1f2937;">
+                                <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 6px; font-weight: 500;">Email:</label>
+                                <div style="padding: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--color-text-primary);">
                                     {{ current_user.email }}
                                 </div>
                             </div>
                             
                             <div>
-                                <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 6px; font-weight: 500;">Role:</label>
-                                <div style="padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;">
+                                <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 6px; font-weight: 500;">Role:</label>
+                                <div style="padding: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
                                     <span style="background: #4f46e5; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;">
                                         {{ current_user.role }}
                                     </span>
@@ -40,63 +40,69 @@
                             </div>
                             
                             <div>
-                                <label style="display: block; font-size: 14px; color: #374151; margin-bottom: 6px; font-weight: 500;">Member Since:</label>
-                                <div style="padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; color: #1f2937;">
+                                <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 6px; font-weight: 500;">Member Since:</label>
+                                <div style="padding: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--color-text-primary);">
                                     {{ current_user.created_at.strftime('%B %d, %Y') if current_user.created_at else 'N/A' }}
                                 </div>
                             </div>
                         </div>
+
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 18px;" onclick="openModal('account-edit-modal')">
+                            <i class="fas fa-user-edit"></i> Edit Account
+                        </button>
                     </div>
 
                     <!-- System Preferences -->
                     <div class="card">
                         <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">🎛️ System Preferences</h3>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-sliders-h"></i> System Preferences</h3>
                             <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Customize your experience</p>
                         </div>
                         
                         <div style="display: grid; gap: 15px;">
-                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f9fafb; border-radius: 6px; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer;">
                                 <input type="checkbox" id="pref-email-notifications" style="width: 18px; height: 18px; cursor: pointer;">
                                 <div>
-                                    <div style="font-weight: 500; color: #1f2937;">Email Notifications</div>
+                                    <div style="font-weight: 500; color: var(--color-text-primary);">Email Notifications</div>
                                     <div style="font-size: 13px; color: #64748b;">Receive alerts for low stock and forecasts</div>
                                 </div>
                             </label>
                             
-                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f9fafb; border-radius: 6px; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer;">
                                 <input type="checkbox" id="pref-auto-forecasts" style="width: 18px; height: 18px; cursor: pointer;">
                                 <div>
-                                    <div style="font-weight: 500; color: #1f2937;">Auto-generate Forecasts</div>
+                                    <div style="font-weight: 500; color: var(--color-text-primary);">Auto-generate Forecasts</div>
                                     <div style="font-size: 13px; color: #64748b;">Daily automatic forecast regeneration</div>
                                 </div>
                             </label>
                             
-                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f9fafb; border-radius: 6px; cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer;">
                                 <input type="checkbox" id="pref-realtime-updates" style="width: 18px; height: 18px; cursor: pointer;">
                                 <div>
-                                    <div style="font-weight: 500; color: #1f2937;">Real-time Updates</div>
+                                    <div style="font-weight: 500; color: var(--color-text-primary);">Real-time Updates</div>
                                     <div style="font-size: 13px; color: #64748b;">WebSocket live data synchronization</div>
                                 </div>
                             </label>
                         </div>
                         
                         <div id="preferences-status" style="display: none; padding: 12px; border-radius: 6px; margin-top: 15px;"></div>
-                        <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="savePreferences()">💾 Save Preferences</button>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="savePreferences()"><i class="fas fa-save"></i> Save Preferences</button>
                     </div>
 
                     {% if current_user.role == 'admin' %}
                     <div class="card" style="margin-top: 20px;">
                         <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">🔧 Admin Controls</h3>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-tools"></i> Admin Controls</h3>
                             <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">System maintenance and operations</p>
                         </div>
                         
                         <div style="display: grid; gap: 12px;">
-                            <button class="btn btn-primary" style="width: 100%;" onclick="refreshAllForecasts()">🔄 Refresh All Forecasts</button>
-                            <button class="btn btn-primary" style="width: 100%;" onclick="openManageUsersModal()">👥 Manage Users</button>
-                            <button class="btn btn-primary" style="width: 100%;" onclick="openModal('system-logs-modal')">📋 System Logs</button>
-                            <button class="btn btn-primary" style="width: 100%;" onclick="openModal('database-backup-modal')">💾 Database Backup</button>
+                            <button class="btn btn-primary" style="width: 100%;" onclick="refreshAllForecasts()"><i class="fas fa-sync-alt"></i> Refresh All Forecasts</button>
+                            <button class="btn btn-primary" style="width: 100%;" onclick="openModal('train-model-modal')"><i class="fas fa-brain"></i> Train Model</button>
+                            <button class="btn btn-danger" style="width: 100%; background: #ef4444;" onclick="openModal('wipe-data-modal')"><i class="fas fa-trash-alt"></i> Wipe Database Data</button>
+                            <button class="btn btn-primary" style="width: 100%;" onclick="openManageUsersModal()"><i class="fas fa-users"></i> Manage Users</button>
+                            <button class="btn btn-primary" style="width: 100%;" onclick="openModal('system-logs-modal')"><i class="fas fa-clipboard-list"></i> System Logs</button>
+                            <button class="btn btn-primary" style="width: 100%;" onclick="openModal('database-backup-modal')"><i class="fas fa-database"></i> Database Backup</button>
                         </div>
                         
                         <div id="admin-status" style="display: none; margin-top: 15px; padding: 12px; border-radius: 6px; color: white; font-size: 0.9em;"></div>
@@ -106,14 +112,12 @@
                     <!-- Download App Card -->
                     <div class="card" style="margin-top: 20px;">
                         <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;">📱 Download App Version</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Get VapeCrib on your mobile or desktop</p>
+                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-mobile-alt"></i> Download App Version</h3>
+                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Get VapeCrib on your Android device</p>
                         </div>
                         
                         <div style="display: grid; gap: 12px;">
-                            <button class="btn btn-primary" style="width: 100%; background: #3b82f6;" onclick="downloadApp('web')">💻 Web Version</button>
-                            <button class="btn btn-primary" style="width: 100%; background: #3b82f6;" onclick="downloadApp('ios')">🍎 iOS App</button>
-                            <button class="btn btn-primary" style="width: 100%; background: #3b82f6;" onclick="downloadApp('android')">🤖 Android App</button>
+                            <button class="btn btn-primary" style="width: 100%; background: #3b82f6;" onclick="downloadApp('android')"><i class="fab fa-android"></i> Android App</button>
                         </div>
                         
                         <div id="download-status" style="display: none; margin-top: 15px; padding: 12px; border-radius: 6px; color: white; font-size: 0.9em; background: #3b82f6;"></div>
@@ -128,24 +132,24 @@
     <div id="system-logs-modal" class="modal" aria-hidden="true">
         <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
-                <h3>📋 System Logs</h3>
+                <h3><i class="fas fa-clipboard-list"></i> System Logs</h3>
                 <span class="modal-close" onclick="closeModal('system-logs-modal')">&times;</span>
             </div>
             <div class="modal-body">
-                <p style="color: #666; margin-bottom: 20px;">View system activity and audit logs.</p>
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">View system activity and audit logs.</p>
                 
                 <div id="logs-loading" style="text-align: center; padding: 20px;">
-                    <p style="color: #64748b;">Loading logs...</p>
+                    <p style="color: var(--color-text-secondary);">Loading logs...</p>
                 </div>
                 
                 <div id="logs-container" style="display: none;">
                     <div style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
                         <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="position: sticky; top: 0; background: white; z-index: 1;">
-                                <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Timestamp</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">User</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151;">Action</th>
+                            <thead style="position: sticky; top: 0; background: var(--color-primary-dark); z-index: 1;">
+                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Timestamp</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">User</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="logs-table-body">
@@ -173,11 +177,11 @@
     <div id="database-backup-modal" class="modal" aria-hidden="true">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header">
-                <h3>💾 Database Backup</h3>
+                <h3><i class="fas fa-database"></i> Database Backup</h3>
                 <span class="modal-close" onclick="closeModal('database-backup-modal')">&times;</span>
             </div>
             <div class="modal-body">
-                <p style="color: #666; margin-bottom: 20px;">Create and manage database backups.</p>
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Create and manage database backups.</p>
                 
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h4 style="color: white; margin: 0 0 10px 0;">Create New Backup</h4>
@@ -185,7 +189,7 @@
                         Create a complete backup of the database. This includes all products, sales, users, and settings.
                     </p>
                     <button id="create-backup-btn" onclick="createDatabaseBackup()" class="btn" style="background: white; color: #667eea; width: 100%; font-weight: 600;">
-                        🚀 Create Backup Now
+                        <i class="fas fa-play-circle"></i> Create Backup Now
                     </button>
                 </div>
                 
@@ -193,10 +197,10 @@
                     <p id="backup-status-message" style="margin: 0;"></p>
                 </div>
                 
-                <h4 style="color: #374151; margin: 20px 0 10px 0;">📦 Existing Backups</h4>
+                <h4 style="color: var(--color-text-primary); margin: 20px 0 10px 0;"><i class="fas fa-archive"></i> Existing Backups</h4>
                 
                 <div id="backups-loading" style="text-align: center; padding: 20px;">
-                    <p style="color: #64748b;">Loading backups...</p>
+                    <p style="color: var(--color-text-secondary);">Loading backups...</p>
                 </div>
                 
                 <div id="backups-container" style="display: none;">
@@ -214,11 +218,279 @@
             </div>
         </div>
     </div>
+    
+    <!-- Train Model Modal -->
+    <div id="train-model-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-brain"></i> Train Linear Regression Model</h3>
+                <span class="modal-close" onclick="closeModal('train-model-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Retrain the forecasting model with current sales data. The model uses incremental learning to preserve historical patterns while adapting to new data.</p>
+                
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: white; margin: 0 0 10px 0;">Model Information</h4>
+                    <ul style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0; padding-left: 20px;">
+                        <li>Uses Linear Regression algorithm</li>
+                        <li>Requires minimum 730 days (2 years) of sales data</li>
+                        <li>Preserves prior knowledge (incremental learning)</li>
+                        <li>Generates 1-day, 7-day, and 30-day forecasts</li>
+                    </ul>
+                </div>
+                
+                <div id="training-progress" style="display: none; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 6px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #f59e0b; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;"></div>
+                        <div>
+                            <div style="font-weight: 600; color: #92400e;">Training in progress...</div>
+                            <div id="training-status-text" style="font-size: 0.9em; color: #92400e;">Initializing model training...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="training-results" style="display: none; padding: 15px; border-radius: 6px; margin-bottom: 20px;"></div>
+                
+                <button id="train-model-btn" onclick="startModelTraining()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; font-weight: 600;">
+                    <i class="fas fa-play-circle"></i> Start Training
+                </button>
+                
+                <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="viewTrainingHistory()">
+                    <i class="fas fa-chart-line"></i> View Training History
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('train-model-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Wipe Data Modal -->
+    <div id="wipe-data-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header" style="background: #dc2626;">
+                <h3 style="color: white;"><i class="fas fa-trash-alt"></i> Wipe Database Data</h3>
+                <span class="modal-close" onclick="closeModal('wipe-data-modal')" style="color: white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <h4 style="color: #991b1b; margin-top: 0;"><i class="fas fa-exclamation-triangle"></i> Warning: Destructive Action</h4>
+                    <p style="color: #991b1b; margin: 0; font-size: 14px;">
+                        This action will permanently delete data from the database. Tables and schema will be preserved, but all records will be removed. This action cannot be undone!
+                    </p>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 10px; color: var(--color-text-primary);">Select what to wipe:</label>
+                    <select id="wipe-type-select" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                        <option value="all">All Data (Complete Wipe)</option>
+                        <option value="sales">Sales Data Only</option>
+                        <option value="products">Products Only</option>
+                        <option value="forecasts">Forecasts Only</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 10px; color: var(--color-text-primary);">Confirm your password:</label>
+                    <input type="password" id="wipe-password" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                </div>
+                
+                <div id="wipe-status" style="display: none; padding: 15px; border-radius: 6px; margin-bottom: 20px;"></div>
+                
+                <button id="wipe-confirm-btn" onclick="confirmWipeData()" class="btn btn-danger" style="width: 100%; background: #dc2626; font-weight: 600;">
+                    <i class="fas fa-trash-alt"></i> Confirm and Wipe Data
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('wipe-data-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
     {% endif %}
+
+    <!-- Account Edit Modal (available to all users) -->
+    <div id="account-edit-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header" style="background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border-radius: 12px 12px 0 0;">
+                <h3 style="color: white;"><i class="fas fa-user-edit"></i> Edit Account</h3>
+                <span class="modal-close" onclick="closeModal('account-edit-modal')" style="color: white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; margin-bottom: 8px;">What would you like to change?</label>
+                    <select id="acct-edit-type" onchange="switchAccountEditForm(this.value)"
+                            style="width: 100%; padding: 11px 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--color-text-primary); font-size: 14px; outline: none; cursor: pointer;">
+                        <option value="password" style="background:#1e293b; color:#e2e8f0;">Change Password</option>
+                        <option value="username" style="background:#1e293b; color:#e2e8f0;">Change Username</option>
+                        <option value="email" style="background:#1e293b; color:#e2e8f0;">Update Email</option>
+                    </select>
+                </div>
+                <div id="acct-edit-fields"></div>
+                <div id="acct-edit-status" style="display: none; margin-top: 14px; padding: 11px 14px; border-radius: 6px; font-size: 14px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('account-edit-modal')">Cancel</button>
+                <button class="btn btn-primary" id="acct-edit-submit" onclick="submitAccountEdit()">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block extra_scripts %}
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
     <script>
+        // Model Training Functions
+        function startModelTraining() {
+            const btn = document.getElementById('train-model-btn');
+            const progressDiv = document.getElementById('training-progress');
+            const resultsDiv = document.getElementById('training-results');
+            const statusText = document.getElementById('training-status-text');
+            
+            btn.disabled = true;
+            btn.textContent = 'Training...';
+            progressDiv.style.display = 'block';
+            resultsDiv.style.display = 'none';
+            statusText.textContent = 'Training Linear Regression model with current data...';
+            
+            fetch('/api/admin/train-model', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ mode: 'incremental' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.textContent = 'Start Training';
+                progressDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+                
+                if (data.success) {
+                    resultsDiv.style.background = '#d1fae5';
+                    resultsDiv.style.borderLeft = '4px solid #10b981';
+                    resultsDiv.innerHTML = `
+                        <h4 style="color: #065f46; margin-top: 0;"><i class="fas fa-check-circle"></i> Training Completed Successfully</h4>
+                        <div style="color: #065f46; font-size: 14px;">
+                            <div style="margin-bottom: 10px;"><strong>Statistics:</strong></div>
+                            <ul style="margin: 0; padding-left: 20px;">
+                                <li>${data.statistics.retrained} products retrained</li>
+                                <li>${data.statistics.skipped} products skipped (insufficient data)</li>
+                                <li>${data.statistics.failed} products failed</li>
+                            </ul>
+                            <div style="margin-top: 15px;">
+                                ${data.details.map(d => `<div>${d}</div>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.style.background = '#fee2e2';
+                    resultsDiv.style.borderLeft = '4px solid #ef4444';
+                    resultsDiv.innerHTML = `
+                        <h4 style="color: #991b1b; margin-top: 0;"><i class="fas fa-times-circle"></i> Training Failed</h4>
+                        <p style="color: #991b1b; margin: 0;">${data.error}</p>
+                    `;
+                }
+            })
+            .catch(error => {
+                btn.disabled = false;
+                btn.textContent = 'Start Training';
+                progressDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+                resultsDiv.style.background = '#fee2e2';
+                resultsDiv.style.borderLeft = '4px solid #ef4444';
+                resultsDiv.innerHTML = `
+                    <h4 style="color: #991b1b; margin-top: 0;"><i class="fas fa-times-circle"></i> Error</h4>
+                    <p style="color: #991b1b; margin: 0;">${error.message}</p>
+                `;
+            });
+        }
+        
+        function viewTrainingHistory() {
+            alert('Training history feature - View logs of all model training sessions');
+            // This could open another modal with training history
+        }
+        
+        // Data Wipe Functions
+        function confirmWipeData() {
+            const wipeType = document.getElementById('wipe-type-select').value;
+            const password = document.getElementById('wipe-password').value;
+            const btn = document.getElementById('wipe-confirm-btn');
+            const statusDiv = document.getElementById('wipe-status');
+            
+            if (!password) {
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.borderLeft = '4px solid #ef4444';
+                statusDiv.innerHTML = '<p style="color: #991b1b; margin: 0;"><i class="fas fa-times-circle"></i> Please enter your password</p>';
+                return;
+            }
+            
+            if (!confirm(`Are you absolutely sure you want to wipe ${wipeType === 'all' ? 'ALL DATA' : wipeType}? This cannot be undone!`)) {
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = 'Wiping...';
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fef3c7';
+            statusDiv.style.borderLeft = '4px solid #f59e0b';
+            statusDiv.innerHTML = '<p style="color: #92400e; margin: 0;"><i class="fas fa-spinner fa-spin"></i> Wiping data...</p>';
+            
+            fetch('/api/admin/wipe-data', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    wipe_type: wipeType,
+                    password: password
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.textContent = 'Confirm and Wipe Data';
+                document.getElementById('wipe-password').value = '';
+                
+                if (data.success) {
+                    statusDiv.style.background = '#d1fae5';
+                    statusDiv.style.borderLeft = '4px solid #10b981';
+                    statusDiv.innerHTML = `
+                        <h4 style="color: #065f46; margin-top: 0;"><i class="fas fa-check-circle"></i> Data Wiped Successfully</h4>
+                        <div style="color: #065f46; font-size: 14px;">
+                            <p><strong>Total records deleted:</strong> ${data.total_deleted}</p>
+                            <div style="margin-top: 10px;"><strong>Details:</strong></div>
+                            <ul style="margin: 5px 0 0 20px;">
+                                ${Object.entries(data.statistics).map(([key, value]) => 
+                                    value > 0 ? `<li>${key.replace(/_/g, ' ')}: ${value}</li>` : ''
+                                ).join('')}
+                            </ul>
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        closeModal('wipe-data-modal');
+                        location.reload();
+                    }, 3000);
+                } else {
+                    statusDiv.style.background = '#fee2e2';
+                    statusDiv.style.borderLeft = '4px solid #ef4444';
+                    statusDiv.innerHTML = `<p style="color: #991b1b; margin: 0;"><i class="fas fa-times-circle"></i> ${data.error}</p>`;
+                }
+            })
+            .catch(error => {
+                btn.disabled = false;
+                btn.textContent = 'Confirm and Wipe Data';
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.borderLeft = '4px solid #ef4444';
+                statusDiv.innerHTML = `<p style="color: #991b1b; margin: 0;"><i class="fas fa-times-circle"></i> Error: ${error.message}</p>`;
+            });
+        }
+        
         // Admin Modal Functions
         
         // Load system logs
@@ -352,7 +624,7 @@
             statusDiv.style.background = '#fef3c7';
             statusDiv.style.borderLeft = '4px solid #f59e0b';
             statusMsg.style.color = '#92400e';
-            statusMsg.textContent = '⏳ Creating database backup...';
+            statusMsg.textContent = 'Creating database backup...';
             
             fetch('/api/admin/backup', {
                 method: 'POST',
@@ -361,13 +633,13 @@
             .then(response => response.json())
             .then(data => {
                 btn.disabled = false;
-                btn.textContent = '🚀 Create Backup Now';
+                btn.textContent = 'Create Backup Now';
                 
                 if (data.success) {
                     statusDiv.style.background = '#d1fae5';
                     statusDiv.style.borderLeft = '4px solid #10b981';
                     statusMsg.style.color = '#065f46';
-                    statusMsg.textContent = `✅ ${data.message} (${data.filename}, ${data.size_mb} MB)`;
+                    statusMsg.textContent = `Backup created: ${data.message} (${data.filename}, ${data.size_mb} MB)`;
                     
                     loadBackups(); // Reload backups list
                     
@@ -378,17 +650,17 @@
                     statusDiv.style.background = '#fee2e2';
                     statusDiv.style.borderLeft = '4px solid #ef4444';
                     statusMsg.style.color = '#991b1b';
-                    statusMsg.textContent = `❌ Error: ${data.error}`;
+                    statusMsg.textContent = `Error: ${data.error}`;
                 }
             })
             .catch(error => {
                 btn.disabled = false;
-                btn.textContent = '🚀 Create Backup Now';
+                btn.textContent = 'Create Backup Now';
                 
                 statusDiv.style.background = '#fee2e2';
                 statusDiv.style.borderLeft = '4px solid #ef4444';
                 statusMsg.style.color = '#991b1b';
-                statusMsg.textContent = `❌ Error: ${error.message}`;
+                statusMsg.textContent = `Error: ${error.message}`;
             });
         }
         
@@ -401,9 +673,109 @@
                 loadSystemLogs(1);
             } else if (modalId === 'database-backup-modal') {
                 loadBackups();
+            } else if (modalId === 'account-edit-modal') {
+                document.getElementById('acct-edit-type').value = 'password';
+                document.getElementById('acct-edit-status').style.display = 'none';
+                switchAccountEditForm('password');
             }
         };
-        
+
+        // ── Account Edit Modal ────────────────────────────────────────────
+        const _aeInputStyle = 'width:100%; padding:11px 14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:6px; color:var(--color-text-primary); font-size:14px; outline:none; box-sizing:border-box;';
+
+        function switchAccountEditForm(type) {
+            const lbl = text => `<label style="display:block; font-size:14px; font-weight:500; color:var(--color-text-primary); margin-bottom:6px;">${text}</label>`;
+            document.getElementById('acct-edit-status').style.display = 'none';
+            const container = document.getElementById('acct-edit-fields');
+            if (type === 'password') {
+                container.innerHTML = `
+                    <div style="display:grid; gap:14px;">
+                        <div>${lbl('Current Password')}<input type="password" id="ae-current" placeholder="Enter current password" style="${_aeInputStyle}" autocomplete="current-password"></div>
+                        <div>${lbl('New Password')}<input type="password" id="ae-new" placeholder="Min. 8 chars, upper, lower &amp; number" style="${_aeInputStyle}" autocomplete="new-password"></div>
+                        <div>${lbl('Confirm New Password')}<input type="password" id="ae-confirm" placeholder="Repeat new password" style="${_aeInputStyle}" autocomplete="new-password"></div>
+                    </div>`;
+            } else if (type === 'username') {
+                container.innerHTML = `
+                    <div style="display:grid; gap:14px;">
+                        <div style="padding:10px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-radius:6px; font-size:13px; color:#94a3b8;">Current username: <strong style="color:#e2e8f0;">{{ current_user.username }}</strong></div>
+                        <div>${lbl('New Username')}<input type="text" id="ae-username" placeholder="Letters, numbers, underscores only" style="${_aeInputStyle}" autocomplete="username" spellcheck="false"></div>
+                    </div>`;
+            } else if (type === 'email') {
+                container.innerHTML = `
+                    <div style="display:grid; gap:14px;">
+                        <div>${lbl('New Email Address')}<input type="email" id="ae-email" placeholder="Enter new email address" value="{{ current_user.email }}" style="${_aeInputStyle}" autocomplete="email"></div>
+                    </div>`;
+            }
+        }
+
+        async function submitAccountEdit() {
+            const type     = document.getElementById('acct-edit-type').value;
+            const statusEl = document.getElementById('acct-edit-status');
+            const btn      = document.getElementById('acct-edit-submit');
+            const csrf     = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+            const showStatus = (msg, ok) => {
+                statusEl.style.display    = 'block';
+                statusEl.style.background = ok ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
+                statusEl.style.border     = `1px solid ${ok ? '#10b981' : '#ef4444'}`;
+                statusEl.style.color      = ok ? '#34d399' : '#f87171';
+                statusEl.innerHTML = `<i class="fas fa-${ok ? 'check' : 'times'}-circle"></i> ${msg}`;
+            };
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+
+            try {
+                if (type === 'password') {
+                    const current = document.getElementById('ae-current')?.value.trim();
+                    const newPw   = document.getElementById('ae-new')?.value;
+                    const confirm = document.getElementById('ae-confirm')?.value;
+                    if (!current || !newPw || !confirm) { showStatus('Please fill in all fields.', false); return; }
+                    if (newPw !== confirm)               { showStatus('New passwords do not match.', false); return; }
+                    const res  = await fetch('/auth/change-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                        body: JSON.stringify({ current_password: current, new_password: newPw, confirm_password: confirm }),
+                        credentials: 'same-origin'
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        showStatus('Password updated successfully.', true);
+                        ['ae-current', 'ae-new', 'ae-confirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                    } else {
+                        showStatus(data.message || 'Failed to update password.', false);
+                    }
+                } else if (type === 'username') {
+                    const newUsername = document.getElementById('ae-username')?.value.trim();
+                    if (!newUsername) { showStatus('Please enter a new username.', false); return; }
+                    const res  = await fetch('/auth/update-profile', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                        body: JSON.stringify({ username: newUsername }),
+                        credentials: 'same-origin'
+                    });
+                    const data = await res.json();
+                    showStatus(data.message || (data.success ? 'Username updated.' : 'Failed.'), data.success);
+                } else if (type === 'email') {
+                    const newEmail = document.getElementById('ae-email')?.value.trim();
+                    if (!newEmail) { showStatus('Please enter an email address.', false); return; }
+                    const res  = await fetch('/auth/update-profile', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                        body: JSON.stringify({ email: newEmail }),
+                        credentials: 'same-origin'
+                    });
+                    const data = await res.json();
+                    showStatus(data.message || (data.success ? 'Email updated.' : 'Failed.'), data.success);
+                }
+            } catch (err) {
+                showStatus('Network error — please try again.', false);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+            }
+        }
+
         // Load user preferences on page load
         function loadPreferences() {
             fetch('/api/preferences/')
@@ -439,7 +811,7 @@
             statusDiv.style.background = '#fef3c7';
             statusDiv.style.borderLeft = '4px solid #f59e0b';
             statusDiv.style.color = '#92400e';
-            statusDiv.textContent = '⏳ Saving preferences...';
+            statusDiv.textContent = 'Saving preferences...';
             
             fetch('/api/preferences/', {
                 method: 'POST',
@@ -452,7 +824,7 @@
                     statusDiv.style.background = '#d1fae5';
                     statusDiv.style.borderLeft = '4px solid #10b981';
                     statusDiv.style.color = '#065f46';
-                    statusDiv.textContent = '✅ Preferences saved successfully!';
+                    statusDiv.textContent = 'Preferences saved successfully!';
                     
                     setTimeout(() => {
                         statusDiv.style.display = 'none';
@@ -465,7 +837,7 @@
                 statusDiv.style.background = '#fee2e2';
                 statusDiv.style.borderLeft = '4px solid #ef4444';
                 statusDiv.style.color = '#991b1b';
-                statusDiv.textContent = '❌ Error: ' + error.message;
+                statusDiv.textContent = 'Error: ' + error.message;
             });
         }
         
@@ -478,9 +850,9 @@
             statusDiv.style.display = 'block';
             
             const messages = {
-                'web': '🌐 Web version is already available at vape-dashboard.com',
-                'ios': '🍎 iOS app coming soon to the Apple App Store',
-                'android': '🤖 Android app coming soon to Google Play Store'
+                'web': 'Web version is already available at vape-dashboard.com',
+                'ios': 'iOS app coming soon to the Apple App Store',
+                'android': 'Android app coming soon to Google Play Store'
             };
             
             statusDiv.innerHTML = `<span>${messages[platform] || 'Coming soon!'}</span>`;
