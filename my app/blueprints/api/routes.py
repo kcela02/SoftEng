@@ -2268,45 +2268,65 @@ def cleanup_duplicate_products():
             reassigned_forecasts = 0
 
             for dup in to_delete:
-                # Re-point all sales from the duplicate to the kept product
-                moved_sales = Sale.query.filter_by(product_id=dup.id).update(
-                    {'product_id': keep.id}, synchronize_session=False
+                from sqlalchemy import text as sa_text
+                dup_id = dup.id
+                keep_id = keep.id
+
+                # --- Step 1: reassign sales (NOT NULL FK) ---
+                result = db.session.execute(
+                    sa_text('UPDATE sale SET product_id = :keep WHERE product_id = :dup'),
+                    {'keep': keep_id, 'dup': dup_id}
                 )
-                reassigned_sales += moved_sales
+                reassigned_sales += result.rowcount
 
-                # Re-point forecasts
-                moved_fc = Forecast.query.filter_by(product_id=dup.id).update(
-                    {'product_id': keep.id}, synchronize_session=False
-                )
-                reassigned_forecasts += moved_fc
-
-                # Delete related inventory / alert / batch records for the dup
-                Inventory.query.filter_by(product_id=dup.id).delete(synchronize_session=False)
-                Alert.query.filter_by(product_id=dup.id).delete(synchronize_session=False)
-                batch_ids = [b.id for b in InventoryBatch.query.filter_by(product_id=dup.id).all()]
-                if batch_ids:
-                    BatchTransaction.query.filter(
-                        BatchTransaction.batch_id.in_(batch_ids)
-                    ).delete(synchronize_session=False)
-                InventoryBatch.query.filter_by(product_id=dup.id).delete(synchronize_session=False)
-
-                # Reassign ForecastSnapshot rows
-                ForecastSnapshot.query.filter_by(product_id=dup.id).update(
-                    {'product_id': keep.id}, synchronize_session=False
+                # --- Step 2: delete forecasts for dup (will be regenerated from kept product) ---
+                db.session.execute(
+                    sa_text('DELETE FROM forecast WHERE product_id = :dup'),
+                    {'dup': dup_id}
                 )
 
-                # Null out DashboardMetrics.top_product_id if pointing to dup
-                DashboardMetrics.query.filter_by(top_product_id=dup.id).update(
-                    {'top_product_id': None}, synchronize_session=False
+                # --- Step 3: delete forecast_snapshots for dup ---
+                db.session.execute(
+                    sa_text('DELETE FROM forecast_snapshots WHERE product_id = :dup'),
+                    {'dup': dup_id}
                 )
 
-                # Flush all UPDATE statements to the DB before the DELETE so
-                # PostgreSQL FK constraints see the reassigned rows first
-                db.session.flush()
+                # --- Step 4: delete alerts ---
+                db.session.execute(
+                    sa_text('DELETE FROM alerts WHERE product_id = :dup'),
+                    {'dup': dup_id}
+                )
 
-                # Use bulk DELETE instead of session.delete() to avoid ORM
-                # detached-instance errors after synchronize_session=False updates
-                Product.query.filter_by(id=dup.id).delete(synchronize_session=False)
+                # --- Step 5: delete batch_transactions → inventory_batches → inventory ---
+                db.session.execute(
+                    sa_text('''
+                        DELETE FROM batch_transactions
+                        WHERE batch_id IN (
+                            SELECT id FROM inventory_batches WHERE product_id = :dup
+                        )
+                    '''),
+                    {'dup': dup_id}
+                )
+                db.session.execute(
+                    sa_text('DELETE FROM inventory_batches WHERE product_id = :dup'),
+                    {'dup': dup_id}
+                )
+                db.session.execute(
+                    sa_text('DELETE FROM inventory WHERE product_id = :dup'),
+                    {'dup': dup_id}
+                )
+
+                # --- Step 6: null out dashboard_metrics.top_product_id ---
+                db.session.execute(
+                    sa_text('UPDATE dashboard_metrics SET top_product_id = NULL WHERE top_product_id = :dup'),
+                    {'dup': dup_id}
+                )
+
+                # --- Step 7: now safe to delete the product row ---
+                db.session.execute(
+                    sa_text('DELETE FROM product WHERE id = :dup'),
+                    {'dup': dup_id}
+                )
                 total_removed += 1
 
             summary.append({
