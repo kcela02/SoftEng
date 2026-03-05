@@ -1862,7 +1862,7 @@ def get_products():
     search = request.args.get('search')
     with_forecasts = request.args.get('with_forecasts', 'false').lower() == 'true'
     
-    query = Product.query
+    query = Product.query.filter_by(is_fake=False)
     
     if category:
         query = query.filter(Product.category == category)
@@ -1924,9 +1924,17 @@ def create_product():
     if not data.get('name'):
         return jsonify({'error': 'Product name is required'}), 400
     
+    # Prevent duplicate product names
+    existing = Product.query.filter(
+        Product.name.ilike(data['name'].strip()),
+        Product.is_fake == False
+    ).first()
+    if existing:
+        return jsonify({'error': f"A product named '{existing.name}' already exists (ID: {existing.id})"}), 409
+    
     try:
         product = Product(
-            name=data['name'],
+            name=data['name'].strip(),
             category=data.get('category'),
             unit_cost=float(data.get('unit_cost', 0)),
             current_stock=int(data.get('current_stock', 0))
@@ -2216,6 +2224,102 @@ def delete_product(product_id):
         print(f"  [ERROR] Error deleting product: {str(e)}")
         return jsonify({'error': f'Error deleting product: {str(e)}'}), 400
 
+
+@api_bp.route('/products/cleanup-duplicates', methods=['POST'])
+@login_required
+def cleanup_duplicate_products():
+    """
+    Admin only: Remove duplicate product rows that share the same name.
+    Keeps the row with the LOWEST id, re-assigns its sales/forecasts,
+    and deletes the higher-id duplicates.
+    Returns a summary of what was merged/deleted.
+    """
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    try:
+        from sqlalchemy import func as sqlfunc
+
+        # Find names that appear more than once (real products only)
+        dup_names = db.session.query(
+            Product.name, sqlfunc.count(Product.id).label('cnt')
+        ).filter(
+            Product.is_fake == False
+        ).group_by(Product.name).having(sqlfunc.count(Product.id) > 1).all()
+
+        if not dup_names:
+            return jsonify({'success': True, 'message': 'No duplicate products found.', 'removed': 0})
+
+        total_removed = 0
+        summary = []
+
+        for name, cnt in dup_names:
+            # Fetch all rows for this name ordered by id ASC → keep the first (lowest id)
+            dupes = Product.query.filter(
+                Product.name == name,
+                Product.is_fake == False
+            ).order_by(Product.id.asc()).all()
+
+            keep = dupes[0]
+            to_delete = dupes[1:]
+
+            reassigned_sales = 0
+            reassigned_forecasts = 0
+
+            for dup in to_delete:
+                # Re-point all sales from the duplicate to the kept product
+                moved_sales = Sale.query.filter_by(product_id=dup.id).update(
+                    {'product_id': keep.id}, synchronize_session=False
+                )
+                reassigned_sales += moved_sales
+
+                # Re-point forecasts
+                moved_fc = Forecast.query.filter_by(product_id=dup.id).update(
+                    {'product_id': keep.id}, synchronize_session=False
+                )
+                reassigned_forecasts += moved_fc
+
+                # Delete related inventory / alert / batch records for the dup
+                Inventory.query.filter_by(product_id=dup.id).delete(synchronize_session=False)
+                Alert.query.filter_by(product_id=dup.id).delete(synchronize_session=False)
+                batch_ids = [b.id for b in InventoryBatch.query.filter_by(product_id=dup.id).all()]
+                if batch_ids:
+                    BatchTransaction.query.filter(
+                        BatchTransaction.batch_id.in_(batch_ids)
+                    ).delete(synchronize_session=False)
+                InventoryBatch.query.filter_by(product_id=dup.id).delete(synchronize_session=False)
+
+                db.session.delete(dup)
+                total_removed += 1
+
+            summary.append({
+                'name': name,
+                'duplicates_removed': len(to_delete),
+                'kept_id': keep.id,
+                'sales_reassigned': reassigned_sales,
+                'forecasts_reassigned': reassigned_forecasts,
+            })
+
+        db.session.commit()
+
+        ActivityLogger.log_activity(
+            user_id=current_user.id,
+            action=f"Cleaned up {total_removed} duplicate product rows",
+            details=str(summary)
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Removed {total_removed} duplicate product row(s).',
+            'removed': total_removed,
+            'details': summary
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': f'Cleanup failed: {str(e)}'}), 500
 
 
 @api_bp.route('/inventory/adjust', methods=['POST'])

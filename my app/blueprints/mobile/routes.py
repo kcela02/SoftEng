@@ -57,6 +57,19 @@ def _ok(data=None, **kwargs):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Health / wake-up endpoint  (no auth required)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@mobile_bp.route('/ping', methods=['GET'])
+def ping():
+    """
+    Lightweight endpoint used by the Android app to warm up the Render dyno
+    as soon as the login screen is shown.  No DB query — instant response.
+    """
+    return jsonify({'ok': True}), 200
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Auth endpoints  (no JWT required — these ARE the login routes)
 # ══════════════════════════════════════════════════════════════════════════════
 
