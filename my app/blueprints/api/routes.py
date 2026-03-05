@@ -240,7 +240,12 @@ def get_metrics():
             filter_start = None
             filter_end = None
         else:
-            filter_start = today - timedelta(days=days-1)
+            # Truncate to midnight so the full start day is always included.
+            # Without this, filter_start carries today's time component (e.g. 14:32)
+            # and silently drops sales from the start day before that time,
+            # causing the web total to differ from the mobile app.
+            filter_start = (today - timedelta(days=days-1)).replace(
+                hour=0, minute=0, second=0, microsecond=0)
             filter_end = today + timedelta(days=1)
     
     # Build base query with period filter
@@ -294,8 +299,8 @@ def get_metrics():
     alerts = alerts_count
     
     # Period comparison: current 7 days vs previous 7 days — 4 values in one CASE query
-    seven_days_ago = today - timedelta(days=6)
-    fourteen_days_ago = today - timedelta(days=13)
+    seven_days_ago    = (today - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+    fourteen_days_ago = (today - timedelta(days=13)).replace(hour=0, minute=0, second=0, microsecond=0)
     _cmp = db.session.query(
         db.func.sum(sa_case(
             (Sale.sale_date >= seven_days_ago, Sale.quantity * Sale.price), else_=0)),
@@ -392,7 +397,7 @@ def get_metrics():
         monthly_daily_forecasts.append(forecasts_by_date.get(date_str))
     
     # Get last 7 days of sales data for backwards compatibility - OPTIMIZED
-    seven_days_ago = today - timedelta(days=6)
+    seven_days_ago = (today - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
     
     # Fetch all 7 days in one query
     last_7_days_sales = db.session.query(
