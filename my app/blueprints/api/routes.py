@@ -2,7 +2,7 @@
 from flask import request, jsonify, send_file, current_app
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
-from models import db, User, Product, Sale, Inventory, Log, Forecast, ImportLog, Alert, ForecastSnapshot, InventoryBatch, BatchTransaction
+from models import db, User, Product, Sale, Inventory, Log, Forecast, ImportLog, Alert, ForecastSnapshot, InventoryBatch, BatchTransaction, DashboardMetrics
 from models.regression import forecast_linear_regression
 from utils import ActivityLogger
 from utils.model_trainer import ForecastingPipeline
@@ -2289,6 +2289,16 @@ def cleanup_duplicate_products():
                         BatchTransaction.batch_id.in_(batch_ids)
                     ).delete(synchronize_session=False)
                 InventoryBatch.query.filter_by(product_id=dup.id).delete(synchronize_session=False)
+
+                # Reassign ForecastSnapshot rows
+                ForecastSnapshot.query.filter_by(product_id=dup.id).update(
+                    {'product_id': keep.id}, synchronize_session=False
+                )
+
+                # Null out DashboardMetrics.top_product_id if pointing to dup
+                DashboardMetrics.query.filter_by(top_product_id=dup.id).update(
+                    {'top_product_id': None}, synchronize_session=False
+                )
 
                 # Use bulk DELETE instead of session.delete() to avoid ORM
                 # detached-instance errors after synchronize_session=False updates
