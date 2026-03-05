@@ -2300,6 +2300,10 @@ def cleanup_duplicate_products():
                     {'top_product_id': None}, synchronize_session=False
                 )
 
+                # Flush all UPDATE statements to the DB before the DELETE so
+                # PostgreSQL FK constraints see the reassigned rows first
+                db.session.flush()
+
                 # Use bulk DELETE instead of session.delete() to avoid ORM
                 # detached-instance errors after synchronize_session=False updates
                 Product.query.filter_by(id=dup.id).delete(synchronize_session=False)
