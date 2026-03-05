@@ -2289,7 +2289,9 @@ def cleanup_duplicate_products():
                     ).delete(synchronize_session=False)
                 InventoryBatch.query.filter_by(product_id=dup.id).delete(synchronize_session=False)
 
-                db.session.delete(dup)
+                # Use bulk DELETE instead of session.delete() to avoid ORM
+                # detached-instance errors after synchronize_session=False updates
+                Product.query.filter_by(id=dup.id).delete(synchronize_session=False)
                 total_removed += 1
 
             summary.append({
@@ -2302,10 +2304,10 @@ def cleanup_duplicate_products():
 
         db.session.commit()
 
-        ActivityLogger.log_activity(
-            user_id=current_user.id,
-            action=f"Cleaned up {total_removed} duplicate product rows",
-            details=str(summary)
+        ActivityLogger.log_product_action(
+            'cleanup_duplicates',
+            f'{total_removed} duplicate product(s) removed',
+            str(summary)
         )
 
         return jsonify({
