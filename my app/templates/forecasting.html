@@ -134,19 +134,11 @@
     // Initialize forecasting page
     document.addEventListener('DOMContentLoaded', function() {
         console.log('Forecasting page loaded');
-        
-        // Load initial data
-        if (typeof loadSynchronizedForecasts === 'function') {
-            loadSynchronizedForecasts();
-        }
-        
+        // Note: loadSynchronizedForecasts() and populateSyncForecastProductSelector()
+        // are already called by app.js DOMContentLoaded when the forecast selector exists.
+        // We only need to load the 7-day demand table here.
         if (typeof loadWeeklyForecast === 'function') {
             loadWeeklyForecast();
-        }
-        
-        // Populate product selectors
-        if (typeof populateProductSelectors === 'function') {
-            populateProductSelectors();
         }
     });
 </script>

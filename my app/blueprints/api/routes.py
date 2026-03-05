@@ -3386,6 +3386,7 @@ def get_synchronized_daily_forecast():
             func.date(Sale.sale_date).label('date'),
             func.sum(Sale.quantity).label('quantity')
         ).filter(
+            Sale.is_fake == False,
             func.date(Sale.sale_date) >= week_start,  # Only from week start
             func.date(Sale.sale_date) <= (week_end if is_historical_view else basis_date)  # Up to week end (historical) or today (current)
         )
@@ -3408,6 +3409,7 @@ def get_synchronized_daily_forecast():
             func.date(Sale.sale_date).label('date'),
             func.sum(Sale.quantity).label('quantity')
         ).filter(
+            Sale.is_fake == False,
             Sale.sale_date >= last_year_start,
             Sale.sale_date <= last_year_end
         )
@@ -3712,6 +3714,7 @@ def get_synchronized_weekly_forecast():
                     total_sales = db.session.query(
                         func.sum(Sale.quantity)
                     ).filter(
+                        Sale.is_fake == False,
                         func.date(Sale.sale_date) >= week['start'],
                         func.date(Sale.sale_date) <= week['end']
                     ).scalar() or 0
@@ -3719,6 +3722,7 @@ def get_synchronized_weekly_forecast():
                     total_sales = db.session.query(
                         func.sum(Sale.quantity)
                     ).filter(
+                        Sale.is_fake == False,
                         Sale.product_id == product_id,
                         func.date(Sale.sale_date) >= week['start'],
                         func.date(Sale.sale_date) <= week['end']

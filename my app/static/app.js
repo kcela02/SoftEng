@@ -4004,38 +4004,20 @@ async function populateProductSelectors() {
         // Populate the sync forecast product selector
         const syncSelector = document.getElementById('sync-forecast-product-select');
         if (syncSelector) {
-            // Clear existing options except the "All Products" option
-            syncSelector.innerHTML = '<option value="">-- Select a Product --</option>';
+            // Clear existing options, keep "All Products" as default
+            syncSelector.innerHTML = '<option value="">-- All Products (Aggregated) --</option>';
             
+            // Add all products regardless of whether they have stored forecasts
             if (products.length > 0) {
-                // Add products with forecasts
                 products.forEach(product => {
                     const option = document.createElement('option');
                     option.value = product.id;
                     option.textContent = `${product.name} (${product.category || 'No Category'})`;
                     syncSelector.appendChild(option);
                 });
-                
-                // Auto-select the first product with forecasts
-                syncSelector.value = products[0].id;
-                // Load forecasts for this product
-                loadSynchronizedForecasts(products[0].id);
-            } else {
-                syncSelector.innerHTML = '<option value="">-- No products with forecast data --</option>';
-                // Show message to user
-                const dailyContainer = document.getElementById('daily-forecast-chart-container');
-                const weeklyContainer = document.getElementById('weekly-forecast-chart-container');
-                
-                const message = `
-                    <div style="text-align: center; padding: 40px; color: #6b7280;">
-                        <p style="font-size: 1.2em; margin-bottom: 10px;"><i class="fas fa-chart-bar"></i> No Forecast Data Available</p>
-                        <p style="font-size: 0.95em;">Generate forecasts by uploading sales data or running the forecast generation script.</p>
-                    </div>
-                `;
-                
-                if (dailyContainer) dailyContainer.innerHTML = message;
-                if (weeklyContainer) weeklyContainer.innerHTML = message;
             }
+            // Keep "All Products" selected — the initial loadSynchronizedForecasts(null)
+            // already fired from app.js DOMContentLoaded and shows the aggregate view.
         }
         
     } catch (error) {
