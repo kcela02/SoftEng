@@ -2,7 +2,7 @@
 from flask import request, jsonify, send_file, current_app
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
-from models import db, User, Product, Sale, Inventory, Log, Forecast, ImportLog, Alert, ForecastSnapshot, InventoryBatch, BatchTransaction, DashboardMetrics
+from models import db, User, Product, Sale, Inventory, Log, Forecast, ImportLog, Alert, ForecastSnapshot, InventoryBatch, BatchTransaction
 from models.regression import forecast_linear_regression
 from utils import ActivityLogger
 from utils.model_trainer import ForecastingPipeline
@@ -94,18 +94,6 @@ def validate_csv_file(file):
         return False, 'File is empty'
     
     return True, None
-
-
-def trigger_metrics_broadcast():
-    """Trigger a WebSocket broadcast of updated metrics."""
-    try:
-        from app import socketio
-        from websocket_events import broadcast_metrics_update
-        if socketio:
-            broadcast_metrics_update(socketio)
-    except Exception as e:
-        # Silently fail if WebSocket not available
-        pass
 
 
 def check_low_stock_and_alert(product: Product):
@@ -205,15 +193,6 @@ def check_low_stock_and_alert(product: Product):
         )
         db.session.add(new_alert)
         db.session.commit()
-        
-        # Broadcast to clients
-        try:
-            from app import socketio
-            from websocket_events import broadcast_new_alert
-            if socketio:
-                broadcast_new_alert(socketio, new_alert)
-        except Exception:
-            pass
             
     except Exception as e:
         print(f"Error in check_low_stock_and_alert: {e}")
@@ -274,7 +253,7 @@ def get_metrics():
     _rev_units = db.session.query(
         db.func.sum(Sale.quantity * Sale.price),
         db.func.sum(Sale.quantity)
-    )
+    ).filter(Sale.is_fake == False)
     _rev_units = apply_date_filter(_rev_units, Sale.sale_date)
     _rv, _us = _rev_units.one()
     total_revenue = _rv or 0
@@ -285,7 +264,7 @@ def get_metrics():
         db.func.count(Product.id),
         db.func.sum(Product.current_stock),
         db.func.sum(Product.current_stock * Product.unit_cost)
-    ).one()
+    ).filter(Product.is_fake == False).one()
     total_products = _prod_row[0] or 0
     total_inventory = _prod_row[1] or 0
     total_inventory_value = _prod_row[2] or 0
@@ -328,7 +307,7 @@ def get_metrics():
         db.func.sum(sa_case(
             (sa_and(Sale.sale_date >= fourteen_days_ago, Sale.sale_date < seven_days_ago),
              Sale.quantity), else_=0)),
-    ).filter(Sale.sale_date >= fourteen_days_ago).one()
+    ).filter(Sale.sale_date >= fourteen_days_ago, Sale.is_fake == False).one()
     current_revenue  = _cmp[0] or 0
     current_units    = _cmp[1] or 0
     previous_revenue = _cmp[2] or 0
@@ -363,7 +342,8 @@ def get_metrics():
     ).filter(
         Sale.sale_date >= chart_start,
         Sale.sale_date <= chart_end,
-        Sale.sale_date <= today.date()
+        Sale.sale_date <= today.date(),
+        Sale.is_fake == False
     ).group_by(Sale.sale_date).all()
     
     for sale_date, revenue in sales_results:
@@ -420,7 +400,8 @@ def get_metrics():
         db.func.sum(Sale.quantity * Sale.price).label('revenue')
     ).filter(
         Sale.sale_date >= seven_days_ago,
-        Sale.sale_date <= today
+        Sale.sale_date <= today,
+        Sale.is_fake == False
     ).group_by(Sale.sale_date).all()
     
     sales_7d_map = {sale_date.strftime('%Y-%m-%d'): float(revenue) for sale_date, revenue in last_7_days_sales}
@@ -1728,9 +1709,6 @@ def upload_csv_file():
                 # non-critical, continue
                 pass
         
-        # Trigger metrics update
-        trigger_metrics_broadcast()
-        
         # Log CSV upload activity using centralized logger
         ActivityLogger.log_csv_upload(
             data_type,
@@ -1948,9 +1926,6 @@ def create_product():
             product.name, 
             f"ID: {product.id}, Category: {product.category or 'N/A'}, Stock: {product.current_stock}"
         )
-
-        # WebSocket: metrics update
-        trigger_metrics_broadcast()
         
         return jsonify({
             'success': True,
@@ -2012,10 +1987,9 @@ def update_product(product_id):
                 ", ".join(changes)
             )
 
-        # Alerts + WebSocket
+        # Check for low stock alerts
         if 'current_stock' in data:
             check_low_stock_and_alert(product)
-        trigger_metrics_broadcast()
         
         return jsonify({
             'success': True,
@@ -2200,9 +2174,6 @@ def delete_product(product_id):
             f"ID: {product_id}, Category: {product_category or 'N/A'}, "
             f"Deleted: {deleted_sales} sales, {deleted_forecasts} forecasts, {deleted_inventory} inventory records"
         )
-
-        # WebSocket: metrics update
-        trigger_metrics_broadcast()
         
         return jsonify({
             'success': True,
@@ -2409,10 +2380,9 @@ def adjust_inventory():
             reason
         )
         
-        # Alerts + WebSocket
+        # Check for low stock alerts
         if operation == 'remove':
             check_low_stock_and_alert(product)
-        trigger_metrics_broadcast()
 
         return jsonify({
             'success': True,
@@ -4479,9 +4449,6 @@ def add_batch():
             f"Added batch {batch.batch_number} for product {batch.product.name} ({batch.quantity} units)"
         )
         
-        # Trigger metrics update
-        trigger_metrics_broadcast()
-        
         return jsonify({
             'success': True,
             'message': 'Batch added successfully',
@@ -4527,9 +4494,6 @@ def adjust_batch(batch_id):
             current_user.id,
             f"Adjusted batch {batch.batch_number}: {'+' if quantity_change > 0 else ''}{quantity_change} units. Reason: {reason}"
         )
-        
-        # Trigger metrics update
-        trigger_metrics_broadcast()
         
         return jsonify({
             'success': True,
@@ -4601,9 +4565,6 @@ def mark_expired_batches():
                 current_user.id,
                 f"Marked {count} batches as expired"
             )
-        
-        # Trigger metrics update
-        trigger_metrics_broadcast()
         
         return jsonify({
             'success': True,
@@ -5077,7 +5038,6 @@ def wipe_database_data():
             stats['inventory_deleted'] = Inventory.query.delete()
             stats['batches_deleted'] = InventoryBatch.query.delete()
             stats['alerts_deleted'] = Alert.query.delete()
-            # Keep user preferences and websocket sessions
             # Delete system logs except recent admin actions
             from datetime import datetime, timedelta
             cutoff_date = datetime.utcnow() - timedelta(days=7)

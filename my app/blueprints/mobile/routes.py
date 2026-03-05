@@ -573,6 +573,33 @@ def alerts():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Forecast Accuracy
+# ══════════════════════════════════════════════════════════════════════════════
+
+@mobile_bp.route('/forecast-accuracy', methods=['GET'])
+@jwt_required()
+def forecast_accuracy():
+    """
+    Returns MAPE-based forecast accuracy (0–100 %) using the same calculation
+    method as the web dashboard's /api/forecast-accuracy endpoint.
+
+    Query params:
+        days_back (int, default 90) — evaluation window in days
+    """
+    user = _current_user()
+    if not user:
+        return _error('User not found', 401)
+
+    try:
+        from utils.forecast_evaluator import ForecastEvaluator
+        days_back = request.args.get('days_back', 90, type=int)
+        acc = ForecastEvaluator.calculate_mape(days_back=days_back)
+        return _ok({'accuracy': acc})
+    except Exception as e:
+        return _error(str(e), 500)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Forecasts
 # ══════════════════════════════════════════════════════════════════════════════
 

@@ -332,32 +332,6 @@ class Alert(db.Model):
         }
 
 
-class DashboardMetrics(db.Model):
-    """Cache computed metrics for improved performance."""
-    __tablename__ = 'dashboard_metrics'
-    id = db.Column(db.Integer, primary_key=True)
-    metric_date = db.Column(db.Date, nullable=False, unique=True)
-    total_revenue = db.Column(db.Float, default=0)
-    total_units_sold = db.Column(db.Integer, default=0)
-    total_orders = db.Column(db.Integer, default=0)
-    avg_order_value = db.Column(db.Float, default=0)
-    top_product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
-    active_alerts = db.Column(db.Integer, default=0)
-    forecast_accuracy = db.Column(db.Float, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-
-class WebSocketSession(db.Model):
-    """Track active WebSocket connections for real-time features."""
-    __tablename__ = 'websocket_sessions'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    session_id = db.Column(db.String(255), unique=True, nullable=False)
-    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_activity = db.Column(db.DateTime, default=datetime.utcnow)
-    is_active = db.Column(db.Boolean, default=True)
-
-
 class ForecastSnapshot(db.Model):
     """Store historical forecasts for comparison with actual results."""
     __tablename__ = 'forecast_snapshots'

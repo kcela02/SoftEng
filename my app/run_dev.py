@@ -22,7 +22,5 @@ if __name__ == "__main__":
     print("=" * 60)
     print("\n[INFO] Press Ctrl+C to stop the server\n")
     
-    # Get socketio instance from app after it's been created
-    from app import socketio
-    # Run with SocketIO support
-    socketio.run(app, host='127.0.0.1', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    # Run Flask development server
+    app.run(host='127.0.0.1', port=5000, debug=True)

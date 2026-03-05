@@ -2,7 +2,6 @@
 from flask import Flask, jsonify, redirect, url_for
 from flask_cors import CORS
 from flask_login import LoginManager
-from flask_socketio import SocketIO
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -10,9 +9,6 @@ from flask_jwt_extended import JWTManager
 from config import config
 from models import db, User
 import os
-
-# Initialize SocketIO (will be attached to app in create_app)
-socketio = None
 
 
 def create_app(config_name=None):
@@ -63,10 +59,6 @@ def create_app(config_name=None):
     cors_origins = app.config.get('CORS_ORIGINS', [])
     CORS(app, origins=cors_origins, supports_credentials=True)
     
-    # Initialize SocketIO with CORS support using same origins
-    global socketio
-    socketio = SocketIO(app, cors_allowed_origins=cors_origins)
-    
     # Setup Flask-Login
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -113,10 +105,6 @@ def create_app(config_name=None):
         _ver = str(int(os.getenv('DEPLOY_TS', '1')))
     app.jinja_env.globals['static_ver'] = _ver
     
-    # Register WebSocket event handlers
-    from websocket_events import register_socketio_events
-    register_socketio_events(socketio)
-    
     # Create database tables and default admin user
     with app.app_context():
         db.create_all()
@@ -148,12 +136,10 @@ if __name__ == '__main__':
     ║  Server:      http://127.0.0.1:{port:<42}║
     ║  Debug Mode:  {str(debug_mode):<48}║
     ║  Auto-Reload: {'Enabled' if debug_mode else 'Disabled':<48}║
-    ║  WebSocket:   Enabled (Socket.IO)                            ║
     ╠═══════════════════════════════════════════════════════════════╣
     ║  Login:       admin / admin123                                ║
     ╚═══════════════════════════════════════════════════════════════╝
     """)
     
-    # Use socketio.run with auto-reload enabled in debug mode
-    # The reloader will automatically restart the server when files change
-    socketio.run(app, debug=debug_mode, port=port, use_reloader=debug_mode)
+    # Run Flask development server with auto-reload
+    app.run(debug=debug_mode, port=port, use_reloader=debug_mode)
