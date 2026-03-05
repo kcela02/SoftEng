@@ -41,7 +41,7 @@ from . import mobile_bp
 def _current_user():
     """Return the User object whose id is stored in the JWT."""
     user_id = get_jwt_identity()
-    return db.session.get(User, user_id)
+    return db.session.get(User, int(user_id))
 
 
 def _error(message, status=400):
@@ -108,8 +108,8 @@ def login():
     user.last_login = datetime.utcnow()
     db.session.commit()
 
-    access_token  = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token  = create_access_token(identity=str(user.id))
+    refresh_token = create_refresh_token(identity=str(user.id))
 
     return jsonify({
         'success': True,
@@ -182,7 +182,7 @@ def refresh():
     user = _current_user()
     if not user:
         return _error('User not found', 401)
-    return _ok(access_token=create_access_token(identity=user.id))
+    return _ok(access_token=create_access_token(identity=str(user.id)))
 
 
 @mobile_bp.route('/auth/me', methods=['GET'])
