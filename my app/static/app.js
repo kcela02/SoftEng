@@ -1486,6 +1486,12 @@ async function handleLogin(event) {
         if (response.ok && result.success) {
             _loginSucceeded = true;
             showMessage('login-messages', 'Login successful! Redirecting...', 'success');
+            
+            // Signal to browser that credentials are correct (helps with password saving)
+            // Keep the form inputs intact until navigation
+            form.querySelector('input[name="username"]').setAttribute('data-login-success', 'true');
+            form.querySelector('input[name="password"]').setAttribute('data-login-success', 'true');
+            
             setTimeout(() => {
                 const redirectUrl = result.redirect || '/dashboard';
                 window.location.href = getSafeRedirectUrl(redirectUrl, '/dashboard');

@@ -99,10 +99,10 @@
                         <div style="display: grid; gap: 12px;">
                             <button class="btn btn-primary" style="width: 100%;" onclick="refreshAllForecasts()"><i class="fas fa-sync-alt"></i> Refresh All Forecasts</button>
                             <button class="btn btn-primary" style="width: 100%;" onclick="openModal('train-model-modal')"><i class="fas fa-brain"></i> Train Model</button>
-                            <button class="btn btn-danger" style="width: 100%; background: #ef4444;" onclick="openModal('wipe-data-modal')"><i class="fas fa-trash-alt"></i> Wipe Database Data</button>
                             <button class="btn btn-primary" style="width: 100%;" onclick="openManageUsersModal()"><i class="fas fa-users"></i> Manage Users</button>
                             <button class="btn btn-primary" style="width: 100%;" onclick="openModal('system-logs-modal')"><i class="fas fa-clipboard-list"></i> System Logs</button>
                             <button class="btn btn-primary" style="width: 100%;" onclick="openModal('database-backup-modal')"><i class="fas fa-database"></i> Database Backup</button>
+                            <button class="btn btn-danger" style="width: 100%; background: #ef4444;" onclick="openModal('wipe-data-modal')"><i class="fas fa-trash-alt"></i> Wipe Database Data</button>
                         </div>
                         
                         <div id="admin-status" style="display: none; margin-top: 15px; padding: 12px; border-radius: 6px; color: white; font-size: 0.9em;"></div>
@@ -177,40 +177,61 @@
     <div id="database-backup-modal" class="modal" aria-hidden="true">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header">
-                <h3><i class="fas fa-database"></i> Database Backup</h3>
+                <h3><i class="fas fa-database"></i> Database Backup & Restore</h3>
                 <span class="modal-close" onclick="closeModal('database-backup-modal')">&times;</span>
             </div>
             <div class="modal-body">
-                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Create and manage database backups.</p>
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Create full system backups and restore from previous backups.</p>
                 
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="color: white; margin: 0 0 10px 0;">Create New Backup</h4>
+                <!-- Backup Section -->
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: white; margin: 0 0 10px 0;"><i class="fas fa-download"></i> Create Backup</h4>
                     <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
-                        Create a complete backup of the database. This includes all products, sales, users, and settings.
+                        Download a complete backup (ZIP) containing all products, sales, and users.
                     </p>
-                    <button id="create-backup-btn" onclick="createDatabaseBackup()" class="btn" style="background: white; color: #667eea; width: 100%; font-weight: 600;">
-                        <i class="fas fa-play-circle"></i> Create Backup Now
+                    <button id="create-backup-btn" onclick="downloadBackup()" class="btn" style="background: white; color: #10b981; width: 100%; font-weight: 600;">
+                        <i class="fas fa-file-archive"></i> Download Full Backup (ZIP)
                     </button>
                 </div>
                 
-                <div id="backup-status" style="display: none; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                    <p id="backup-status-message" style="margin: 0;"></p>
-                </div>
-                
-                <h4 style="color: var(--color-text-primary); margin: 20px 0 10px 0;"><i class="fas fa-archive"></i> Existing Backups</h4>
-                
-                <div id="backups-loading" style="text-align: center; padding: 20px;">
-                    <p style="color: var(--color-text-secondary);">Loading backups...</p>
-                </div>
-                
-                <div id="backups-container" style="display: none;">
-                    <div id="backups-list" style="max-height: 300px; overflow-y: auto;">
-                        <!-- Backups will be loaded here -->
+                <!-- Restore Section -->
+                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: white; margin: 0 0 10px 0;"><i class="fas fa-upload"></i> Restore from Backup</h4>
+                    <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
+                        Upload a backup ZIP or CSV file to restore data.
+                    </p>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Restore Mode:</label>
+                        <select id="restore-mode-select" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px;">
+                            <option value="soft">Soft Restore (Keep users, replace products & sales)</option>
+                            <option value="hard">Hard Restore (Replace everything including users)</option>
+                        </select>
                     </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Backup File (ZIP or CSV):</label>
+                        <input type="file" id="restore-file-input" accept=".zip,.csv" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px; background: white;">
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Confirm Password:</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="restore-password-input" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px;">
+                            <button type="button" class="toggle-password-btn" onclick="togglePassword('restore-password-input', this)" tabindex="-1" aria-label="Toggle password visibility">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button id="restore-backup-btn" onclick="restoreBackup()" class="btn" style="background: white; color: #f59e0b; width: 100%; font-weight: 600;">
+                        <i class="fas fa-redo"></i> Restore from Backup
+                    </button>
                 </div>
                 
-                <div id="backups-error" style="display: none; padding: 15px; background: #fee2e2; border-radius: 8px; color: #991b1b;">
-                    <p id="backups-error-message"></p>
+                <!-- Status Messages -->
+                <div id="backup-restore-status" style="display: none; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p id="backup-restore-message" style="margin: 0;"></p>
                 </div>
             </div>
             <div class="modal-footer">
@@ -292,7 +313,12 @@
                 
                 <div style="margin-bottom: 20px;">
                     <label style="display: block; font-weight: 600; margin-bottom: 10px; color: var(--color-text-primary);">Confirm your password:</label>
-                    <input type="password" id="wipe-password" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                    <div class="password-input-wrapper">
+                        <input type="password" id="wipe-password" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                        <button type="button" class="toggle-password-btn" onclick="togglePassword('wipe-password', this)" tabindex="-1" aria-label="Toggle password visibility">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <div id="wipe-status" style="display: none; padding: 15px; border-radius: 6px; margin-bottom: 20px;"></div>
@@ -343,6 +369,32 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        /* Password visibility toggle */
+        .password-input-wrapper {
+            position: relative;
+            display: block;
+            width: 100%;
+        }
+        .password-input-wrapper input {
+            padding-right: 45px !important;
+        }
+        .toggle-password-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #737373;
+            cursor: pointer;
+            padding: 8px 10px;
+            font-size: 1rem;
+            transition: color 0.2s;
+        }
+        .toggle-password-btn:hover {
+            color: var(--color-text-primary);
         }
     </style>
     <script>
@@ -565,87 +617,149 @@
         }
         
         // Load backups list
-        function loadBackups() {
-            document.getElementById('backups-loading').style.display = 'block';
-            document.getElementById('backups-container').style.display = 'none';
-            document.getElementById('backups-error').style.display = 'none';
-            
-            fetch('/api/admin/backups')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('backups-loading').style.display = 'none';
-                    
-                    if (data.success) {
-                        document.getElementById('backups-container').style.display = 'block';
-                        const container = document.getElementById('backups-list');
-                        
-                        if (data.backups.length === 0) {
-                            container.innerHTML = '<p style="text-align: center; color: #64748b; padding: 20px;">No backups found</p>';
-                        } else {
-                            container.innerHTML = '';
-                            data.backups.forEach(backup => {
-                                const item = document.createElement('div');
-                                item.style.cssText = 'padding: 12px; background: #f9fafb; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;';
-                                
-                                item.innerHTML = `
-                                    <div>
-                                        <div style="font-weight: 600; color: #1f2937;">${backup.filename}</div>
-                                        <div style="font-size: 0.85em; color: #64748b; margin-top: 4px;">
-                                            ${backup.size_mb} MB • Created: ${backup.created_at}
-                                        </div>
-                                    </div>
-                                `;
-                                
-                                container.appendChild(item);
-                            });
-                        }
-                    } else {
-                        document.getElementById('backups-error').style.display = 'block';
-                        document.getElementById('backups-error-message').textContent = data.error || 'Failed to load backups';
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('backups-loading').style.display = 'none';
-                    document.getElementById('backups-error').style.display = 'block';
-                    document.getElementById('backups-error-message').textContent = 'Error: ' + error.message;
-                });
-        }
-        
-        // Create database backup
-        function createDatabaseBackup() {
+        // Download backup
+        function downloadBackup() {
             const btn = document.getElementById('create-backup-btn');
-            const statusDiv = document.getElementById('backup-status');
-            const statusMsg = document.getElementById('backup-status-message');
+            const statusDiv = document.getElementById('backup-restore-status');
+            const statusMsg = document.getElementById('backup-restore-message');
             
             btn.disabled = true;
-            btn.textContent = 'Creating backup...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating backup...';
             
             statusDiv.style.display = 'block';
             statusDiv.style.background = '#fef3c7';
             statusDiv.style.borderLeft = '4px solid #f59e0b';
             statusMsg.style.color = '#92400e';
-            statusMsg.textContent = 'Creating database backup...';
+            statusMsg.textContent = 'Creating backup...';
             
-            fetch('/api/admin/backup', {
-                method: 'POST',
+            fetch('/api/backup', {
+                method: 'GET',
                 headers: {'Content-Type': 'application/json'}
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to create backup');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Download the backup ZIP file
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backup_${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-file-archive"></i> Download Full Backup (ZIP)';
+                
+                statusDiv.style.background = '#d1fae5';
+                statusDiv.style.borderLeft = '4px solid #10b981';
+                statusMsg.style.color = '#065f46';
+                statusMsg.textContent = 'Backup downloaded successfully!';
+                
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            })
+            .catch(error => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-file-archive"></i> Download Full Backup (ZIP)';
+                
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.borderLeft = '4px solid #ef4444';
+                statusMsg.style.color = '#991b1b';
+                statusMsg.textContent = `Error: ${error.message}`;
+            });
+        }
+        
+        // Restore backup
+        function restoreBackup() {
+            const btn = document.getElementById('restore-backup-btn');
+            const statusDiv = document.getElementById('backup-restore-status');
+            const statusMsg = document.getElementById('backup-restore-message');
+            const fileInput = document.getElementById('restore-file-input');
+            const passwordInput = document.getElementById('restore-password-input');
+            const modeSelect = document.getElementById('restore-mode-select');
+            
+            // Validation
+            if (!fileInput.files || fileInput.files.length === 0) {
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.borderLeft = '4px solid #ef4444';
+                statusMsg.style.color = '#991b1b';
+                statusMsg.textContent = 'Please select a backup file';
+                return;
+            }
+            
+            if (!passwordInput.value.trim()) {
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#fee2e2';
+                statusDiv.style.borderLeft = '4px solid #ef4444';
+                statusMsg.style.color = '#991b1b';
+                statusMsg.textContent = 'Please enter your admin password';
+                return;
+            }
+            
+            const mode = modeSelect.value;
+            const confirmMsg = mode === 'hard' 
+                ? 'HARD RESTORE will replace ALL data including users. You may lose admin access. Are you sure?' 
+                : 'SOFT RESTORE will replace products and sales but keep users. Continue?';
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Restoring...';
+            
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fef3c7';
+            statusDiv.style.borderLeft = '4px solid #f59e0b';
+            statusMsg.style.color = '#92400e';
+            statusMsg.textContent = 'Restoring from backup...';
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('restore_mode', mode);
+            formData.append('admin_password', passwordInput.value);
+            
+            fetch('/api/restore', {
+                method: 'POST',
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
                 btn.disabled = false;
-                btn.textContent = 'Create Backup Now';
+                btn.innerHTML = '<i class="fas fa-redo"></i> Restore from Backup';
                 
                 if (data.success) {
                     statusDiv.style.background = '#d1fae5';
                     statusDiv.style.borderLeft = '4px solid #10b981';
                     statusMsg.style.color = '#065f46';
-                    statusMsg.textContent = `Backup created: ${data.message} (${data.filename}, ${data.size_mb} MB)`;
                     
-                    loadBackups(); // Reload backups list
+                    let message = `Restore completed:<br>`;
+                    if (data.products_added) message += `• ${data.products_added} products added<br>`;
+                    if (data.sales_added) message += `• ${data.sales_added} sales added<br>`;
+                    if (data.users_added) message += `• ${data.users_added} users added<br>`;
+                    if (data.forecasts_restored) message += `• ${data.forecasts_restored} forecasts restored<br>`;
                     
-                    setTimeout(() => {
-                        statusDiv.style.display = 'none';
-                    }, 5000);
+                    statusMsg.innerHTML = message;
+                    
+                    // Clear inputs
+                    fileInput.value = '';
+                    passwordInput.value = '';
+                    
+                    // If hard restore, warn about logout
+                    if (mode === 'hard') {
+                        setTimeout(() => {
+                            alert('Hard restore complete. You will be logged out.');
+                            window.location.href = '/logout';
+                        }, 3000);
+                    }
                 } else {
                     statusDiv.style.background = '#fee2e2';
                     statusDiv.style.borderLeft = '4px solid #ef4444';
@@ -655,7 +769,7 @@
             })
             .catch(error => {
                 btn.disabled = false;
-                btn.textContent = 'Create Backup Now';
+                btn.innerHTML = '<i class="fas fa-redo"></i> Restore from Backup';
                 
                 statusDiv.style.background = '#fee2e2';
                 statusDiv.style.borderLeft = '4px solid #ef4444';
@@ -671,8 +785,6 @@
             
             if (modalId === 'system-logs-modal') {
                 loadSystemLogs(1);
-            } else if (modalId === 'database-backup-modal') {
-                loadBackups();
             } else if (modalId === 'account-edit-modal') {
                 document.getElementById('acct-edit-type').value = 'password';
                 document.getElementById('acct-edit-status').style.display = 'none';
@@ -685,14 +797,21 @@
 
         function switchAccountEditForm(type) {
             const lbl = text => `<label style="display:block; font-size:14px; font-weight:500; color:var(--color-text-primary); margin-bottom:6px;">${text}</label>`;
+            const pwdWrapper = (id, placeholder, autocomplete) => `
+                <div class="password-input-wrapper">
+                    <input type="password" id="${id}" placeholder="${placeholder}" style="${_aeInputStyle}" autocomplete="${autocomplete}">
+                    <button type="button" class="toggle-password-btn" onclick="togglePassword('${id}', this)" tabindex="-1" aria-label="Toggle password visibility">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>`;
             document.getElementById('acct-edit-status').style.display = 'none';
             const container = document.getElementById('acct-edit-fields');
             if (type === 'password') {
                 container.innerHTML = `
                     <div style="display:grid; gap:14px;">
-                        <div>${lbl('Current Password')}<input type="password" id="ae-current" placeholder="Enter current password" style="${_aeInputStyle}" autocomplete="current-password"></div>
-                        <div>${lbl('New Password')}<input type="password" id="ae-new" placeholder="Min. 8 chars, upper, lower &amp; number" style="${_aeInputStyle}" autocomplete="new-password"></div>
-                        <div>${lbl('Confirm New Password')}<input type="password" id="ae-confirm" placeholder="Repeat new password" style="${_aeInputStyle}" autocomplete="new-password"></div>
+                        <div>${lbl('Current Password')}${pwdWrapper('ae-current', 'Enter current password', 'current-password')}</div>
+                        <div>${lbl('New Password')}${pwdWrapper('ae-new', 'Min. 8 chars, upper, lower & number', 'new-password')}</div>
+                        <div>${lbl('Confirm New Password')}${pwdWrapper('ae-confirm', 'Repeat new password', 'new-password')}</div>
                     </div>`;
             } else if (type === 'username') {
                 container.innerHTML = `
@@ -843,6 +962,21 @@
         
         // Load preferences when page loads
         document.addEventListener('DOMContentLoaded', loadPreferences);
+
+        // Password toggle function
+        function togglePassword(inputId, btn) {
+            var input = document.getElementById(inputId);
+            var icon = btn.querySelector('i');
+            if (input && icon) {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.classList.replace('fa-eye', 'fa-eye-slash');
+                } else {
+                    input.type = 'password';
+                    icon.classList.replace('fa-eye-slash', 'fa-eye');
+                }
+            }
+        }
 
         // Download app function
         function downloadApp(platform) {

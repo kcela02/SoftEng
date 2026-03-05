@@ -119,6 +119,57 @@ def login():
     }), 200
 
 
+@mobile_bp.route('/auth/register', methods=['POST'])
+def mobile_register():
+    """
+    Register a new user account (no JWT required).
+
+    Request body (JSON):
+        { "username": "...", "email": "...", "password": "..." }
+
+    Password rules mirror server config:
+        PASSWORD_MIN_LENGTH = 8, REQUIRE_UPPERCASE, REQUIRE_LOWERCASE, REQUIRE_NUMBERS
+
+    Role assignment:
+        - First user ever → admin (owner/bootstrap)
+        - All others     → user  (promote via web dashboard)
+    """
+    data = request.get_json(silent=True)
+    if not data:
+        return _error('Request body must be JSON')
+
+    username = (data.get('username') or '').strip()
+    email    = (data.get('email')    or '').strip()
+    password =  data.get('password') or ''
+
+    if not username or not email or not password:
+        return _error('username, email and password are required')
+
+    if User.query.filter_by(username=username).first():
+        return _error('Username already taken', 409)
+
+    if User.query.filter_by(email=email).first():
+        return _error('Email already registered', 409)
+
+    is_valid, error_msg = User.validate_password_strength(password)
+    if not is_valid:
+        return _error(error_msg, 400)
+
+    # First registered user becomes admin/owner (bootstrap case)
+    is_first = db.session.query(User).count() == 0
+    role     = 'admin' if is_first else 'user'
+
+    user = User(username=username, email=email, role=role, is_owner=is_first)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    return _ok(
+        {'id': user.id, 'username': user.username, 'role': user.role},
+        message='Registration successful'
+    )
+
+
 @mobile_bp.route('/auth/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():
@@ -184,6 +235,32 @@ def dashboard():
         is_active=True, is_acknowledged=False
     ).count()
 
+    # Alert breakdown by severity
+    alerts_critical = Alert.query.filter_by(
+        is_active=True, is_acknowledged=False, severity='CRITICAL'
+    ).count()
+    alerts_warning = Alert.query.filter_by(
+        is_active=True, is_acknowledged=False, severity='WARNING'
+    ).count()
+    alerts_info = Alert.query.filter_by(
+        is_active=True, is_acknowledged=False, severity='INFO'
+    ).count()
+
+    # Total inventory value: sum(current_stock * unit_cost) for real products
+    inv_val_row = db.session.query(
+        func.sum(Product.current_stock * Product.unit_cost)
+    ).filter(Product.is_fake == False).scalar()
+    inventory_value = round(float(inv_val_row or 0), 2)
+
+    # Batches expiring within the next 7 days
+    today = now.date()
+    seven_days_later = today + timedelta(days=7)
+    expiring_soon = InventoryBatch.query.filter(
+        InventoryBatch.expiration_date >= today,
+        InventoryBatch.expiration_date <= seven_days_later,
+        InventoryBatch.quantity > 0
+    ).count()
+
     # Top 5 products last 30 days
     thirty_days_ago = now - timedelta(days=30)
     top_products_raw = (
@@ -221,8 +298,110 @@ def dashboard():
             'low_stock':  low_stock_count,
         },
         'active_alerts':  active_alerts,
+        'alerts_by_severity': {
+            'critical': alerts_critical,
+            'warning':  alerts_warning,
+            'info':     alerts_info,
+        },
+        'inventory_value': inventory_value,
+        'expiring_soon':  expiring_soon,
         'top_products':   top_products,
         'generated_at':   now.isoformat(),
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Sales chart data  (pre-aggregated daily + monthly totals for the mobile chart)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@mobile_bp.route('/sales/chart', methods=['GET'])
+@jwt_required()
+def sales_chart():
+    """
+    Returns pre-aggregated daily and monthly revenue/quantity totals for a date
+    range.  One database query — no pagination needed.
+
+    Query params:
+        from_date  (ISO date, e.g. 2025-01-01)   default: 90 days ago
+        to_date    (ISO date)                     default: today
+        product_id (int, optional)
+
+    Response:
+        {
+          "success": true,
+          "data": {
+            "daily":   [ {"date":"2025-01-01","revenue":1234.5,"quantity":20}, ... ],
+            "monthly": [ {"month":"2025-01", "revenue":12345.0,"quantity":200}, ... ],
+            "total_revenue": 123456.0,
+            "total_quantity": 2000
+          }
+        }
+    """
+    user = _current_user()
+    if not user:
+        return _error('User not found', 401)
+
+    from sqlalchemy import cast, Date as SADate
+
+    now        = datetime.utcnow()
+    default_from = (now - timedelta(days=90)).date()
+    default_to   = now.date()
+
+    from_date_str = request.args.get('from_date')
+    to_date_str   = request.args.get('to_date')
+    product_id    = request.args.get('product_id', type=int)
+
+    try:
+        from_dt = datetime.fromisoformat(from_date_str) if from_date_str else datetime.combine(default_from, datetime.min.time())
+        to_dt   = datetime.fromisoformat(to_date_str)   + timedelta(days=1) if to_date_str else datetime.combine(default_to, datetime.min.time()) + timedelta(days=1)
+    except ValueError:
+        return _error('from_date / to_date must be ISO format (YYYY-MM-DD)')
+
+    # Cast datetime → date so we can GROUP BY calendar day
+    sale_day_expr = cast(Sale.sale_date, SADate)
+
+    q = db.session.query(
+        sale_day_expr.label('sale_day'),
+        func.sum(Sale.quantity * Sale.price).label('revenue'),
+        func.sum(Sale.quantity).label('quantity')
+    ).filter(
+        Sale.sale_date >= from_dt,
+        Sale.sale_date < to_dt
+    )
+
+    if product_id:
+        q = q.filter(Sale.product_id == product_id)
+
+    daily_rows = q.group_by(sale_day_expr).order_by(sale_day_expr).all()
+
+    # Build daily list and accumulate monthly
+    from collections import defaultdict
+    monthly = defaultdict(lambda: {'revenue': 0.0, 'quantity': 0})
+    daily   = []
+    total_revenue  = 0.0
+    total_quantity = 0
+
+    for row in daily_rows:
+        d   = str(row.sale_day)          # "YYYY-MM-DD"
+        rev = round(float(row.revenue  or 0), 2)
+        qty = int(row.quantity or 0)
+        daily.append({'date': d, 'revenue': rev, 'quantity': qty})
+        month_key = d[:7]                # "YYYY-MM"
+        monthly[month_key]['revenue']  += rev
+        monthly[month_key]['quantity'] += qty
+        total_revenue  += rev
+        total_quantity += qty
+
+    monthly_list = [
+        {'month': k, 'revenue': round(v['revenue'], 2), 'quantity': v['quantity']}
+        for k, v in sorted(monthly.items())
+    ]
+
+    return _ok({
+        'daily':          daily,
+        'monthly':        monthly_list,
+        'total_revenue':  round(total_revenue, 2),
+        'total_quantity': total_quantity,
     })
 
 
@@ -389,7 +568,10 @@ def forecasts():
     Query params:
         product_id        (int) — omit to get all products
         aggregation_level (str) — "daily" | "weekly" | "monthly"  (default: daily)
-        limit             (int, default 14)
+        from_date         (ISO date string, e.g. 2025-01-01)
+        to_date           (ISO date string)
+        page              (int, default 1)
+        limit             (int, default 100, max 100)
     """
     user = _current_user()
     if not user:
@@ -397,7 +579,10 @@ def forecasts():
 
     product_id        = request.args.get('product_id', type=int)
     aggregation_level = request.args.get('aggregation_level', 'daily')
-    limit             = min(90, max(1, request.args.get('limit', 14, type=int)))
+    from_date         = request.args.get('from_date')
+    to_date           = request.args.get('to_date')
+    page              = max(1, request.args.get('page', 1, type=int))
+    limit             = min(100, max(1, request.args.get('limit', 100, type=int)))
 
     q = Forecast.query.filter_by(aggregation_level=aggregation_level) \
                       .order_by(Forecast.forecast_date)
@@ -405,8 +590,32 @@ def forecasts():
     if product_id:
         q = q.filter_by(product_id=product_id)
 
-    items = q.limit(limit).all()
-    return _ok([f.to_dict() for f in items], total=len(items))
+    if from_date:
+        try:
+            q = q.filter(Forecast.forecast_date >= datetime.fromisoformat(from_date))
+        except ValueError:
+            return _error('from_date must be ISO format (YYYY-MM-DD)')
+
+    if to_date:
+        try:
+            end = datetime.fromisoformat(to_date) + timedelta(days=1)
+            q = q.filter(Forecast.forecast_date < end)
+        except ValueError:
+            return _error('to_date must be ISO format (YYYY-MM-DD)')
+
+    paginated = q.paginate(page=page, per_page=limit, error_out=False)
+
+    return _ok(
+        [f.to_dict() for f in paginated.items],
+        pagination={
+            'page':     paginated.page,
+            'limit':    limit,
+            'total':    paginated.total,
+            'pages':    paginated.pages,
+            'has_next': paginated.has_next,
+            'has_prev': paginated.has_prev,
+        }
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

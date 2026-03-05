@@ -64,6 +64,14 @@
                     <span class="fab-action-label">Manage Users</span>
                 </button>
                 {% endif %}
+                <button class="fab-action" onclick="openNotificationsModal()" title="Notifications">
+                    <span class="fab-action-icon"><i class="fas fa-bell"></i></span>
+                    <span class="fab-action-label">Notifications</span>
+                </button>
+                <button class="fab-action" onclick="openQuickStatsModal()" title="Quick Stats">
+                    <span class="fab-action-icon"><i class="fas fa-chart-line"></i></span>
+                    <span class="fab-action-label">Quick Stats</span>
+                </button>
                 <button class="fab-action" onclick="showDownloadOptions()" title="Download App">
                     <span class="fab-action-icon"><i class="fas fa-mobile-alt"></i></span>
                     <span class="fab-action-label">Download App</span>
@@ -116,6 +124,87 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Notifications Modal -->
+    <div id="notifications-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-bell"></i> Notifications</h3>
+                <span class="modal-close" onclick="closeModal('notifications-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Recent system activities and updates.</p>
+                
+                <div id="notifications-loading" style="text-align: center; padding: 20px;">
+                    <p style="color: var(--color-text-secondary);"><i class="fas fa-spinner fa-spin"></i> Loading notifications...</p>
+                </div>
+                
+                <div id="notifications-container" style="display: none; max-height: 400px; overflow-y: auto;">
+                    <!-- Notifications will be loaded here -->
+                </div>
+                
+                <div id="notifications-error" style="display: none; padding: 15px; background: #fee2e2; border-radius: 8px; color: #991b1b; margin-top: 15px;">
+                    <p id="notifications-error-message"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('notifications-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Modal -->
+    <div id="quick-stats-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-line"></i> Quick Stats Dashboard</h3>
+                <span class="modal-close" onclick="closeModal('quick-stats-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Real-time overview of key business metrics.</p>
+                
+                <div id="quick-stats-loading" style="text-align: center; padding: 20px;">
+                    <p style="color: var(--color-text-secondary);"><i class="fas fa-spinner fa-spin"></i> Loading stats...</p>
+                </div>
+                
+                <div id="quick-stats-container" style="display: none;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; color: white; overflow: hidden;">
+                            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;"><i class="fas fa-box"></i> Total Products</div>
+                            <div id="stat-products" style="font-size: 1.8em; font-weight: 700; word-break: break-word; overflow-wrap: break-word;">-</div>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 10px; color: white; overflow: hidden;">
+                            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;"><i class="fas fa-shopping-cart"></i> Total Sales</div>
+                            <div id="stat-sales" style="font-size: 1.8em; font-weight: 700; word-break: break-word; overflow-wrap: break-word;">-</div>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 10px; color: white; overflow: hidden;">
+                            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;"><i class="fas fa-dollar-sign"></i> Total Revenue</div>
+                            <div id="stat-revenue" style="font-size: 1.8em; font-weight: 700; word-break: break-word; overflow-wrap: break-word;">-</div>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); padding: 20px; border-radius: 10px; color: white; overflow: hidden;">
+                            <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;"><i class="fas fa-chart-bar"></i> Forecasts</div>
+                            <div id="stat-forecasts" style="font-size: 1.8em; font-weight: 700; word-break: break-word; overflow-wrap: break-word;">-</div>
+                        </div>
+                    </div>
+                    
+                    <div id="quick-stats-details" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                        <h4 style="margin-top: 0; margin-bottom: 15px; color: var(--color-text-primary);">Recent Activity</h4>
+                        <div id="stat-recent-activity" style="font-size: 0.9em; color: var(--color-text-secondary);">
+                            <!-- Recent activity will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="quick-stats-error" style="display: none; padding: 15px; background: #fee2e2; border-radius: 8px; color: #991b1b; margin-top: 15px;">
+                    <p id="quick-stats-error-message"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="loadQuickStats()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                <button class="btn btn-secondary" onclick="closeModal('quick-stats-modal')">Close</button>
+            </div>
+        </div>
+    </div>
 
         <!-- Currency formatting utilities -->
         <script src="{{ url_for('static', filename='utils.js') }}?v={{ range(1, 99999) | random }}"></script>
@@ -217,6 +306,18 @@
         function openManageUsersModal() {
             openModal('manage-users-modal');
             loadUsers();
+        }
+
+        // Open notifications modal
+        function openNotificationsModal() {
+            openModal('notifications-modal');
+            loadNotifications();
+        }
+
+        // Open quick stats modal
+        function openQuickStatsModal() {
+            openModal('quick-stats-modal');
+            loadQuickStats();
         }
 
         // Show download options
@@ -376,6 +477,123 @@
                 alert(data.success ? `Password for "${username}" has been reset. They will be prompted to change it on next login.` : `Error: ${data.error}`);
             } catch(err) {
                 alert('Network error — please try again.');
+            }
+        }
+
+        // Load notifications
+        async function loadNotifications() {
+            document.getElementById('notifications-loading').style.display = 'block';
+            document.getElementById('notifications-container').style.display = 'none';
+            document.getElementById('notifications-error').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/activity-logs?limit=20');
+                const data = await response.json();
+                
+                document.getElementById('notifications-loading').style.display = 'none';
+                
+                if (data.success && data.logs && data.logs.length > 0) {
+                    document.getElementById('notifications-container').style.display = 'block';
+                    const container = document.getElementById('notifications-container');
+                    container.innerHTML = '';
+                    
+                    data.logs.forEach(log => {
+                        const notifDiv = document.createElement('div');
+                        notifDiv.style.cssText = 'padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); transition: background 0.2s;';
+                        notifDiv.onmouseenter = () => notifDiv.style.background = 'rgba(255,255,255,0.05)';
+                        notifDiv.onmouseleave = () => notifDiv.style.background = 'transparent';
+                        
+                        const icon = getActivityIcon(log.activity_type);
+                        const time = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Unknown time';
+                        
+                        notifDiv.innerHTML = `
+                            <div style="display: flex; align-items: start; gap: 12px;">
+                                <div style="font-size: 1.5em; opacity: 0.7;">${icon}</div>
+                                <div style="flex: 1;">
+                                    <div style="color: var(--color-text-primary); font-weight: 500; margin-bottom: 4px;">${log.description || 'Activity'}</div>
+                                    <div style="color: var(--color-text-secondary); font-size: 0.85em;">
+                                        <i class="fas fa-user"></i> ${log.username || 'System'} • <i class="fas fa-clock"></i> ${time}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        container.appendChild(notifDiv);
+                    });
+                } else {
+                    document.getElementById('notifications-container').style.display = 'block';
+                    document.getElementById('notifications-container').innerHTML = '<p style="text-align: center; padding: 40px; color: var(--color-text-secondary);"><i class="fas fa-inbox"></i><br><br>No recent notifications</p>';
+                }
+            } catch (error) {
+                document.getElementById('notifications-loading').style.display = 'none';
+                document.getElementById('notifications-error').style.display = 'block';
+                document.getElementById('notifications-error-message').textContent = 'Error loading notifications: ' + error.message;
+            }
+        }
+
+        // Get icon for activity type
+        function getActivityIcon(type) {
+            const icons = {
+                'login': '🔐',
+                'logout': '🚪',
+                'forecast_refresh': '📊',
+                'data_upload': '📤',
+                'user_create': '👤',
+                'user_delete': '🗑️',
+                'password_change': '🔑',
+                'role_change': '⚙️',
+                'model_train': '🧠',
+                'database_backup': '💾',
+                'database_wipe': '⚠️',
+                'default': '📌'
+            };
+            return icons[type] || icons['default'];
+        }
+
+        // Load quick stats
+        async function loadQuickStats() {
+            document.getElementById('quick-stats-loading').style.display = 'block';
+            document.getElementById('quick-stats-container').style.display = 'none';
+            document.getElementById('quick-stats-error').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/quick-stats');
+                const data = await response.json();
+                
+                document.getElementById('quick-stats-loading').style.display = 'none';
+                
+                if (data.success) {
+                    document.getElementById('quick-stats-container').style.display = 'block';
+                    
+                    // Update stat cards
+                    document.getElementById('stat-products').textContent = data.stats.total_products || 0;
+                    document.getElementById('stat-sales').textContent = (data.stats.total_sales || 0).toLocaleString();
+                    document.getElementById('stat-revenue').textContent = formatPHP(data.stats.total_revenue || 0);
+                    document.getElementById('stat-forecasts').textContent = data.stats.total_forecasts || 0;
+                    
+                    // Update recent activity
+                    const activityDiv = document.getElementById('stat-recent-activity');
+                    if (data.stats.recent_sales && data.stats.recent_sales.length > 0) {
+                        let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
+                        data.stats.recent_sales.slice(0, 5).forEach(sale => {
+                            const date = sale.sale_date ? new Date(sale.sale_date).toLocaleDateString() : 'Unknown date';
+                            html += `<li style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <i class="fas fa-shopping-cart"></i> ${sale.product_name || 'Product'} - ${sale.quantity} units for ${formatPHP(sale.price * sale.quantity)} <span style="opacity: 0.7; font-size: 0.9em;">(${date})</span>
+                            </li>`;
+                        });
+                        html += '</ul>';
+                        activityDiv.innerHTML = html;
+                    } else {
+                        activityDiv.innerHTML = '<p style="text-align: center; opacity: 0.7;">No recent sales data</p>';
+                    }
+                } else {
+                    document.getElementById('quick-stats-error').style.display = 'block';
+                    document.getElementById('quick-stats-error-message').textContent = data.error || 'Failed to load stats';
+                }
+            } catch (error) {
+                document.getElementById('quick-stats-loading').style.display = 'none';
+                document.getElementById('quick-stats-error').style.display = 'block';
+                document.getElementById('quick-stats-error-message').textContent = 'Error loading stats: ' + error.message;
             }
         }
     </script>

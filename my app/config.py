@@ -29,6 +29,9 @@ class Config:
     PASSWORD_REQUIRE_NUMBERS = True
     PASSWORD_REQUIRE_SPECIAL = False  # Optional: require special characters
     
+    # Session Settings
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)  # Sessions expire after 8 hours of inactivity
+
     # Forecasting Settings
     DEFAULT_FORECAST_DAYS = 7
     ACCURACY_THRESHOLD = 0.80 # Target accuracy for top 10 sellers
@@ -39,7 +42,7 @@ class Config:
     
     # Upload Settings
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
-    ALLOWED_EXTENSIONS = {'csv'}
+    ALLOWED_EXTENSIONS = {'csv', 'zip'}
 
     # JWT Settings (for mobile API)
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-dev-secret-change-in-prod'

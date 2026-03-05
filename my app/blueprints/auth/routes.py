@@ -1,5 +1,5 @@
 # blueprints/auth/routes.py
-from flask import request, jsonify, render_template, redirect, url_for, flash
+from flask import request, jsonify, render_template, redirect, url_for, flash, session
 from flask_login import login_user, login_required, logout_user, current_user
 from models import db, User
 from utils import ActivityLogger, get_safe_redirect_url, get_safe_endpoint_url
@@ -47,6 +47,7 @@ def login():
             db.session.commit()
             
             login_user(user)
+            session.permanent = True  # Enforce PERMANENT_SESSION_LIFETIME expiry
             
             # Log successful login
             ActivityLogger.log(ActivityLogger.USER_LOGIN, user_id=user.id, details=f"Username: {username}")

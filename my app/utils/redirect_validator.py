@@ -20,6 +20,16 @@ ALLOWED_ENDPOINTS = {
     'auth.login',
     'auth.logout',
     'auth.register',
+    # Mobile API endpoints
+    'mobile.login',
+    'mobile.refresh_token',
+    'mobile.me',
+    'mobile.dashboard',
+    'mobile.products',
+    'mobile.sales',
+    'mobile.alerts',
+    'mobile.forecasts',
+    'mobile.batches',
 }
 
 # Allowlist of safe redirect paths (for direct path checking)
@@ -34,6 +44,16 @@ ALLOWED_PATHS = {
     '/login',
     '/logout',
     '/register',
+    # Mobile API paths
+    '/api/mobile/auth/login',
+    '/api/mobile/auth/refresh',
+    '/api/mobile/auth/me',
+    '/api/mobile/dashboard',
+    '/api/mobile/products',
+    '/api/mobile/sales',
+    '/api/mobile/alerts',
+    '/api/mobile/forecasts',
+    '/api/mobile/batches',
 }
 
 

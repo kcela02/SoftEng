@@ -891,55 +891,48 @@ def export_report():
 @api_bp.route('/download-all-data', methods=['GET'])
 @login_required
 def download_all_data():
-    """Download all dashboard data as CSV."""
+    """Download all products and sales in unified_sales format (re-importable)."""
+    user_role = getattr(current_user, 'role', 'user')
+    if user_role not in ('admin', 'manager'):
+        return jsonify({'error': 'Unauthorized'}), 403
+    
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # Create CSV with all dashboard data
-    writer.writerow(['Dashboard Data Export', '', ''])
-    writer.writerow(['Export Date', datetime.now().strftime('%Y-%m-%d %H:%M:%S'), ''])
-    writer.writerow([''])
+    # Header matches unified_sales import format
+    writer.writerow(['product_name', 'category', 'unit_cost', 'quantity_sold', 'sale_price', 'sale_date', 'forecast'])
     
-    # Add metrics
-    writer.writerow(['Metric', 'Value', ''])
-    total_sales = db.session.query(db.func.sum(Sale.quantity * Sale.price)).scalar() or 0
-    writer.writerow(['Total Sales', f'{total_sales:.2f}', ''])
+    # OPTIMIZED: Single query with LEFT JOIN to get sales, products, and forecasts in one go
+    sales = db.session.query(
+        Product.name.label('product_name'),
+        Product.category,
+        Product.unit_cost,
+        Sale.quantity.label('quantity_sold'),
+        Sale.price.label('sale_price'),
+        Sale.sale_date,
+        Sale.product_id,
+        Forecast.predicted_quantity.label('forecast_value')
+    ).join(Product, Sale.product_id == Product.id)\
+     .outerjoin(Forecast, db.and_(
+         Forecast.product_id == Sale.product_id,
+         db.func.date(Forecast.forecast_date) == db.func.date(Sale.sale_date)
+     ))\
+     .order_by(Sale.sale_date.desc()).all()
     
-    total_sales_count = db.session.query(db.func.count(Sale.id)).scalar() or 0
-    writer.writerow(['Total Orders', total_sales_count, ''])
-    
-    total_products = db.session.query(db.func.count(Product.id)).scalar() or 0
-    writer.writerow(['Total Products', total_products, ''])
-    
-    total_inventory = db.session.query(db.func.sum(Product.current_stock)).scalar() or 0
-    writer.writerow(['Total Inventory', total_inventory, ''])
-    writer.writerow([''])
-    
-    # Add products list
-    writer.writerow(['Products', '', ''])
-    writer.writerow(['Product ID', 'Name', 'Current Stock', 'Category'])
-    products = Product.query.all()
-    for product in products:
+    for sale in sales:
+        # Format forecast value
+        forecast_value = ''
+        if sale.forecast_value is not None:
+            forecast_value = f'{sale.forecast_value:.2f}'
+        
         writer.writerow([
-            product.id,
-            product.name,
-            product.current_stock,
-            product.category or 'N/A'
-        ])
-    writer.writerow([''])
-    
-    # Add recent sales
-    writer.writerow(['Recent Sales', '', ''])
-    writer.writerow(['Date', 'Product', 'Quantity', 'Price', 'Total'])
-    recent_sales = Sale.query.order_by(Sale.sale_date.desc()).limit(50).all()
-    for sale in recent_sales:
-        product = Product.query.get(sale.product_id)
-        writer.writerow([
-            sale.sale_date.strftime('%Y-%m-%d %H:%M:%S'),
-            product.name if product else f'Product {sale.product_id}',
-            sale.quantity,
-            f'{sale.price:.2f}',
-            f'{sale.quantity * sale.price:.2f}'
+            sale.product_name,
+            sale.category or '',
+            f'{sale.unit_cost:.2f}' if sale.unit_cost else '0.00',
+            sale.quantity_sold,
+            f'{sale.sale_price:.2f}',
+            sale.sale_date.strftime('%Y-%m-%d %H:%M:%S') if sale.sale_date else '',
+            forecast_value
         ])
     
     output.seek(0)
@@ -948,8 +941,343 @@ def download_all_data():
         mem_file,
         mimetype='text/csv',
         as_attachment=True,
-        download_name=f'dashboard_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        download_name=f'products_sales_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
     )
+
+
+@api_bp.route('/backup', methods=['GET'])
+@login_required
+def backup_system():
+    """Admin only: Create full system backup (ZIP with products, sales, users CSVs)."""
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    import zipfile
+    import tempfile
+    
+    try:
+        # Create temporary ZIP file
+        temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        
+        with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # 1. Products CSV
+            products_csv = io.StringIO()
+            products_writer = csv.writer(products_csv)
+            products_writer.writerow(['name', 'category', 'unit_cost', 'current_stock'])
+            
+            products = Product.query.all()
+            for p in products:
+                products_writer.writerow([
+                    p.name,
+                    p.category or '',
+                    f'{p.unit_cost:.2f}' if p.unit_cost else '0.00',
+                    p.current_stock
+                ])
+            
+            zipf.writestr('products.csv', products_csv.getvalue())
+            
+            # 2. Sales CSV (unified_sales format with forecast)
+            sales_csv = io.StringIO()
+            sales_writer = csv.writer(sales_csv)
+            sales_writer.writerow(['product_name', 'category', 'unit_cost', 'quantity_sold', 'sale_price', 'sale_date', 'forecast'])
+            
+            sales = db.session.query(
+                Product.name.label('product_name'),
+                Product.category,
+                Product.unit_cost,
+                Sale.quantity.label('quantity_sold'),
+                Sale.price.label('sale_price'),
+                Sale.sale_date,
+                Sale.product_id
+            ).join(Product, Sale.product_id == Product.id).order_by(Sale.sale_date.desc()).all()
+            
+            for sale in sales:
+                forecast_value = ''
+                forecast = Forecast.query.filter_by(
+                    product_id=sale.product_id,
+                    forecast_date=sale.sale_date.date() if hasattr(sale.sale_date, 'date') else sale.sale_date
+                ).first()
+                if forecast:
+                    forecast_value = f'{forecast.predicted_quantity:.2f}'
+                
+                sales_writer.writerow([
+                    sale.product_name,
+                    sale.category or '',
+                    f'{sale.unit_cost:.2f}' if sale.unit_cost else '0.00',
+                    sale.quantity_sold,
+                    f'{sale.sale_price:.2f}',
+                    sale.sale_date.strftime('%Y-%m-%d %H:%M:%S'),
+                    forecast_value
+                ])
+            
+            zipf.writestr('sales.csv', sales_csv.getvalue())
+            
+            # 3. Users CSV (with password hashes for restoration)
+            users_csv = io.StringIO()
+            users_writer = csv.writer(users_csv)
+            users_writer.writerow(['username', 'email', 'password_hash', 'role', 'created_at'])
+            
+            users = User.query.all()
+            for u in users:
+                users_writer.writerow([
+                    u.username,
+                    u.email,
+                    u.password_hash,
+                    u.role,
+                    u.created_at.strftime('%Y-%m-%d %H:%M:%S') if u.created_at else ''
+                ])
+            
+            zipf.writestr('users.csv', users_csv.getvalue())
+        
+        # Send the ZIP file
+        return send_file(
+            temp_zip.name,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'system_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip'
+        )
+        
+    except Exception as e:
+        import traceback
+        print(f"Backup error: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Backup failed: {str(e)}'}), 500
+
+
+@api_bp.route('/restore', methods=['POST'])
+@login_required
+def restore_system():
+    """Admin only: Restore system from backup (ZIP or CSV)."""
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    # Require admin password confirmation
+    password = request.form.get('admin_password') or request.form.get('password')
+    if not password:
+        return jsonify({'error': 'Admin password required for restoration'}), 400
+    
+    from werkzeug.security import check_password_hash
+    if not check_password_hash(current_user.password_hash, password):
+        return jsonify({'error': 'Invalid password'}), 401
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    restore_mode = request.form.get('restore_mode') or request.form.get('mode', 'soft')  # 'soft' or 'hard'
+    
+    if not file.filename:
+        return jsonify({'error': 'No file selected'}), 400
+    
+    filename = secure_filename(file.filename)
+    
+    try:
+        import zipfile
+        import tempfile
+        
+        stats = {
+            'products_added': 0,
+            'sales_added': 0,
+            'users_added': 0,
+            'forecasts_added': 0,
+            'errors': []
+        }
+        
+        # Check if ZIP or CSV
+        if filename.endswith('.zip'):
+            # Handle ZIP backup
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+            file.save(temp_file.name)
+            
+            with zipfile.ZipFile(temp_file.name, 'r') as zipf:
+                # Hard restore: Delete ALL existing data
+                if restore_mode == 'hard':
+                    try:
+                        Sale.query.delete()
+                        Product.query.delete()
+                        User.query.filter(User.id != current_user.id).delete()  # Keep current admin
+                        Forecast.query.delete()
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        stats['errors'].append(f"Hard reset failed: {str(e)}")
+                        return jsonify({'success': False, 'stats': stats}), 500
+                
+                # Soft restore: Keep users, replace products and sales
+                elif restore_mode == 'soft':
+                    try:
+                        Sale.query.delete()
+                        Product.query.delete()
+                        Forecast.query.delete()
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        stats['errors'].append(f"Soft reset failed: {str(e)}")
+                        return jsonify({'success': False, 'stats': stats}), 500
+                
+                # Restore products
+                if 'products.csv' in zipf.namelist():
+                    products_data = zipf.read('products.csv').decode('utf-8')
+                    products_df = pd.read_csv(io.StringIO(products_data))
+                    
+                    for _, row in products_df.iterrows():
+                        try:
+                            product = Product(
+                                name=str(row['name']).strip(),
+                                category=str(row['category']).strip() if pd.notna(row.get('category')) else None,
+                                unit_cost=float(row['unit_cost']) if pd.notna(row.get('unit_cost')) else 0.0,
+                                current_stock=int(row['current_stock']) if pd.notna(row.get('current_stock')) else 0
+                            )
+                            db.session.add(product)
+                            stats['products_added'] += 1
+                        except Exception as e:
+                            stats['errors'].append(f"Product import error: {str(e)}")
+                    
+                    db.session.commit()
+                
+                # Restore sales (using unified_sales format)
+                if 'sales.csv' in zipf.namelist():
+                    sales_data = zipf.read('sales.csv').decode('utf-8')
+                    sales_df = pd.read_csv(io.StringIO(sales_data))
+                    
+                    for _, row in sales_df.iterrows():
+                        try:
+                            product = Product.query.filter_by(name=str(row['product_name']).strip()).first()
+                            if not product:
+                                stats['errors'].append(f"Product '{row['product_name']}' not found for sale")
+                                continue
+                            
+                            sale = Sale(
+                                product_id=product.id,
+                                quantity=int(row['quantity_sold']),
+                                price=float(row['sale_price']),
+                                sale_date=pd.to_datetime(row['sale_date']),
+                                user_id=current_user.id
+                            )
+                            db.session.add(sale)
+                            stats['sales_added'] += 1
+                            
+                            # Restore forecast if present
+                            if 'forecast' in row and pd.notna(row['forecast']) and row['forecast'] != '':
+                                try:
+                                    forecast_val = float(row['forecast'])
+                                    forecast = Forecast(
+                                        product_id=product.id,
+                                        forecast_date=pd.to_datetime(row['sale_date']).date(),
+                                        predicted_quantity=forecast_val,
+                                        model_name='restored_from_backup',
+                                        aggregation_level='daily'
+                                    )
+                                    db.session.add(forecast)
+                                    stats['forecasts_added'] += 1
+                                except Exception:
+                                    pass  # Non-critical
+                            
+                        except Exception as e:
+                            stats['errors'].append(f"Sale import error: {str(e)}")
+                    
+                    db.session.commit()
+                
+                # Restore users (hard mode only)
+                if restore_mode == 'hard' and 'users.csv' in zipf.namelist():
+                    users_data = zipf.read('users.csv').decode('utf-8')
+                    users_df = pd.read_csv(io.StringIO(users_data))
+                    
+                    for _, row in users_df.iterrows():
+                        try:
+                            # Skip if current admin
+                            if str(row['username']).strip() == current_user.username:
+                                continue
+                            
+                            user = User(
+                                username=str(row['username']).strip(),
+                                email=str(row['email']).strip(),
+                                password_hash=str(row['password_hash']).strip(),
+                                role=str(row['role']).strip() if pd.notna(row.get('role')) else 'user'
+                            )
+                            if pd.notna(row.get('created_at')):
+                                try:
+                                    user.created_at = pd.to_datetime(row['created_at'])
+                                except:
+                                    pass
+                            
+                            db.session.add(user)
+                            stats['users_added'] += 1
+                        except Exception as e:
+                            stats['errors'].append(f"User import error: {str(e)}")
+                    
+                    db.session.commit()
+        
+        else:
+            # Single CSV file (assume unified_sales format)
+            df = pd.read_csv(file)
+            
+            # Soft restore for single CSV
+            if restore_mode == 'soft':
+                Sale.query.delete()
+                db.session.commit()
+            
+            for _, row in df.iterrows():
+                try:
+                    product = Product.query.filter_by(name=str(row['product_name']).strip()).first()
+                    if not product:
+                        stats['errors'].append(f"Product '{row['product_name']}' not found")
+                        continue
+                    
+                    sale = Sale(
+                        product_id=product.id,
+                        quantity=int(row['quantity_sold']),
+                        price=float(row['sale_price']),
+                        sale_date=pd.to_datetime(row['sale_date']),
+                        user_id=current_user.id
+                    )
+                    db.session.add(sale)
+                    stats['sales_added'] += 1
+                    
+                    # Restore forecast if present
+                    if 'forecast' in row and pd.notna(row['forecast']) and row['forecast'] != '':
+                        try:
+                            forecast_val = float(row['forecast'])
+                            forecast = Forecast(
+                                product_id=product.id,
+                                forecast_date=pd.to_datetime(row['sale_date']).date(),
+                                predicted_quantity=forecast_val,
+                                model_name='restored_from_backup',
+                                aggregation_level='daily'
+                            )
+                            db.session.add(forecast)
+                            stats['forecasts_added'] += 1
+                        except Exception:
+                            pass
+                    
+                except Exception as e:
+                    stats['errors'].append(f"Row import error: {str(e)}")
+            
+            db.session.commit()
+        
+        # Log restoration activity
+        ActivityLogger.log_activity(
+            user_id=current_user.id,
+            action=f"System restore ({restore_mode} mode): {stats['products_added']} products, {stats['sales_added']} sales, {stats['users_added']} users",
+            details=f"Restored from {filename}"
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f"Restore completed ({restore_mode} mode)",
+            'products_added': stats['products_added'],
+            'sales_added': stats['sales_added'],
+            'users_added': stats['users_added'],
+            'forecasts_restored': stats['forecasts_added'],
+            'errors': stats['errors']
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"Restore error: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Restore failed: {str(e)}'}), 500
 
 
 @api_bp.route('/upload-csv', methods=['POST'])
@@ -978,57 +1306,11 @@ def upload_csv_file():
     # Get secure filename
     filename = secure_filename(file.filename)
     
-    # Schema definitions for validation
+    # Schema definition - ONLY unified_sales format supported
     SCHEMA_DEFINITIONS = {
-        'sales': {
-            'required': ['product_id', 'quantity', 'price'],
-            'optional': ['sale_date'],
-            'friendly_names': {
-                'product_id': 'Product ID',
-                'quantity': 'Quantity',
-                'price': 'Price',
-                'sale_date': 'Sale Date'
-            }
-        },
-        'products': {
-            'required': ['name'],
-            'optional': ['category', 'unit_cost', 'current_stock'],
-            'friendly_names': {
-                'name': 'Product Name',
-                'category': 'Category',
-                'unit_cost': 'Unit Cost',
-                'current_stock': 'Current Stock'
-            }
-        },
-        'inventory': {
-            'required': ['product_id', 'quantity'],
-            'optional': ['operation', 'date'],
-            'friendly_names': {
-                'product_id': 'Product ID',
-                'quantity': 'Quantity',
-                'operation': 'Operation',
-                'date': 'Date'
-            }
-        },
-        # NEW: Batch inventory with expiration tracking
-        'batches': {
-            'required': ['product_name', 'quantity', 'expiration_date'],
-            'optional': ['batch_number', 'received_date', 'unit_cost', 'supplier', 'notes'],
-            'friendly_names': {
-                'product_name': 'Product Name',
-                'batch_number': 'Batch Number',
-                'quantity': 'Quantity',
-                'expiration_date': 'Expiration Date (YYYY-MM-DD)',
-                'received_date': 'Received Date (YYYY-MM-DD)',
-                'unit_cost': 'Unit Cost',
-                'supplier': 'Supplier',
-                'notes': 'Notes'
-            }
-        },
-        # Unified sales CSV: recommended single-file format containing product, sale and optional inventory info
         'unified_sales': {
             'required': ['product_name', 'quantity_sold', 'sale_price'],
-            'optional': ['category', 'unit_cost', 'sale_date', 'stock_after_sale'],
+            'optional': ['category', 'unit_cost', 'sale_date', 'stock_after_sale', 'forecast'],
             'friendly_names': {
                 'product_name': 'Product Name',
                 'quantity_sold': 'Quantity Sold',
@@ -1036,7 +1318,8 @@ def upload_csv_file():
                 'category': 'Category',
                 'unit_cost': 'Unit Cost',
                 'sale_date': 'Sale Date',
-                'stock_after_sale': 'Stock After Sale'
+                'stock_after_sale': 'Stock After Sale',
+                'forecast': 'Forecast (optional historical forecast value)'
             }
         }
     }
@@ -1045,7 +1328,7 @@ def upload_csv_file():
     import_log = ImportLog(
         filename=file.filename,
         user_id=current_user.id,
-        data_type=data_type,
+        data_type='unified_sales',  # Only unified_sales supported
         status='processing'
     )
     db.session.add(import_log)
@@ -1101,399 +1384,215 @@ def upload_csv_file():
         except Exception as _:
             db.session.rollback()
         
-        if data_type == 'sales':
-            for idx, row in df.iterrows():
-                try:
-                    product_id = int(row['product_id'])
-                    quantity = int(row['quantity'])
-                    price = float(row['price'])
-                    sale_date = pd.to_datetime(row['sale_date']) if 'sale_date' in row and pd.notna(row['sale_date']) else datetime.now()
-                    
-                    # Check for duplicate (same product_id + sale_date)
-                    existing_sale = Sale.query.filter_by(
-                        product_id=product_id,
-                        sale_date=sale_date
-                    ).first()
-                    
-                    if existing_sale:
-                        rows_skipped += 1
-                        continue  # Skip duplicate
-                    
-                    # Create new sale record
-                    sale = Sale(
-                        product_id=product_id,
-                        quantity=quantity,
-                        price=price,
-                        sale_date=sale_date,
-                        user_id=current_user.id
-                    )
-                    db.session.add(sale)
-                    rows_processed += 1
-                    
-                except Exception as e:
-                    rows_failed += 1
-                    errors.append(f"Row {idx + 2}: {str(e)}")
-                    
-        elif data_type == 'products':
-            for idx, row in df.iterrows():
-                try:
-                    product_name = str(row['name']).strip()
-                    
-                    # Check for duplicate product name
-                    existing_product = Product.query.filter_by(name=product_name).first()
-                    
-                    if existing_product:
-                        rows_skipped += 1
-                        continue  # Skip duplicate
-                    
-                    # Create new product
-                    product = Product(
-                        name=product_name,
-                        category=str(row['category']).strip() if 'category' in row and pd.notna(row['category']) else None,
-                        unit_cost=float(row['unit_cost']) if 'unit_cost' in row and pd.notna(row['unit_cost']) else 0.0,
-                        current_stock=int(row['current_stock']) if 'current_stock' in row and pd.notna(row['current_stock']) else 0
-                    )
-                    db.session.add(product)
-                    rows_processed += 1
-                    
-                except Exception as e:
-                    rows_failed += 1
-                    errors.append(f"Row {idx + 2}: {str(e)}")
-                    
-        elif data_type == 'inventory':
-            for idx, row in df.iterrows():
-                try:
-                    product_id = int(row['product_id'])
-                    quantity = int(row['quantity'])
-                    operation = str(row['operation']).lower() if 'operation' in row and pd.notna(row['operation']) else 'add'
-                    inv_date = pd.to_datetime(row['date']) if 'date' in row and pd.notna(row['date']) else datetime.now()
-                    
-                    # Check for duplicate inventory record (same product + date + quantity + operation)
-                    existing_inv = Inventory.query.filter_by(
-                        product_id=product_id,
-                        quantity=quantity,
-                        operation=operation,
-                        date=inv_date
-                    ).first()
-                    
-                    if existing_inv:
-                        rows_skipped += 1
-                        continue  # Skip duplicate
-                    
-                    # Create inventory record
-                    inventory = Inventory(
-                        product_id=product_id,
-                        quantity=quantity,
-                        operation=operation,
-                        date=inv_date,
-                        user_id=current_user.id
-                    )
-                    db.session.add(inventory)
-                    
-                    # Update product stock
-                    product = Product.query.get(product_id)
-                    if product:
-                        if operation == 'add':
-                            product.current_stock += quantity
-                        else:
-                            product.current_stock -= quantity
-                    
-                    rows_processed += 1
-                    
-                except Exception as e:
-                    rows_failed += 1
-                    errors.append(f"Row {idx + 2}: {str(e)}")
+        # STRICT VALIDATION: Pre-check that ALL products exist before processing
+        unknown_products = []
+        valid_product_map = {}  # Cache product lookups
         
-        elif data_type == 'unified_sales':
-            # STRICT VALIDATION: Pre-check that ALL products exist before processing
-            unknown_products = []
-            valid_product_map = {}  # Cache product lookups
+        print(f"[CSV Upload] Starting strict validation for {len(df)} rows")
+        
+        for idx, row in df.iterrows():
+            try:
+                product_name = str(row['product_name']).strip()
+                
+                # Skip empty/invalid names
+                if not product_name or product_name.lower() == 'nan':
+                    continue
+                
+                # Check if we've already validated this product name
+                if product_name in valid_product_map:
+                    continue
+                
+                # Look up product in database
+                product = Product.query.filter_by(name=product_name).first()
+                if not product:
+                    unknown_products.append({
+                        'row': idx + 2,  # Excel row number (header = row 1)
+                        'product_name': product_name
+                    })
+                else:
+                    # Cache the product for later use
+                    valid_product_map[product_name] = product
+                    
+            except Exception as e:
+                # If we can't even read the product name, skip this row
+                print(f"[CSV Upload] Error reading row {idx + 2}: {str(e)}")
+                continue
+        
+        # If ANY unknown products found, reject the entire import with detailed report
+        if unknown_products:
+            # Get all existing product names for helpful suggestions
+            all_products = Product.query.with_entities(Product.name).all()
+            existing_names = [p.name for p in all_products]
             
-            print(f"[CSV Upload] Starting strict validation for {len(df)} rows")
+            error_details = []
+            for unknown in unknown_products[:10]:  # Show first 10 to avoid overwhelming user
+                row_num = unknown['row']
+                product_name = unknown['product_name']
+                
+                # Try to find similar product names (simple contains check)
+                suggestions = [name for name in existing_names if product_name.lower() in name.lower() or name.lower() in product_name.lower()]
+                
+                if suggestions:
+                    suggestion_text = f" (Did you mean: {', '.join(suggestions[:3])}?)"
+                else:
+                    suggestion_text = ""
+                
+                error_details.append(f"Row {row_num}: '{product_name}'{suggestion_text}")
             
-            for idx, row in df.iterrows():
-                try:
-                    product_name = str(row['product_name']).strip()
-                    
-                    # Skip empty/invalid names
-                    if not product_name or product_name.lower() == 'nan':
-                        continue
-                    
-                    # Check if we've already validated this product name
-                    if product_name in valid_product_map:
-                        continue
-                    
-                    # Look up product in database
+            if len(unknown_products) > 10:
+                error_details.append(f"... and {len(unknown_products) - 10} more unknown products")
+            
+            error_msg = (
+                f"[WARNING] Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
+                f"All products must exist in the system before importing sales.\n"
+                f"Please add missing products manually or fix typos in your CSV.\n\n"
+                f"Unknown Products:\n" + "\n".join(error_details)
+            )
+            
+            import_log.status = 'failed'
+            import_log.validation_errors = error_msg
+            import_log.rows_failed = len(unknown_products)
+            db.session.commit()
+            
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'unknown_products': unknown_products,
+                'total_unknown': len(unknown_products)
+            }), 400
+        
+        print(f"[CSV Upload] [OK] Validation passed - all {len(valid_product_map)} products exist")
+        
+        # ==================== PERFORMANCE OPTIMIZATION ====================
+        # Pre-load existing data to avoid N+1 query problems
+        product_ids = [p.id for p in valid_product_map.values()]
+        
+        # Build set of existing sales (product_id, quantity, price, sale_date) for duplicate detection
+        existing_sales_data = Sale.query.filter(Sale.product_id.in_(product_ids)).all()
+        existing_sales_set = {
+            (s.product_id, s.quantity, s.price, s.sale_date)
+            for s in existing_sales_data
+        }
+        print(f"[CSV Upload] Pre-loaded {len(existing_sales_set)} existing sales for duplicate detection")
+        
+        # Build dict of existing forecasts {(product_id, forecast_date): Forecast} for updates
+        existing_forecasts_data = Forecast.query.filter(Forecast.product_id.in_(product_ids)).all()
+        existing_forecasts_dict = {
+            (f.product_id, f.forecast_date): f
+            for f in existing_forecasts_data
+        }
+        print(f"[CSV Upload] Pre-loaded {len(existing_forecasts_dict)} existing forecasts")
+        # ================================================================
+        
+        # ALL products validated - proceed with import
+        for idx, row in df.iterrows():
+            try:
+                product_name = str(row['product_name']).strip()
+                
+                if not product_name or product_name.lower() == 'nan':
+                    rows_skipped += 1
+                    continue
+
+                # Get product from cache (we already validated it exists)
+                product = valid_product_map.get(product_name)
+                if not product:
+                    # Should never happen after validation, but safety check
                     product = Product.query.filter_by(name=product_name).first()
                     if not product:
-                        unknown_products.append({
-                            'row': idx + 2,  # Excel row number (header = row 1)
-                            'product_name': product_name
-                        })
-                    else:
-                        # Cache the product for later use
-                        valid_product_map[product_name] = product
-                        
-                except Exception as e:
-                    # If we can't even read the product name, skip this row
-                    print(f"[CSV Upload] Error reading row {idx + 2}: {str(e)}")
-                    continue
-            
-            # If ANY unknown products found, reject the entire import with detailed report
-            if unknown_products:
-                # Get all existing product names for helpful suggestions
-                all_products = Product.query.with_entities(Product.name).all()
-                existing_names = [p.name for p in all_products]
-                
-                error_details = []
-                for unknown in unknown_products[:10]:  # Show first 10 to avoid overwhelming user
-                    row_num = unknown['row']
-                    product_name = unknown['product_name']
-                    
-                    # Try to find similar product names (simple contains check)
-                    suggestions = [name for name in existing_names if product_name.lower() in name.lower() or name.lower() in product_name.lower()]
-                    
-                    if suggestions:
-                        suggestion_text = f" (Did you mean: {', '.join(suggestions[:3])}?)"
-                    else:
-                        suggestion_text = ""
-                    
-                    error_details.append(f"Row {row_num}: '{product_name}'{suggestion_text}")
-                
-                if len(unknown_products) > 10:
-                    error_details.append(f"... and {len(unknown_products) - 10} more unknown products")
-                
-                error_msg = (
-                    f"[WARNING] Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
-                    f"All products must exist in the system before importing sales.\n"
-                    f"Please add missing products manually or fix typos in your CSV.\n\n"
-                    f"Unknown Products:\n" + "\n".join(error_details)
-                )
-                
-                import_log.status = 'failed'
-                import_log.validation_errors = error_msg
-                import_log.rows_failed = len(unknown_products)
-                db.session.commit()
-                
-                return jsonify({
-                    'success': False,
-                    'error': error_msg,
-                    'unknown_products': unknown_products,
-                    'total_unknown': len(unknown_products)
-                }), 400
-            
-            print(f"[CSV Upload] [OK] Validation passed - all {len(valid_product_map)} products exist")
-            
-            # ALL products validated - proceed with import
-            for idx, row in df.iterrows():
-                try:
-                    product_name = str(row['product_name']).strip()
-                    
-                    if not product_name or product_name.lower() == 'nan':
-                        rows_skipped += 1
+                        rows_failed += 1
+                        errors.append(f"Row {idx + 2}: Product '{product_name}' not found")
                         continue
 
-                    # Get product from cache (we already validated it exists)
-                    product = valid_product_map.get(product_name)
-                    if not product:
-                        # Should never happen after validation, but safety check
-                        product = Product.query.filter_by(name=product_name).first()
-                        if not product:
-                            rows_failed += 1
-                            errors.append(f"Row {idx + 2}: Product '{product_name}' not found")
-                            continue
-
-                    # Parse sale fields
-                    quantity = int(row['quantity_sold'])
-                    price = float(row['sale_price'])
-                    sale_date = pd.to_datetime(row['sale_date']) if 'sale_date' in row and pd.notna(row['sale_date']) else datetime.now()
-                    
-                    print(f"[CSV Upload] Processing row {idx + 1}: {product_name}, qty={quantity}, price={price}, date={sale_date}")
-
-                    # Smart duplicate check: prevent duplicate file uploads but allow multiple legit transactions
-                    # Check for EXACT match (same product, quantity, price, and timestamp to the second)
-                    existing_sale = Sale.query.filter_by(
-                        product_id=product.id,
-                        quantity=quantity,
-                        price=price,
-                        sale_date=sale_date
-                    ).first()
-                    if existing_sale:
-                        # This exact transaction already exists - likely duplicate upload
-                        rows_skipped += 1
-                        continue
-
-                    # Create sale record (allow multiple sales per product per date for historical data)
-                    sale = Sale(
-                        product_id=product.id,
-                        quantity=quantity,
-                        price=price,
-                        sale_date=sale_date,
-                        user_id=current_user.id
-                    )
-                    db.session.add(sale)
-                    db.session.flush()  # Get sale ID for batch transactions
-
-                    # Use FIFO batch deduction if batches exist
+                # Parse sale fields
+                quantity = int(row['quantity_sold'])
+                price = float(row['sale_price'])
+                
+                # Parse sale date - preserve time if provided
+                if 'sale_date' in row and pd.notna(row['sale_date']):
                     try:
-                        from utils.batch_manager import BatchManager, InsufficientStockError
-                        
+                        sale_date = pd.to_datetime(row['sale_date'], format='%Y-%m-%d %H:%M:%S')
+                    except:
                         try:
-                            # Try FIFO deduction from batches
-                            batch_deductions = BatchManager.deduct_stock_fifo(
-                                product_id=product.id,
-                                quantity_to_deduct=quantity,
-                                sale_id=sale.id,
-                                user_id=current_user.id,
-                                notes=f"Sale from CSV: {file.filename}"
-                            )
-                            # FIFO already updated product.current_stock
-                        except InsufficientStockError:
-                            # No batches or insufficient batch stock - fall back to manual stock adjustment
-                            # If stock_after_sale provided, set product stock to that value; otherwise, decrement by quantity
-                            if 'stock_after_sale' in row and pd.notna(row['stock_after_sale']):
-                                try:
-                                    new_stock = int(row['stock_after_sale'])
-                                    product.current_stock = new_stock
-                                except Exception:
-                                    # fallback to decrement
-                                    product.current_stock = max(0, (product.current_stock or 0) - quantity)
-                            else:
-                                product.current_stock = max(0, (product.current_stock or 0) - quantity)
-                    except ImportError:
-                        # Batch system not available, use traditional stock deduction
-                        if 'stock_after_sale' in row and pd.notna(row['stock_after_sale']):
-                            try:
-                                new_stock = int(row['stock_after_sale'])
-                                product.current_stock = new_stock
-                            except Exception:
-                                product.current_stock = max(0, (product.current_stock or 0) - quantity)
-                        else:
-                            product.current_stock = max(0, (product.current_stock or 0) - quantity)
+                            # Fallback: try parsing without explicit format
+                            sale_date = pd.to_datetime(row['sale_date'])
+                        except:
+                            # Last resort: use current time
+                            sale_date = datetime.now()
+                else:
+                    sale_date = datetime.now()
+                
+                print(f"[CSV Upload] Processing row {idx + 1}: {product_name}, qty={quantity}, price={price}, date={sale_date}")
 
-                    rows_processed += 1
-                except Exception as e:
-                    rows_failed += 1
-                    error_msg = f"Row {idx + 2}: {str(e)}"
-                    errors.append(error_msg)
-                    print(f"[CSV Upload ERROR] {error_msg}")
-                    import traceback
-                    print(traceback.format_exc())
-        
-        elif data_type == 'batches':
-            # STRICT VALIDATION: Pre-check that ALL products exist before processing
-            unknown_products = []
-            valid_product_map = {}
-            
-            print(f"[CSV Upload] Starting strict validation for batches: {len(df)} rows")
-            
-            for idx, row in df.iterrows():
-                try:
-                    product_name = str(row['product_name']).strip()
-                    
-                    if not product_name or product_name.lower() == 'nan':
-                        continue
-                    
-                    if product_name in valid_product_map:
-                        continue
-                    
-                    product = Product.query.filter_by(name=product_name).first()
-                    if not product:
-                        unknown_products.append({
-                            'row': idx + 2,
-                            'product_name': product_name
-                        })
-                    else:
-                        valid_product_map[product_name] = product
-                        
-                except Exception as e:
-                    print(f"[CSV Upload] Error reading batch row {idx + 2}: {str(e)}")
+                # Smart duplicate check: use pre-loaded set (OPTIMIZED - no DB query)
+                # Check for EXACT match (same product, quantity, price, and timestamp to the second)
+                sale_key = (product.id, quantity, price, sale_date)
+                if sale_key in existing_sales_set:
+                    # This exact transaction already exists - likely duplicate upload
+                    rows_skipped += 1
                     continue
-            
-            # Reject import if any unknown products found
-            if unknown_products:
-                all_products = Product.query.with_entities(Product.name).all()
-                existing_names = [p.name for p in all_products]
-                
-                error_details = []
-                for unknown in unknown_products[:10]:
-                    row_num = unknown['row']
-                    product_name = unknown['product_name']
-                    suggestions = [name for name in existing_names if product_name.lower() in name.lower() or name.lower() in product_name.lower()]
-                    
-                    if suggestions:
-                        suggestion_text = f" (Did you mean: {', '.join(suggestions[:3])}?)"
-                    else:
-                        suggestion_text = ""
-                    
-                    error_details.append(f"Row {row_num}: '{product_name}'{suggestion_text}")
-                
-                if len(unknown_products) > 10:
-                    error_details.append(f"... and {len(unknown_products) - 10} more unknown products")
-                
-                error_msg = (
-                    f"[WARNING] Batch Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
-                    f"All products must exist before importing batches.\n"
-                    f"Please add missing products first.\n\n"
-                    f"Unknown Products:\n" + "\n".join(error_details)
+
+                # Create sale record (allow multiple sales per product per date for historical data)
+                sale = Sale(
+                    product_id=product.id,
+                    quantity=quantity,
+                    price=price,
+                    sale_date=sale_date,
+                    user_id=current_user.id
                 )
+                db.session.add(sale)
+                db.session.flush()  # Get sale ID
                 
-                import_log.status = 'failed'
-                import_log.validation_errors = error_msg
-                import_log.rows_failed = len(unknown_products)
-                db.session.commit()
-                
-                return jsonify({
-                    'success': False,
-                    'error': error_msg,
-                    'unknown_products': unknown_products,
-                    'total_unknown': len(unknown_products)
-                }), 400
-            
-            print(f"[CSV Upload] [OK] Batch validation passed - all {len(valid_product_map)} products exist")
-            
-            # NEW: Process batch inventory with expiration tracking
-            from utils.batch_manager import BatchManager
-            
-            for idx, row in df.iterrows():
-                try:
-                    product_name = str(row['product_name']).strip()
-                    
-                    # Get product from cache (already validated)
-                    product = valid_product_map.get(product_name)
-                    if not product:
-                        product = Product.query.filter_by(name=product_name).first()
-                        if not product:
-                            rows_failed += 1
-                            errors.append(f"Row {idx + 2}: Product '{product_name}' not found")
-                            continue
-                    
-                    quantity = int(row['quantity'])
-                    expiration_date = str(row['expiration_date']).strip()
-                    batch_number = str(row['batch_number']).strip() if 'batch_number' in row and pd.notna(row['batch_number']) else None
-                    received_date = str(row['received_date']).strip() if 'received_date' in row and pd.notna(row['received_date']) else None
-                    unit_cost = float(row['unit_cost']) if 'unit_cost' in row and pd.notna(row['unit_cost']) else None
-                    supplier = str(row['supplier']).strip() if 'supplier' in row and pd.notna(row['supplier']) else None
-                    notes = str(row['notes']).strip() if 'notes' in row and pd.notna(row['notes']) else None
-                    
-                    # Add batch using BatchManager
-                    batch = BatchManager.add_batch(
-                        product_id=product.id,
-                        quantity=quantity,
-                        expiration_date=expiration_date,
-                        received_date=received_date,
-                        batch_number=batch_number,
-                        unit_cost=unit_cost,
-                        supplier=supplier,
-                        notes=notes,
-                        user_id=current_user.id
-                    )
-                    
-                    rows_processed += 1
-                    
-                except Exception as e:
-                    rows_failed += 1
-                    errors.append(f"Row {idx + 2}: {str(e)}")
+                # Add to existing sales set for duplicate detection within same CSV
+                existing_sales_set.add(sale_key)
+
+                # Update product stock
+                if 'stock_after_sale' in row and pd.notna(row['stock_after_sale']):
+                    try:
+                        new_stock = int(row['stock_after_sale'])
+                        product.current_stock = new_stock
+                    except Exception:
+                        # fallback to decrement
+                        product.current_stock = max(0, (product.current_stock or 0) - quantity)
+                else:
+                    product.current_stock = max(0, (product.current_stock or 0) - quantity)
+
+                # Handle optional forecast column
+                if 'forecast' in row and pd.notna(row['forecast']):
+                    try:
+                        forecast_value = float(row['forecast'])
+                        forecast_date = sale_date.date() if isinstance(sale_date, datetime) else sale_date
+                        
+                        # Check if forecast exists using pre-loaded dict (OPTIMIZED - no DB query)
+                        forecast_key = (product.id, forecast_date)
+                        existing_forecast = existing_forecasts_dict.get(forecast_key)
+                        
+                        if existing_forecast:
+                            # Update existing forecast
+                            existing_forecast.forecasted_quantity = forecast_value
+                            existing_forecast.updated_at = datetime.now()
+                        else:
+                            # Create new forecast and add to dict for subsequent lookups
+                            new_forecast = Forecast(
+                                product_id=product.id,
+                                forecast_date=forecast_date,
+                                forecasted_quantity=forecast_value,
+                                model_name='csv_import',
+                                user_id=current_user.id
+                            )
+                            db.session.add(new_forecast)
+                            existing_forecasts_dict[forecast_key] = new_forecast  # Update cache
+                    except Exception as e:
+                        print(f"[CSV Upload] Warning: Could not process forecast for row {idx + 2}: {str(e)}")
+                        # Non-critical, continue processing
+
+                rows_processed += 1
+            except Exception as e:
+                rows_failed += 1
+                error_msg = f"Row {idx + 2}: {str(e)}"
+                errors.append(error_msg)
+                print(f"[CSV Upload ERROR] {error_msg}")
+                import traceback
+                print(traceback.format_exc())
 
         # Commit all changes
         db.session.commit()
@@ -1509,7 +1608,7 @@ def upload_csv_file():
         
         # ==================== UPDATE FORECAST SNAPSHOTS WITH ACTUALS ====================
         # Update forecast snapshots with actual sales data when new sales arrive
-        if data_type in ('sales', 'unified_sales') and rows_processed > 0:
+        if rows_processed > 0:
             try:
                 # Get all new sales from this import
                 new_sales = Sale.query.filter(
@@ -1535,7 +1634,7 @@ def upload_csv_file():
         newly_forecasted_products = []
         forecast_generation_attempted = False
         
-        if data_type in ('sales', 'unified_sales') and rows_processed > 0:
+        if rows_processed > 0:
             forecast_generation_attempted = True
             
             # Get ALL products with sales data and check which ones have sufficient data
@@ -4962,3 +5061,114 @@ def get_training_history():
 
 
 
+
+@api_bp.route('/activity-logs', methods=['GET'])
+@login_required
+def get_activity_logs():
+    """Get activity logs for notifications."""
+    try:
+        limit = request.args.get('limit', 20, type=int)
+        
+        logs = Log.query.order_by(Log.timestamp.desc()).limit(limit).all()
+        
+        log_list = []
+        for log in logs:
+            user = User.query.get(log.user_id) if log.user_id else None
+            log_list.append({
+                'id': log.id,
+                'description': log.action,
+                'activity_type': determine_activity_type(log.action),
+                'timestamp': log.timestamp.isoformat() if log.timestamp else None,
+                'username': user.username if user else 'System'
+            })
+        
+        return jsonify({
+            'success': True,
+            'logs': log_list,
+            'total': len(log_list)
+        })
+    except Exception as e:
+        print(f"Error fetching activity logs: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def determine_activity_type(action):
+    """Determine activity type from log action."""
+    action_lower = action.lower()
+    if 'login' in action_lower:
+        return 'login'
+    elif 'logout' in action_lower:
+        return 'logout'
+    elif 'forecast' in action_lower or 'refresh' in action_lower:
+        return 'forecast_refresh'
+    elif 'upload' in action_lower or 'csv' in action_lower:
+        return 'data_upload'
+    elif 'user' in action_lower and 'create' in action_lower:
+        return 'user_create'
+    elif 'user' in action_lower and 'delete' in action_lower:
+        return 'user_delete'
+    elif 'password' in action_lower:
+        return 'password_change'
+    elif 'role' in action_lower:
+        return 'role_change'
+    elif 'train' in action_lower or 'model' in action_lower:
+        return 'model_train'
+    elif 'backup' in action_lower:
+        return 'database_backup'
+    elif 'wipe' in action_lower:
+        return 'database_wipe'
+    else:
+        return 'default'
+
+
+@api_bp.route('/quick-stats', methods=['GET'])
+@login_required
+def get_quick_stats():
+    """Get quick statistics for dashboard."""
+    try:
+        # Get total products
+        total_products = Product.query.count()
+        
+        # Get total sales count
+        total_sales = Sale.query.count()
+        
+        # Get total revenue
+        revenue_result = db.session.query(
+            db.func.sum(Sale.quantity * Sale.price)
+        ).scalar()
+        total_revenue = float(revenue_result) if revenue_result else 0.0
+        
+        # Get total forecasts
+        total_forecasts = Forecast.query.count()
+        
+        # Get recent sales (last 10)
+        recent_sales_query = db.session.query(
+            Sale, Product
+        ).join(
+            Product, Sale.product_id == Product.id
+        ).order_by(
+            Sale.sale_date.desc()
+        ).limit(10).all()
+        
+        recent_sales = []
+        for sale, product in recent_sales_query:
+            recent_sales.append({
+                'product_name': product.name,
+                'quantity': sale.quantity,
+                'price': sale.price,
+                'sale_date': sale.sale_date.isoformat() if sale.sale_date else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total_products': total_products,
+                'total_sales': total_sales,
+                'total_revenue': total_revenue,
+                'total_forecasts': total_forecasts,
+                'recent_sales': recent_sales
+            }
+        })
+    except Exception as e:
+        print(f"Error fetching quick stats: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500

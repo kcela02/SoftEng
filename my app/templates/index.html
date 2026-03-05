@@ -7,6 +7,7 @@
   <meta name="csrf-token" content="{{ csrf_token() }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
   <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     /* ── Reset / Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -359,7 +360,7 @@
     }
     .lp-modal-close:hover { background: rgba(255,255,255,0.12); color: #f5f5f5; }
 
-    .lp-form-group { margin-bottom: 16px; }
+    .lp-form-group { margin-bottom: 16px; position: relative; }
     .lp-form-group label { display: block; font-size: .8rem; color: #737373; margin-bottom: 6px; font-weight: 500; }
     .lp-form-group input {
       width: 100%; padding: 10px 14px; border-radius: 8px;
@@ -373,6 +374,17 @@
     .lp-form-footer { margin-top: 6px; text-align: center; font-size: .78rem; color: #525252; }
     .lp-form-footer a { color: #a3a3a3; text-decoration: none; cursor: pointer; }
     .lp-form-footer a:hover { color: #f5f5f5; }
+
+    /* Password visibility toggle */
+    .lp-password-wrapper { position: relative; display: flex; align-items: center; }
+    .lp-password-wrapper input { padding-right: 45px !important; }
+    .lp-toggle-password {
+      position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: #737373; cursor: pointer;
+      padding: 8px 12px; font-size: 1rem; transition: color .2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .lp-toggle-password:hover { color: #f5f5f5; }
 
     .lp-form-submit {
       width: 100%; padding: 11px; border-radius: 9px;
@@ -588,7 +600,12 @@
       </div>
       <div class="lp-form-group">
         <label for="login-password">Password</label>
-        <input type="password" id="login-password" name="password" placeholder="••••••••" autocomplete="current-password" required />
+        <div class="lp-password-wrapper">
+          <input type="password" id="login-password" name="password" placeholder="••••••••" autocomplete="current-password" required />
+          <button type="button" class="lp-toggle-password" onclick="togglePassword('login-password', this)" tabindex="-1" aria-label="Toggle password visibility">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
       </div>
       <button type="submit" class="lp-form-submit">Sign in</button>
     </form>
@@ -621,7 +638,12 @@
       </div>
       <div class="lp-form-group">
         <label for="reg-password">Password</label>
-        <input type="password" id="reg-password" name="password" placeholder="min. 8 characters" autocomplete="new-password" required />
+        <div class="lp-password-wrapper">
+          <input type="password" id="reg-password" name="password" placeholder="min. 8 characters" autocomplete="new-password" required />
+          <button type="button" class="lp-toggle-password" onclick="togglePassword('reg-password', this)" tabindex="-1" aria-label="Toggle password visibility">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
       </div>
       <button type="submit" class="lp-form-submit">Create account</button>
     </form>
@@ -636,6 +658,19 @@
 <script src="{{ url_for('static', filename='utils.js') }}"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 <script>
+// Password toggle function
+function togglePassword(inputId, btn) {
+  var input = document.getElementById(inputId);
+  var icon = btn.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.classList.replace('fa-eye', 'fa-eye-slash');
+  } else {
+    input.type = 'password';
+    icon.classList.replace('fa-eye-slash', 'fa-eye');
+  }
+}
+
 (function () {
   /* ── Particle canvas ── */
   const canvas = document.getElementById('lp-canvas');
@@ -698,7 +733,22 @@
   const registerOv = document.getElementById('registerOverlay');
 
   function openModal(ov)  { ov.classList.add('open'); }
-  function closeModal(ov) { ov.classList.remove('open'); }
+  function closeModal(ov) { 
+    ov.classList.remove('open');
+    
+    // Clear form inputs for security and better UX
+    const form = ov.querySelector('form');
+    if (form) {
+      form.reset(); // Clear all input fields
+      
+      // Also clear any error/success messages
+      const messageDiv = ov.querySelector('[id$="-messages"]');
+      if (messageDiv) {
+        messageDiv.innerHTML = '';
+        messageDiv.className = '';
+      }
+    }
+  }
 
   document.getElementById('navLoginBtn')    .addEventListener('click', () => openModal(loginOv));
   document.getElementById('heroSignIn')     .addEventListener('click', () => openModal(loginOv));
