@@ -222,7 +222,8 @@ def dashboard():
 
     def revenue_since(dt):
         row = db.session.query(func.sum(Sale.quantity * Sale.price)) \
-                        .filter(Sale.sale_date >= dt).scalar()
+                        .filter(Sale.sale_date >= dt,
+                                Sale.is_fake == False).scalar()
         return round(float(row or 0), 2)
 
     total_products  = Product.query.filter_by(is_fake=False).count()
@@ -270,7 +271,9 @@ def dashboard():
             func.sum(Sale.quantity * Sale.price).label('revenue')
         )
         .join(Sale, Sale.product_id == Product.id)
-        .filter(Sale.sale_date >= thirty_days_ago, Product.is_fake == False)
+        .filter(Sale.sale_date >= thirty_days_ago,
+                Sale.is_fake == False,
+                Product.is_fake == False)
         .group_by(Product.id, Product.name)
         .order_by(desc('units_sold'))
         .limit(5)
@@ -366,7 +369,8 @@ def sales_chart():
         func.sum(Sale.quantity).label('quantity')
     ).filter(
         Sale.sale_date >= from_dt,
-        Sale.sale_date < to_dt
+        Sale.sale_date < to_dt,
+        Sale.is_fake == False
     )
 
     if product_id:
@@ -487,7 +491,7 @@ def sales():
     to_date    = request.args.get('to_date')
     product_id = request.args.get('product_id', type=int)
 
-    q = Sale.query.order_by(desc(Sale.sale_date))
+    q = Sale.query.filter_by(is_fake=False).order_by(desc(Sale.sale_date))
 
     if from_date:
         try:
