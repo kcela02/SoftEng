@@ -2226,7 +2226,6 @@ def delete_product(product_id):
 
 
 @api_bp.route('/products/cleanup-duplicates', methods=['POST'])
-@login_required
 def cleanup_duplicate_products():
     """
     Admin only: Remove duplicate product rows that share the same name.
@@ -2234,6 +2233,8 @@ def cleanup_duplicate_products():
     and deletes the higher-id duplicates.
     Returns a summary of what was merged/deleted.
     """
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Authentication required'}), 401
     if current_user.role != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
 
