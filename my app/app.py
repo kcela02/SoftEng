@@ -92,6 +92,10 @@ def create_app(config_name=None):
     app.register_blueprint(mobile_bp)
     # Exempt mobile API from CSRF — mobile apps use JWT tokens, not browser cookies
     csrf.exempt(mobile_bp)
+    # Exempt mobile API from IP-based rate limiting — mobile clients make many
+    # burst requests on startup (pagination, dashboard, forecasts) from the same
+    # IP and hit the default limit fast.  JWT auth already protects these endpoints.
+    limiter.exempt(mobile_bp)
     
     # Inject git commit hash as a template global so CSS/JS cache busts on every deploy
     import subprocess

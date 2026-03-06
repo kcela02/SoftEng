@@ -477,6 +477,54 @@ def products():
     )
 
 
+@mobile_bp.route('/products', methods=['POST'])
+@jwt_required()
+def create_product():
+    """
+    Create a new product. Admin / Manager only.
+
+    Request body (JSON):
+        {
+          "name":          "Blue Razz Ice 50mg",  // required
+          "category":      "Disposable",           // optional
+          "unit_cost":     5.50,                   // optional, default 0
+          "current_stock": 100                     // optional, default 0
+        }
+    """
+    user = _current_user()
+    if not user:
+        return _error('User not found', 401)
+    if user.role not in ('admin', 'manager'):
+        return _error('Only admins and managers can add products.', 403)
+
+    data = request.get_json(silent=True)
+    if not data or not (data.get('name') or '').strip():
+        return _error('Product name is required')
+
+    name = data['name'].strip()
+
+    existing = Product.query.filter(
+        Product.name.ilike(name),
+        Product.is_fake == False
+    ).first()
+    if existing:
+        return _error(f"A product named '{existing.name}' already exists.", 409)
+
+    try:
+        product = Product(
+            name=name,
+            category=(data.get('category') or '').strip() or None,
+            unit_cost=float(data.get('unit_cost') or 0),
+            current_stock=int(data.get('current_stock') or 0),
+        )
+        db.session.add(product)
+        db.session.commit()
+        return _ok(product.to_dict())
+    except Exception as e:
+        db.session.rollback()
+        return _error(f'Could not create product: {str(e)}')
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Sales
 # ══════════════════════════════════════════════════════════════════════════════
