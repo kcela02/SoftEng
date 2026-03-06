@@ -972,20 +972,19 @@
 
         // Download app function
         function downloadApp(platform) {
-            const statusDiv = document.getElementById('download-status');
-            statusDiv.style.display = 'block';
-            
-            const messages = {
-                'web': 'Web version is already available at vape-dashboard.com',
-                'ios': 'iOS app coming soon to the Apple App Store',
-                'android': 'Android app coming soon to Google Play Store'
-            };
-            
-            statusDiv.innerHTML = `<span>${messages[platform] || 'Coming soon!'}</span>`;
-            
-            setTimeout(() => {
-                statusDiv.style.display = 'none';
-            }, 4000);
+            if (platform === 'android') {
+                const link = document.createElement('a');
+                link.href = '/static/app-release.apk';
+                link.download = 'VapeCrib.apk';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                const statusDiv = document.getElementById('download-status');
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = '<span><i class="fab fa-android"></i> Downloading VapeCrib Android APK...</span>';
+                setTimeout(() => { statusDiv.style.display = 'none'; }, 4000);
+            }
         }
     </script>
 {% endblock %}

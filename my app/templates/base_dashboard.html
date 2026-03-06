@@ -321,17 +321,12 @@
 
         // Show download options
         function showDownloadOptions() {
-            const options = {
-                'web': '🌐 Web version is already available',
-                'ios': '🍎 iOS app coming soon to Apple App Store',
-                'android': '🤖 Android app coming soon to Google Play Store'
-            };
-            
-            const choice = confirm('📱 Download Options:\n\nWeb: Already available\niOS: Coming soon\nAndroid: Coming soon\n\nClick OK to see more details or Cancel to close.');
-            
-            if (choice) {
-                alert('VapeCrib is available on:\n\n' + Object.values(options).join('\n'));
-            }
+            const link = document.createElement('a');
+            link.href = '/static/app-release.apk';
+            link.download = 'VapeCrib.apk';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // Load users for manage users modal
