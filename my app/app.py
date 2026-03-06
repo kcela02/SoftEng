@@ -6,6 +6,7 @@ from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_jwt_extended import JWTManager
+from werkzeug.middleware.proxy_fix import ProxyFix
 from config import config
 from models import db, User
 import os
@@ -23,7 +24,10 @@ def create_app(config_name=None):
         Flask application instance
     """
     app = Flask(__name__)
-    
+    # Trust one level of reverse proxy (Render, nginx). This makes
+    # request.remote_addr and request.url reflect the real client values.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     # Load configuration
     if config_name is None:
         config_name = os.getenv('FLASK_ENV', 'development')
@@ -44,6 +48,9 @@ def create_app(config_name=None):
     csrf = CSRFProtect(app)
     
     # Initialize Rate Limiter
+    # ProxyFix (above) already unwraps X-Forwarded-For into request.remote_addr,
+    # so get_remote_address now returns each real client's IP instead of the
+    # shared Render proxy IP.
     limiter = Limiter(
         app=app,
         key_func=get_remote_address,
