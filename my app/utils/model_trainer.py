@@ -143,26 +143,14 @@ class ForecastingPipeline:
             today = datetime.now().date()
             days_to_monday = today.weekday()  # 0=Monday, 6=Sunday
             week_start = today - timedelta(days=days_to_monday)
-            
-            # IMPORTANT: Only delete FUTURE forecasts (forecast_date > today)
-            # Preserve historical forecasts (forecast_date <= today) for accuracy tracking
-            # This allows the dashboard to compare "what we predicted" vs "what actually happened"
-            historical_count = Forecast.query.filter(
-                Forecast.product_id == product_id,
-                Forecast.aggregation_level == 'daily',
-                db.func.date(Forecast.forecast_date) <= today
-            ).count()
-            
-            # Delete only future forecasts for this product (preserve past ones)
-            deleted_count = Forecast.query.filter(
-                Forecast.product_id == product_id,
-                Forecast.aggregation_level == 'daily',
-                db.func.date(Forecast.forecast_date) > today
-            ).delete()
-            
-            print(f"[FORECAST] Product {product_id}: Preserved {historical_count} historical forecasts, updated {deleted_count} future forecasts")
-            
-            # Generate DAILY forecasts for next 30 days starting from Monday of current week
+
+            # ── STEP 1: Generate new daily forecast rows IN MEMORY first ──────────
+            # We must NOT delete existing rows until we know generation succeeded.
+            # If we delete first and generation fails (returns empty/error), future
+            # forecasts are permanently gone from the DB with nothing to replace them.
+            new_daily_forecasts = []  # collected Forecast objects, not yet in session
+            snapshot_calls = []       # deferred snapshot args to call after commit
+
             try:
                 forecast_results = forecast_linear_regression(
                     db_conn=None,
@@ -170,38 +158,27 @@ class ForecastingPipeline:
                     days_ahead=30,  # Generate 30 daily forecasts
                     start_date=week_start  # Start from Monday of current week
                 )
-                
+
                 if forecast_results and not (isinstance(forecast_results, dict) and 'error' in forecast_results):
-                    # Store daily forecasts
                     for forecast_item in forecast_results:
                         try:
                             forecast_date_obj = forecast_item['date']
                             if isinstance(forecast_date_obj, str):
                                 forecast_date_obj = datetime.strptime(forecast_date_obj, '%Y-%m-%d')
-                            elif isinstance(forecast_date_obj, (datetime, type(None).__class__)):
-                                if not isinstance(forecast_date_obj, datetime):
-                                    # It's a date object, convert to datetime
-                                    forecast_date_obj = datetime.combine(forecast_date_obj, datetime.min.time())
-                            
-                            # Extract date for period_key calculations
-                            if isinstance(forecast_date_obj, datetime):
-                                forecast_date_for_key = forecast_date_obj.date()
-                            else:
-                                forecast_date_for_key = forecast_date_obj
-                            
-                            predicted_qty = forecast_item['prediction']
+                            elif not isinstance(forecast_date_obj, datetime):
+                                forecast_date_obj = datetime.combine(forecast_date_obj, datetime.min.time())
+
+                            forecast_date_for_key = forecast_date_obj.date() if isinstance(forecast_date_obj, datetime) else forecast_date_obj
+
+                            predicted_qty   = forecast_item['prediction']
                             confidence_lower = forecast_item.get('confidence_lower')
                             confidence_upper = forecast_item.get('confidence_upper')
-                            mae = forecast_item.get('mae')
-                            rmse = forecast_item.get('rmse')
-                            model_used = forecast_item.get('model', 'LINEAR_REGRESSION')
-                            
-                            # Store as DAILY forecast
-                            aggregation_level = 'daily'
-                            period_key = forecast_date_for_key.strftime('%Y-%m-%d')
-                            
-                            # Save to Forecast table (for current predictions)
-                            new_forecast = Forecast(
+                            mae              = forecast_item.get('mae')
+                            rmse             = forecast_item.get('rmse')
+                            model_used       = forecast_item.get('model', 'LINEAR_REGRESSION')
+                            period_key       = forecast_date_for_key.strftime('%Y-%m-%d')
+
+                            new_daily_forecasts.append(Forecast(
                                 product_id=product_id,
                                 forecast_date=forecast_date_obj,
                                 predicted_quantity=predicted_qty,
@@ -210,14 +187,11 @@ class ForecastingPipeline:
                                 confidence_upper=confidence_upper,
                                 mae=mae,
                                 rmse=rmse,
-                                aggregation_level=aggregation_level,
+                                aggregation_level='daily',
                                 period_key=period_key,
                                 created_at=datetime.utcnow()
-                            )
-                            db.session.add(new_forecast)
-                            
-                            # Save snapshot for historical tracking
-                            ForecastingPipeline.save_forecast_snapshot(
+                            ))
+                            snapshot_calls.append(dict(
                                 product_id=product_id,
                                 forecast_date=forecast_date_obj,
                                 predicted_qty=predicted_qty,
@@ -227,69 +201,82 @@ class ForecastingPipeline:
                                 confidence_upper=confidence_upper,
                                 mae=mae,
                                 rmse=rmse
-                            )
-                            
+                            ))
                         except Exception as e:
-                            print(f"Error storing daily forecast for {forecast_item.get('date')}: {str(e)}")
+                            print(f"Error building daily forecast for {forecast_item.get('date')}: {str(e)}")
                             continue
-                            
+
             except Exception as e:
                 print(f"Error generating daily forecasts for product {product_id}: {str(e)}")
-            
-            # Generate WEEKLY forecasts by aggregating daily forecasts into weeks
+
+            # ── STEP 2: Guard — only proceed if generation produced results ───────
+            if not new_daily_forecasts:
+                print(f"[FORECAST] Product {product_id}: Generation produced no results — existing forecasts preserved.")
+                return False
+
+            # ── STEP 3: Atomically swap — delete stale rows then insert new ones ─
+            # Delete from week_start (not just > today) to avoid duplicating Mon–(today-1)
+            # records that already exist from a previous run this same week.
+            historical_count = Forecast.query.filter(
+                Forecast.product_id == product_id,
+                Forecast.aggregation_level == 'daily',
+                db.func.date(Forecast.forecast_date) < week_start
+            ).count()
+
+            deleted_count = Forecast.query.filter(
+                Forecast.product_id == product_id,
+                Forecast.aggregation_level.in_(['daily', 'weekly']),
+                db.func.date(Forecast.forecast_date) >= week_start
+            ).delete(synchronize_session=False)
+
+            print(f"[FORECAST] Product {product_id}: Preserved {historical_count} historical, replacing {deleted_count} stale records with {len(new_daily_forecasts)} new daily forecasts")
+
+            for nf in new_daily_forecasts:
+                db.session.add(nf)
+
+            # ── STEP 4: Build weekly aggregates from in-memory daily list ─────────
+            # (avoids a DB query for rows that aren't committed yet)
             try:
-                # Get all daily forecasts we just created (starting from week_start)
-                daily_forecasts = Forecast.query.filter(
-                    Forecast.product_id == product_id,
-                    Forecast.aggregation_level == 'daily',
-                    Forecast.forecast_date >= week_start
-                ).order_by(Forecast.forecast_date).all()
-                
-                if daily_forecasts:
-                    # Group by week and create weekly aggregates
-                    from collections import defaultdict
-                    weekly_data = defaultdict(lambda: {'qty': 0, 'count': 0, 'dates': []})
-                    
-                    for daily_fc in daily_forecasts:
-                        fc_date = daily_fc.forecast_date.date() if isinstance(daily_fc.forecast_date, datetime) else daily_fc.forecast_date
-                        # Find Monday of this week
-                        days_to_monday = fc_date.weekday()
-                        week_start = fc_date - timedelta(days=days_to_monday)
-                        
-                        weekly_data[week_start]['qty'] += daily_fc.predicted_quantity
-                        weekly_data[week_start]['count'] += 1
-                        weekly_data[week_start]['dates'].append(fc_date)
-                    
-                    # Create weekly forecast records
-                    for week_start, data in weekly_data.items():
-                        if data['count'] > 0:
-                            week_forecast = Forecast(
-                                product_id=product_id,
-                                forecast_date=datetime.combine(week_start, datetime.min.time()),
-                                predicted_quantity=int(data['qty']),
-                                model_used='AGGREGATED_DAILY',
-                                aggregation_level='weekly',
-                                period_key=week_start.strftime('%Y-W%W'),
-                                created_at=datetime.utcnow()
-                            )
-                            db.session.add(week_forecast)
-                            
-                            # Save snapshot
-                            ForecastingPipeline.save_forecast_snapshot(
-                                product_id=product_id,
-                                forecast_date=week_start,
-                                predicted_qty=int(data['qty']),
-                                model_used='AGGREGATED_DAILY',
-                                horizon='7-day'
-                            )
-                            
+                from collections import defaultdict
+                weekly_data = defaultdict(lambda: {'qty': 0, 'count': 0})
+
+                for nf in new_daily_forecasts:
+                    fc_date = nf.forecast_date.date() if isinstance(nf.forecast_date, datetime) else nf.forecast_date
+                    days_to_mon = fc_date.weekday()
+                    wk_start = fc_date - timedelta(days=days_to_mon)
+                    weekly_data[wk_start]['qty']   += nf.predicted_quantity
+                    weekly_data[wk_start]['count'] += 1
+
+                for wk_start, data in weekly_data.items():
+                    if data['count'] > 0:
+                        db.session.add(Forecast(
+                            product_id=product_id,
+                            forecast_date=datetime.combine(wk_start, datetime.min.time()),
+                            predicted_quantity=int(data['qty']),
+                            model_used='AGGREGATED_DAILY',
+                            aggregation_level='weekly',
+                            period_key=wk_start.strftime('%Y-W%W'),
+                            created_at=datetime.utcnow()
+                        ))
+                        snapshot_calls.append(dict(
+                            product_id=product_id,
+                            forecast_date=wk_start,
+                            predicted_qty=int(data['qty']),
+                            model_used='AGGREGATED_DAILY',
+                            horizon='7-day'
+                        ))
             except Exception as e:
                 print(f"Error generating weekly forecasts for product {product_id}: {str(e)}")
-            
-            # Commit all forecasts for this product
+
+            # ── STEP 5: Commit all new forecasts in one transaction ───────────────
             db.session.commit()
+
+            # ── STEP 6: Save snapshots after the main commit (separate table) ─────
+            for snap in snapshot_calls:
+                ForecastingPipeline.save_forecast_snapshot(**snap)
+
             return True
-            
+
         except Exception as e:
             db.session.rollback()
             print(f"Error in multi-horizon forecast generation: {str(e)}")

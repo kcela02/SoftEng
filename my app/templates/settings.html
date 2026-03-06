@@ -405,7 +405,10 @@
             
             fetch('/api/admin/train-model', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
                 body: JSON.stringify({ mode: 'incremental' })
             })
             .then(response => response.json())
@@ -488,7 +491,10 @@
             
             fetch('/api/admin/wipe-data', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
                 body: JSON.stringify({ 
                     wipe_type: wipeType,
                     password: password

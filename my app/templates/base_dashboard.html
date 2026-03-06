@@ -245,33 +245,49 @@
             const statusDiv = adminStatus || document.createElement('div');
             
             // Show status in settings if available
+            let elapsed = 0;
+            let timerInterval = null;
             if (adminStatus) {
                 adminStatus.style.display = 'block';
                 adminStatus.style.background = '#3b82f6';
-                adminStatus.innerHTML = '<span><i class="fas fa-spinner fa-spin"></i> Refreshing forecasts...</span>';
+                adminStatus.innerHTML = '<span><i class="fas fa-spinner fa-spin"></i> Regenerating forecasts for all products... 0s</span>';
+                timerInterval = setInterval(() => {
+                    elapsed++;
+                    adminStatus.innerHTML = `<span><i class="fas fa-spinner fa-spin"></i> Regenerating forecasts for all products... ${elapsed}s</span>`;
+                }, 1000);
             } else {
                 alert('Refreshing forecasts...');
             }
             
             try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
                 const response = await fetch('/api/admin/refresh-forecasts', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
                     },
                     credentials: 'same-origin'
                 });
                 
+                if (timerInterval) clearInterval(timerInterval);
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    const message = `<i class="fas fa-check-circle"></i> Success! Refreshed ${data.count || 0} forecasts`;
+                    const r = data.results || {};
+                    const total = r.total_products || 0;
+                    const successful = r.successful || 0;
+                    const failed = r.failed || 0;
+                    const generated = (r.forecasts_generated || 0).toLocaleString();
+                    const failedNote = failed > 0 ? ` &bull; ${failed} failed` : '';
+                    const message = `<i class="fas fa-check-circle"></i> Done in ${elapsed}s &mdash; `
+                        + `${successful}/${total} products refreshed &bull; ${generated} forecasts${failedNote}`;
                     if (adminStatus) {
-                        adminStatus.style.background = '#10b981';
+                        adminStatus.style.background = failed > 0 ? '#f59e0b' : '#10b981';
                         adminStatus.innerHTML = `<span>${message}</span>`;
                         setTimeout(() => {
                             adminStatus.style.display = 'none';
-                        }, 5000);
+                        }, 8000);
                     } else {
                         alert(message);
                     }
@@ -288,6 +304,7 @@
                     }
                 }
             } catch (error) {
+                if (timerInterval) clearInterval(timerInterval);
                 const message = `<i class="fas fa-times-circle"></i> Error: ${error.message}`;
                 if (adminStatus) {
                     adminStatus.style.background = '#ef4444';
