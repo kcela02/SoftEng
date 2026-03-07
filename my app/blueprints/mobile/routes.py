@@ -30,7 +30,7 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
 )
-from models import db, User, Product, Sale, Alert, Forecast, InventoryBatch
+from models import db, User, Product, Sale, Alert, Forecast, InventoryBatch, ImportLog
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
 from . import mobile_bp
@@ -746,3 +746,179 @@ def batches():
         items = [b for b in items if b.urgency_level() == urgency]
 
     return _ok([b.to_dict() for b in items], total=len(items))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Reports — mirrors the web /api/sales-report, /api/inventory-report,
+#            /api/list-imports but JWT-protected for mobile.
+# ══════════════════════════════════════════════════════════════════════════════
+
+@mobile_bp.route('/reports/sales', methods=['GET'])
+@jwt_required()
+def reports_sales():
+    """
+    Sales report identical to the web dashboard.
+
+    Query params
+    ------------
+    period : str   — "7d" | "30d" | "90d" | "1y" | "all"  (default "30d")
+    """
+    user = _current_user()
+    if not user:
+        return _error('User not found', 401)
+
+    period = request.args.get('period', '30d')
+    end_date = datetime.utcnow()
+
+    if period == '7d':
+        start_date = end_date - timedelta(days=7)
+        period_label = 'Last 7 Days'
+    elif period == '90d':
+        start_date = end_date - timedelta(days=90)
+        period_label = 'Last 90 Days'
+    elif period == '1y':
+        start_date = end_date - timedelta(days=365)
+        period_label = 'This Year'
+    elif period == 'all':
+        start_date = datetime(2000, 1, 1)
+        period_label = 'All Time'
+    else:                       # default / "30d"
+        start_date = end_date - timedelta(days=30)
+        period_label = 'Last 30 Days'
+
+    rows = db.session.query(
+        Sale.sale_date,
+        Product.name.label('product_name'),
+        Sale.quantity,
+        Sale.price,
+        (Sale.quantity * Sale.price).label('revenue')
+    ).join(Product, Sale.product_id == Product.id).filter(
+        Sale.sale_date >= start_date,
+        Sale.sale_date <= end_date
+    ).order_by(Sale.sale_date.desc()).all()
+
+    sales_data = []
+    total_revenue = 0.0
+    for r in rows:
+        rev = float(r.quantity * r.price)
+        sales_data.append({
+            'date':         r.sale_date.strftime('%Y-%m-%d'),
+            'product_name': r.product_name,
+            'quantity':     r.quantity,
+            'price':        float(r.price),
+            'revenue':      rev,
+        })
+        total_revenue += rev
+
+    return _ok({
+        'period':        period,
+        'period_label':  period_label,
+        'sales':         sales_data,
+        'total_sales':   len(sales_data),
+        'total_revenue': round(total_revenue, 2),
+    })
+
+
+@mobile_bp.route('/reports/inventory', methods=['GET'])
+@jwt_required()
+def reports_inventory():
+    """
+    Inventory report identical to the web dashboard.
+
+    Query params
+    ------------
+    type : str   — "current" | "low" | "all"  (default "current")
+    """
+    user = _current_user()
+    if not user:
+        return _error('User not found', 401)
+
+    report_type = request.args.get('type', 'current')
+
+    q = db.session.query(
+        Product.id,
+        Product.name.label('product_name'),
+        Product.category,
+        Product.current_stock,
+        Product.unit_cost
+    ).filter(Product.is_fake == False)
+
+    if report_type == 'low':
+        q = q.filter(Product.current_stock <= 50)
+        report_label = 'Low Stock Items'
+    elif report_type == 'current':
+        q = q.filter(Product.current_stock > 0)
+        report_label = 'Current Stock Levels'
+    else:
+        report_label = 'All Inventory'
+
+    q = q.order_by(Product.current_stock.asc())
+    items = q.all()
+
+    inventory_data = []
+    total_value = 0.0
+    for it in items:
+        uc = float(it.unit_cost) if it.unit_cost else 0.0
+        val = it.current_stock * uc
+        inventory_data.append({
+            'product_name':  it.product_name,
+            'category':      it.category,
+            'current_stock': it.current_stock,
+            'unit_cost':     uc,
+            'total_value':   val,
+        })
+        total_value += val
+
+    return _ok({
+        'report_type':  report_type,
+        'report_label': report_label,
+        'inventory':    inventory_data,
+        'total_items':  len(inventory_data),
+        'total_value':  round(total_value, 2),
+    })
+
+
+@mobile_bp.route('/reports/imports', methods=['GET'])
+@jwt_required()
+def reports_imports():
+    """
+    Import history identical to the web dashboard.
+
+    Query params
+    ------------
+    limit : str   — "10" | "25" | "50" | "all"  (default "10")
+    """
+    user = _current_user()
+    if not user:
+        return _error('User not found', 401)
+
+    limit_param = request.args.get('limit', '10')
+    q = ImportLog.query.order_by(ImportLog.upload_date.desc())
+
+    if limit_param != 'all':
+        try:
+            lim = int(limit_param)
+            q = q.limit(lim)
+        except ValueError:
+            q = q.limit(10)
+
+    logs = q.all()
+    import_list = []
+    for imp in logs:
+        imp_user = db.session.get(User, imp.user_id) if imp.user_id else None
+        import_list.append({
+            'id':             imp.id,
+            'filename':       imp.filename,
+            'upload_date':    imp.upload_date.strftime('%Y-%m-%d %H:%M:%S'),
+            'rows_processed': imp.rows_processed,
+            'rows_failed':    imp.rows_failed,
+            'rows_skipped':   imp.rows_skipped or 0,
+            'status':         imp.status,
+            'data_type':      imp.data_type,
+            'username':       imp_user.username if imp_user else 'Unknown',
+        })
+
+    return _ok({
+        'imports': import_list,
+        'total':   len(import_list),
+    })
