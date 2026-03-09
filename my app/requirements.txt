@@ -7,7 +7,7 @@ pandas
 numpy
 scikit-learn
 statsmodels
-psycopg2-binary  # For PostgreSQL connection
+psycopg2-binary==2.9.9  # For PostgreSQL connection
 
 blinker==1.9.0
 click==8.3.0

@@ -6,9 +6,13 @@ class Config:
     """Base configuration"""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'a-very-secret-key-for-dev'
     
-    # Database Configuration (SQLite for simplicity)
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///app.db'
+    # Database Configuration (PostgreSQL)
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://softeng2_db_user:ZpQr8FErKxXR412nZOMTBbKhTv7lF0LL@dpg-d6n73675gffc73bsk9f0-a/softeng2_db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 280,
+    }
     
     # Security Settings
     WTF_CSRF_ENABLED = True
@@ -59,6 +63,11 @@ class DevelopmentConfig(Config):
     TESTING = False
     # Higher rate limits for local development/testing
     RATELIMIT_DEFAULTS = ["2000 per day", "500 per hour"]
+
+    # Fix for older Render connection strings in local .env files
+    _db_url = os.environ.get('DATABASE_URL', '')
+    if _db_url.startswith('postgres://'):
+        SQLALCHEMY_DATABASE_URI = _db_url.replace('postgres://', 'postgresql://', 1)
     
     # CORS Configuration - Allow localhost and local network for development and mobile testing
     CORS_ORIGINS = [
@@ -120,7 +129,8 @@ class ProductionConfig(Config):
 class TestingConfig(Config):
     """Testing configuration"""
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'  # In-memory SQLite is fine for unit tests
+    SQLALCHEMY_ENGINE_OPTIONS = {}  # Disable pool options for in-memory SQLite
     WTF_CSRF_ENABLED = False
 
 
