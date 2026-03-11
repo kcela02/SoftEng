@@ -1,4 +1,7 @@
 # app.py - Application Factory Pattern
+from dotenv import load_dotenv
+load_dotenv(override=True)  # Load .env before anything reads os.environ
+
 from flask import Flask, jsonify, redirect, url_for
 from flask_cors import CORS
 from flask_login import LoginManager
