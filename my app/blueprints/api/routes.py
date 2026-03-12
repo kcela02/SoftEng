@@ -113,10 +113,14 @@ def check_low_stock_and_alert(product: Product):
         if product is None or product.current_stock is None:
             return
         
-        # Get multi-horizon forecasts
-        forecast_1day = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=1)
-        forecast_7day = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=7)
-        forecast_30day = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=30)
+        # Get multi-horizon forecasts (returns Forecast objects, extract quantities)
+        forecast_1day_obj = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=1)
+        forecast_7day_obj = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=7)
+        forecast_30day_obj = ForecastingPipeline.get_latest_forecast(product.id, days_ahead=30)
+        
+        forecast_1day = forecast_1day_obj.predicted_quantity if forecast_1day_obj else None
+        forecast_7day = forecast_7day_obj.predicted_quantity if forecast_7day_obj else None
+        forecast_30day = forecast_30day_obj.predicted_quantity if forecast_30day_obj else None
         
         # Determine urgency level and recommended order quantity
         severity = None
@@ -290,6 +294,13 @@ def get_metrics():
     
     # Count active alerts from Alert table (optimized - single query instead of 72+)
     # Alerts are created/updated by check_low_stock_and_alert() function
+    # Proactively refresh alerts if none exist yet (first load or after DB reset)
+    existing_alert_count = Alert.query.filter(Alert.is_active == True).count()
+    if existing_alert_count == 0:
+        all_products = Product.query.filter(Product.is_fake == False).all()
+        for p in all_products:
+            check_low_stock_and_alert(p)
+    
     alerts_count = Alert.query.filter(
         Alert.is_active == True,
         Alert.is_acknowledged == False,
@@ -328,13 +339,17 @@ def get_metrics():
         units_change = ((current_units - previous_units) / previous_units) * 100
     
     # Get daily data for date range (for dashboard trend chart) - OPTIMIZED with GROUP BY
-    # If custom date range, use that; otherwise use current month
+    # Determine the historical portion of the chart based on the period filter
     if filter_start and filter_end:
         chart_start = filter_start
-        chart_end = filter_end - timedelta(days=1)  # Exclude the extra day added for filter
+        chart_end_actual = filter_end - timedelta(days=1)  # Exclude the extra day added for filter
     else:
-        chart_start = today.replace(day=1)
-        chart_end = today
+        # "all" period — show last 90 days on trend chart (daily beyond that is too dense)
+        chart_start = (today - timedelta(days=90)).replace(hour=0, minute=0, second=0, microsecond=0)
+        chart_end_actual = today
+    
+    # Extend the chart 7 days into the future so the forecast line is visible
+    chart_end = chart_end_actual + timedelta(days=7)
     
     # Calculate number of days in the range
     num_days = (chart_end - chart_start).days + 1
@@ -346,35 +361,72 @@ def get_metrics():
         db.func.sum(Sale.quantity * Sale.price).label('revenue')
     ).filter(
         Sale.sale_date >= chart_start,
-        Sale.sale_date <= chart_end,
-        Sale.sale_date <= today.date(),
+        Sale.sale_date <= today,
         Sale.is_fake == False
     ).group_by(Sale.sale_date).all()
     
     for sale_date, revenue in sales_results:
         sales_by_date[sale_date.strftime('%Y-%m-%d')] = float(revenue or 0)
     
-    # OPTIMIZED: Fetch all daily forecasts in one query with GROUP BY
-    avg_price = db.session.query(
-        db.func.avg(Sale.price)
+    # Compute per-product revenue-weighted average price: sum(qty*price)/sum(qty)
+    # This is more accurate than avg(price) which ignores quantity weighting
+    _price_rows = db.session.query(
+        Sale.product_id,
+        (db.func.sum(Sale.quantity * Sale.price) / db.func.sum(Sale.quantity)).label('avg_price')
     ).filter(
-        Sale.sale_date >= chart_start,
-        Sale.sale_date <= chart_end
-    ).scalar() or 10.0
-    
-    forecasts_by_date = {}
+        Sale.sale_date >= (today - timedelta(days=90)),
+        Sale.sale_date <= today,
+        Sale.is_fake == False
+    ).group_by(Sale.product_id).all()
+    product_avg_prices = {pid: float(ap or 0) for pid, ap in _price_rows}
+
+    # Overall weighted avg price as fallback for products with no recent sales
+    _oa = db.session.query(
+        db.func.sum(Sale.quantity * Sale.price).label('rev'),
+        db.func.sum(Sale.quantity).label('qty')
+    ).filter(
+        Sale.sale_date >= (today - timedelta(days=90)),
+        Sale.sale_date <= today,
+        Sale.is_fake == False
+    ).one()
+    overall_avg_price = (float(_oa.rev or 0) / float(_oa.qty or 1)) if _oa.qty else 10.0
+
+    # Fetch per-product daily forecasts and convert to revenue using per-product price
     forecast_results = db.session.query(
         Forecast.forecast_date,
+        Forecast.product_id,
         db.func.sum(Forecast.predicted_quantity).label('quantity')
     ).filter(
         Forecast.forecast_date >= chart_start.date(),
         Forecast.forecast_date <= chart_end.date(),
         Forecast.aggregation_level == 'daily'
-    ).group_by(Forecast.forecast_date).all()
-    
-    for forecast_date, quantity in forecast_results:
+    ).group_by(Forecast.forecast_date, Forecast.product_id).all()
+
+    forecasts_by_date = {}
+    for forecast_date, product_id, quantity in forecast_results:
         if quantity and quantity > 0:
-            forecasts_by_date[forecast_date.strftime('%Y-%m-%d')] = float(quantity * avg_price)
+            date_str = forecast_date.strftime('%Y-%m-%d')
+            price = product_avg_prices.get(product_id, overall_avg_price)
+            forecasts_by_date[date_str] = forecasts_by_date.get(date_str, 0.0) + float(quantity * price)
+
+    # Fill historical gaps using a day-of-week seasonal estimate.
+    # Fill historical gaps where actual sales exist but no stored forecast was generated.
+    # Use the model's bias ratio from the overlap period (dates with both actual + stored forecast)
+    # to project backwards. This avoids inflating historical estimates from future-skewed forecasts.
+    if forecasts_by_date and sales_by_date:
+        overlap_fc_sum = sum(
+            forecasts_by_date[ds] for ds in forecasts_by_date
+            if ds in sales_by_date and sales_by_date[ds] > 0
+        )
+        overlap_actual_sum = sum(
+            sales_by_date[ds] for ds in forecasts_by_date
+            if ds in sales_by_date and sales_by_date[ds] > 0
+        )
+        scale = overlap_fc_sum / overlap_actual_sum if overlap_actual_sum > 0 else 1.0
+        today_str = today.strftime('%Y-%m-%d')
+        for ds, rev in sales_by_date.items():
+            if ds not in forecasts_by_date and ds <= today_str and rev > 0:
+                forecasts_by_date[ds] = rev * scale
     
     # Build arrays by iterating through date range (now just lookups, no queries)
     monthly_daily_sales = []
@@ -3281,6 +3333,47 @@ def get_enhanced_restock_alerts():
 
 # ==================== SYNCHRONIZED DAILY & WEEKLY FORECAST ENDPOINTS ====================
 
+def _generate_backtest_forecasts(product_ids, week_start, week_end):
+    """Generate on-the-fly backtested forecasts for a historical period.
+    
+    Trains the model on data available *before* the period, then predicts
+    the period's dates.  Returns {date_obj: {quantity, conf_lower, conf_upper}}.
+    """
+    from models.regression import forecast_linear_regression
+    days_ahead = (week_end - week_start).days + 1
+    # Training data cutoff: day before the week starts
+    training_end = week_start - timedelta(days=1)
+    
+    aggregated: dict = {}
+    for pid in product_ids:
+        try:
+            results = forecast_linear_regression(
+                db_conn=None,
+                product_id=pid,
+                days_ahead=days_ahead,
+                start_date=week_start,
+                training_end_date=training_end,
+            )
+            if results and not (isinstance(results, dict) and 'error' in results):
+                for item in results:
+                    d = item['date']
+                    if isinstance(d, str):
+                        d = datetime.strptime(d, '%Y-%m-%d').date()
+                    elif hasattr(d, 'date'):
+                        d = d.date()
+                    pred = max(0, item.get('prediction', 0))
+                    cl = max(0, item.get('confidence_lower', pred))
+                    cu = max(0, item.get('confidence_upper', pred))
+                    if d not in aggregated:
+                        aggregated[d] = {'quantity': 0.0, 'conf_lower': 0.0, 'conf_upper': 0.0}
+                    aggregated[d]['quantity'] += pred
+                    aggregated[d]['conf_lower'] += cl
+                    aggregated[d]['conf_upper'] += cu
+        except Exception as e:
+            print(f"[BACKTEST] Error for product {pid}: {e}")
+            continue
+    return aggregated
+
 @api_bp.route('/forecast/daily', methods=['GET'])
 @login_required
 def get_synchronized_daily_forecast():
@@ -3475,6 +3568,7 @@ def get_synchronized_daily_forecast():
             if is_historical_view:
                 # Historical: Show forecasts FOR the week (forecast_date within week)
                 # that were generated BEFORE the week (generated_at < week_start)
+                # Also include forecasts with NULL generated_at (legacy data)
                 forecast_agg = db.session.query(
                     func.date(Forecast.forecast_date).label('date'),
                     func.sum(Forecast.predicted_quantity).label('quantity'),
@@ -3484,7 +3578,7 @@ def get_synchronized_daily_forecast():
                     Forecast.aggregation_level == 'daily',
                     func.date(Forecast.forecast_date) >= forecast_start,
                     func.date(Forecast.forecast_date) <= forecast_end,
-                    Forecast.generated_at < week_start  # Only forecasts generated before this week
+                    db.or_(Forecast.generated_at < week_start, Forecast.generated_at.is_(None))
                 ).group_by(func.date(Forecast.forecast_date)).order_by(func.date(Forecast.forecast_date)).all()
             else:
                 # Current/Future: Show ALL forecasts for the entire week (not just future days)
@@ -3514,6 +3608,12 @@ def get_synchronized_daily_forecast():
                     'conf_upper': float(fc.conf_upper or fc.quantity or 0)
                 }
             
+            # If no stored forecasts found for historical view, generate backtested forecasts on-the-fly
+            if is_historical_view and not forecasts_by_date:
+                print(f"[DEBUG /forecast/daily] No stored forecasts — running backtest for all products")
+                all_pids = [p.id for p in Product.query.filter_by(is_fake=False).all()]
+                forecasts_by_date = _generate_backtest_forecasts(all_pids, week_start, week_end)
+            
             # Fill in all forecast dates from forecast_start to week_end
             current_date = forecast_start
             while current_date <= week_end:
@@ -3530,12 +3630,13 @@ def get_synchronized_daily_forecast():
             # Single product forecasts
             if is_historical_view:
                 # Historical: Show forecasts FOR the week that were generated BEFORE the week
+                # Also include forecasts with NULL generated_at (legacy data)
                 forecasts = Forecast.query.filter(
                     Forecast.product_id == product_id,
                     Forecast.aggregation_level == 'daily',
                     func.date(Forecast.forecast_date) >= forecast_start,
                     func.date(Forecast.forecast_date) <= forecast_end,
-                    Forecast.generated_at < week_start  # Only forecasts generated before this week
+                    db.or_(Forecast.generated_at < week_start, Forecast.generated_at.is_(None))
                 ).order_by(Forecast.forecast_date).all()
             else:
                 # Current/Future: Show ALL forecasts for the entire week (not just future days)
@@ -3569,6 +3670,11 @@ def get_synchronized_daily_forecast():
                     'conf_lower': float(fc.confidence_lower or fc.predicted_quantity or 0),
                     'conf_upper': float(fc.confidence_upper or fc.predicted_quantity or 0)
                 }
+            
+            # If no stored forecasts found for historical view, generate backtested forecasts on-the-fly
+            if is_historical_view and not forecasts_by_date:
+                print(f"[DEBUG /forecast/daily] No stored forecasts for product {product_id} — running backtest")
+                forecasts_by_date = _generate_backtest_forecasts([product_id], week_start, week_end)
             
             # Fill in all forecast dates from forecast_start to week_end
             current_date = forecast_start
@@ -3751,6 +3857,7 @@ def get_synchronized_weekly_forecast():
             # Always get forecasts for all weeks
             if is_historical_month:
                 # Historical: Only use forecasts generated BEFORE the week started (backtesting)
+                # Also include forecasts with NULL generated_at (legacy data)
                 generated_before = week['start']
             else:
                 # Current/Future month: Use latest forecasts (no time filter)
@@ -3772,13 +3879,22 @@ def get_synchronized_weekly_forecast():
                 # Add generated_at filter for historical backtesting
                 if generated_before:
                     total_forecast_query = total_forecast_query.filter(
-                        Forecast.generated_at < generated_before
+                        db.or_(Forecast.generated_at < generated_before, Forecast.generated_at.is_(None))
                     )
                 
                 result = total_forecast_query.first()
                 total_forecast = result.total or 0
                 total_lower = result.lower or 0
                 total_upper = result.upper or 0
+                
+                # Backtest fallback: generate on-the-fly if historical week has no forecasts
+                if is_historical_month and total_forecast == 0:
+                    all_pids = [p.id for p in Product.query.with_entities(Product.id).all()]
+                    bt = _generate_backtest_forecasts(all_pids, week['start'], week['end'])
+                    if bt:
+                        total_forecast = sum(d['quantity'] for d in bt.values())
+                        total_lower = sum(d['conf_lower'] for d in bt.values())
+                        total_upper = sum(d['conf_upper'] for d in bt.values())
                 
                 forecast_data.append({
                     'week': week['week'],
@@ -3804,30 +3920,31 @@ def get_synchronized_weekly_forecast():
                 # Add generated_at filter for historical backtesting
                 if generated_before:
                     forecast_query = forecast_query.filter(
-                        Forecast.generated_at < generated_before
+                        db.or_(Forecast.generated_at < generated_before, Forecast.generated_at.is_(None))
                     )
                 
                 result = forecast_query.first()
                 
-                if result and result.total:
-                    forecast_data.append({
-                        'week': week['week'],
-                        'start': week['start'].isoformat(),
-                        'end': week['end'].isoformat(),
-                        'sales': float(result.total or 0),
-                        'confidence_lower': float(result.lower or 0),
-                        'confidence_upper': float(result.upper or 0)
-                    })
-                else:
-                    # No forecast available, add 0
-                    forecast_data.append({
-                        'week': week['week'],
-                            'start': week['start'].isoformat(),
-                            'end': week['end'].isoformat(),
-                            'sales': 0,
-                            'confidence_lower': 0,
-                            'confidence_upper': 0
-                        })
+                total_f = float(result.total or 0) if result else 0
+                lower_f = float(result.lower or 0) if result else 0
+                upper_f = float(result.upper or 0) if result else 0
+                
+                # Backtest fallback: generate on-the-fly if historical week has no forecasts
+                if is_historical_month and total_f == 0:
+                    bt = _generate_backtest_forecasts([product_id], week['start'], week['end'])
+                    if bt:
+                        total_f = sum(d['quantity'] for d in bt.values())
+                        lower_f = sum(d['conf_lower'] for d in bt.values())
+                        upper_f = sum(d['conf_upper'] for d in bt.values())
+                
+                forecast_data.append({
+                    'week': week['week'],
+                    'start': week['start'].isoformat(),
+                    'end': week['end'].isoformat(),
+                    'sales': total_f,
+                    'confidence_lower': lower_f,
+                    'confidence_upper': upper_f
+                })
         
         # Calculate accuracy (last week's forecast vs actual if available)
         accuracy = None

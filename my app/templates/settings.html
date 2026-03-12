@@ -725,11 +725,19 @@
             formData.append('restore_mode', mode);
             formData.append('admin_password', passwordInput.value);
             
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
             fetch('/api/restore', {
                 method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                credentials: 'same-origin',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok && response.headers.get('content-type') && !response.headers.get('content-type').includes('application/json')) {
+                    throw new Error(`Server error (${response.status}) - check your session or CSRF token`);
+                }
+                return response.json();
+            })
             .then(data => {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-redo"></i> Restore from Backup';

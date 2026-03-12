@@ -50,8 +50,8 @@ def forecast_arima(db_conn, product_id, days_ahead=7, order=(5,1,0)):
         # 3. Calculate model performance metrics (on training data)
         fitted_values = model_fit.fittedvalues
         residuals = ts['y'] - fitted_values
-        mae = np.mean(np.abs(residuals))
-        rmse = np.sqrt(np.mean(residuals**2))
+        mae = float(np.mean(np.abs(residuals)))
+        rmse = float(np.sqrt(np.mean(residuals**2)))
 
         # 4. Format results
         future_dates = create_future_dates(ts, days_ahead)

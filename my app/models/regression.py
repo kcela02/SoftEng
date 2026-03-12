@@ -67,8 +67,8 @@ def forecast_linear_regression(db_conn, product_id, days_ahead=7, start_date=Non
         
         # 4. Calculate model performance on training data
         y_pred_train = model.predict(X)
-        mae = mean_absolute_error(y, y_pred_train)
-        rmse = np.sqrt(mean_squared_error(y, y_pred_train))
+        mae = float(mean_absolute_error(y, y_pred_train))
+        rmse = float(np.sqrt(mean_squared_error(y, y_pred_train)))
         
         # Calculate residual standard deviation for confidence intervals
         residuals = y - y_pred_train

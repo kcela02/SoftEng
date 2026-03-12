@@ -54,26 +54,29 @@ class ForecastEvaluator:
                 func.sum(Sale.quantity).label('actual_qty')
             ).filter(
                 Sale.sale_date >= start_dt,
-                Sale.sale_date <= end_dt
+                Sale.sale_date <= end_dt,
+                Sale.is_fake == False
             ).group_by(Sale.product_id, func.date(Sale.sale_date)).all()
 
             actual_map = {(r.product_id, str(r.sale_day)): float(r.actual_qty) for r in sales_rows}
 
             # Query 2: aggregate forecasts by product + day
+            # Only use daily-level forecasts to avoid double-counting with weekly aggregates
             fc_rows = db.session.query(
                 Forecast.product_id,
                 func.date(Forecast.forecast_date).label('fc_day'),
                 func.sum(Forecast.predicted_quantity).label('predicted_qty')
             ).filter(
                 Forecast.forecast_date >= start_dt,
-                Forecast.forecast_date <= end_dt
+                Forecast.forecast_date <= end_dt,
+                Forecast.aggregation_level == 'daily'
             ).group_by(Forecast.product_id, func.date(Forecast.forecast_date)).all()
 
             if not fc_rows:
                 return 0.0
 
-            total_percentage_error = 0.0
-            valid_count = 0
+            total_abs_error = 0.0
+            total_actual = 0.0
 
             for product_id, fc_day, predicted_qty in fc_rows:
                 actual    = actual_map.get((product_id, str(fc_day)), 0.0)
@@ -82,15 +85,16 @@ class ForecastEvaluator:
                 if actual == 0:
                     continue
 
-                percentage_error = abs(predicted - actual) / actual
-                total_percentage_error += percentage_error
-                valid_count += 1
+                total_abs_error += abs(predicted - actual)
+                total_actual += actual
 
-            if valid_count == 0:
+            if total_actual == 0:
                 return 0.0
 
-            mape     = (total_percentage_error / valid_count) * 100
-            accuracy = max(0.0, 100.0 - mape)
+            # Use WMAPE (Weighted MAPE) — more robust against outliers
+            # than plain MAPE which can exceed 100% from a few bad points
+            wmape    = (total_abs_error / total_actual) * 100
+            accuracy = max(0.0, 100.0 - wmape)
             result   = round(accuracy, 2)
 
             # Store in cache
@@ -150,6 +154,7 @@ class ForecastEvaluator:
             # Get forecasts for this product
             forecasts = Forecast.query.filter(
                 Forecast.product_id == product_id,
+                Forecast.aggregation_level == 'daily',
                 func.date(Forecast.forecast_date) >= start_date,
                 func.date(Forecast.forecast_date) <= end_date
             ).all()
@@ -157,8 +162,8 @@ class ForecastEvaluator:
             if not forecasts:
                 return 0.0
             
-            total_percentage_error = 0.0
-            valid_count = 0
+            total_abs_error = 0.0
+            total_actual = 0.0
             
             for forecast in forecasts:
                 # Get actual sales
@@ -166,24 +171,24 @@ class ForecastEvaluator:
                     func.sum(Sale.quantity)
                 ).filter(
                     Sale.product_id == product_id,
+                    Sale.is_fake == False,
                     func.date(Sale.sale_date) == func.date(forecast.forecast_date)
                 ).scalar()
                 
                 actual = float(actual_sales) if actual_sales else 0.0
-                predicted = float(forecast.forecast_value) if forecast.forecast_value else 0.0
+                predicted = float(forecast.predicted_quantity) if forecast.predicted_quantity else 0.0
                 
                 if actual == 0:
                     continue
                 
-                percentage_error = abs(predicted - actual) / actual
-                total_percentage_error += percentage_error
-                valid_count += 1
+                total_abs_error += abs(predicted - actual)
+                total_actual += actual
             
-            if valid_count == 0:
+            if total_actual == 0:
                 return 0.0
             
-            mape = (total_percentage_error / valid_count) * 100
-            accuracy = max(0.0, 100.0 - mape)
+            wmape = (total_abs_error / total_actual) * 100
+            accuracy = max(0.0, 100.0 - wmape)
             
             return round(accuracy, 2)
             

@@ -189,7 +189,8 @@ class ForecastingPipeline:
                                 rmse=rmse,
                                 aggregation_level='daily',
                                 period_key=period_key,
-                                created_at=datetime.utcnow()
+                                created_at=datetime.utcnow(),
+                                generated_at=today
                             ))
                             snapshot_calls.append(dict(
                                 product_id=product_id,
@@ -272,8 +273,50 @@ class ForecastingPipeline:
             db.session.commit()
 
             # ── STEP 6: Save snapshots after the main commit (separate table) ─────
-            for snap in snapshot_calls:
-                ForecastingPipeline.save_forecast_snapshot(**snap)
+            # Batch all snapshot upserts into a single DB round-trip instead of
+            # committing once per snapshot (which causes ~30+ network round-trips
+            # per product when connected to a remote database).
+            try:
+                if snapshot_calls:
+                    snap_keys = [
+                        (s['product_id'], s['forecast_date'], s.get('horizon', '1-day'))
+                        for s in snapshot_calls
+                    ]
+                    existing_snaps = {
+                        (sn.product_id, sn.forecast_date, sn.forecast_horizon): sn
+                        for sn in ForecastSnapshot.query.filter(
+                            ForecastSnapshot.product_id == product_id
+                        ).all()
+                    }
+                    for snap in snapshot_calls:
+                        horizon = snap.get('horizon', '1-day')
+                        fd = snap['forecast_date']
+                        key = (snap['product_id'], fd, horizon)
+                        existing = existing_snaps.get(key)
+                        if existing:
+                            existing.predicted_quantity = snap['predicted_qty']
+                            existing.model_used = snap['model_used']
+                            existing.snapshot_created_at = datetime.utcnow()
+                            existing.confidence_lower = snap.get('confidence_lower')
+                            existing.confidence_upper = snap.get('confidence_upper')
+                            existing.mae = snap.get('mae')
+                            existing.rmse = snap.get('rmse')
+                        else:
+                            db.session.add(ForecastSnapshot(
+                                product_id=snap['product_id'],
+                                forecast_date=fd,
+                                predicted_quantity=snap['predicted_qty'],
+                                model_used=snap['model_used'],
+                                forecast_horizon=horizon,
+                                confidence_lower=snap.get('confidence_lower'),
+                                confidence_upper=snap.get('confidence_upper'),
+                                mae=snap.get('mae'),
+                                rmse=snap.get('rmse'),
+                            ))
+                    db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print(f"Warning: snapshot save failed for product {product_id}: {str(e)}")
 
             return True
 

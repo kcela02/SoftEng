@@ -581,13 +581,29 @@ function loadDashboardData(period, dateRange = null) {
 
     // Fetch and update dashboard
     fetch(url, { credentials: 'same-origin' })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    // Check if the error body is JSON (e.g. 401 from unauthorized handler)
+                    try {
+                        const errData = JSON.parse(text);
+                        throw new Error(errData.error || `Server error (${response.status})`);
+                    } catch (_) {
+                        throw new Error(`Server error (${response.status})`);
+                    }
+                });
+            }
+            return response.json();
+        })
         .then(data => {
+            if (data && (data.error || data.success === false)) {
+                throw new Error(data.error || 'Failed to load metrics');
+            }
             updateDashboardWithData(data);
         })
         .catch(error => {
             console.error('Error loading dashboard data:', error);
-            showToast('Failed to load dashboard data', 'error');
+            showToast('Failed to load dashboard data: ' + error.message, 'error');
         });
 
     // Refresh accuracy with matching period
@@ -1643,7 +1659,8 @@ function initializeCharts() {
                     pointBackgroundColor: '#818cf8',
                     pointBorderColor: '#121212',
                     pointBorderWidth: 2,
-                    borderDash: [6, 3]
+                    borderDash: [6, 3],
+                    spanGaps: true
                 }]
             },
             options: {

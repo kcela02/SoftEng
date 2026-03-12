@@ -50,7 +50,7 @@ def load_sales_data(db_conn, product_id=None, end_date=None):
         df = df[df['y'] > 0]
         if not df.empty:
             all_days = pd.date_range(df['ds'].min(), df['ds'].max())
-            df = df.set_index('ds').reindex(all_days).fillna(method='ffill').reset_index().rename(columns={'index': 'ds'})
+            df = df.set_index('ds').reindex(all_days).ffill().reset_index().rename(columns={'index': 'ds'})
         return df
         
     except Exception as e:
