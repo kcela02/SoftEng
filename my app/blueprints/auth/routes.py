@@ -268,3 +268,18 @@ def update_profile():
         return jsonify({'success': True, 'message': 'Email updated successfully.'})
 
     return jsonify({'success': False, 'message': 'Nothing to update.'}), 400
+
+@auth_bp.route("/verify_admin", methods=["POST"])
+@login_required
+def verify_admin():
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "message": "Invalid request"}), 400
+    username = data.get("username")
+    password = data.get("password")
+    
+    user = User.query.filter_by(username=username).first()
+    if user and user.check_password(password) and user.role == "admin":
+        return jsonify({"success": True}), 200
+    return jsonify({"success": False, "message": "Invalid admin credentials"}), 401
+

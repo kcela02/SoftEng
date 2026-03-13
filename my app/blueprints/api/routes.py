@@ -29,6 +29,33 @@ def api_forbidden(error):
     """Return JSON 403 for API requests."""
     return jsonify({'success': False, 'error': 'Forbidden - insufficient permissions'}), 403
 
+
+# ============================================================================
+# APK Download — Admin Credential Verification
+# ============================================================================
+@api_bp.route('/verify-admin-download', methods=['POST'])
+@login_required
+def verify_admin_download():
+    """Verify that the submitted credentials belong to an admin account before allowing APK download."""
+    data = request.get_json(silent=True) or {}
+    username = str(data.get('username', '')).strip()
+    password = str(data.get('password', ''))
+
+    if not username or not password:
+        return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
+
+    from werkzeug.security import check_password_hash
+    user = User.query.filter_by(username=username).first()
+
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({'success': False, 'message': 'Invalid credentials. Please try again.'}), 401
+
+    if user.role != 'admin':
+        return jsonify({'success': False, 'message': 'Access denied. Only admin accounts can download the APK.'}), 403
+
+    return jsonify({'success': True, 'message': 'Verified.'})
+
+
 @api_bp.before_request
 def api_before_request():
     """Validate that API calls are authenticated, return JSON errors."""

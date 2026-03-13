@@ -205,6 +205,75 @@
         </div>
     </div>
 
+    <!-- APK Admin Verification Modal -->
+    <div id="apk-admin-verify-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h3 style="display:flex; align-items:center; gap:10px;">
+                    <span style="background:var(--color-primary-light); border-radius:8px; width:34px; height:34px;
+                                 display:flex; align-items:center; justify-content:center; border:1px solid var(--color-divider);">
+                        <i class="fas fa-shield-alt" style="color:var(--color-text-secondary);"></i>
+                    </span>
+                    Admin Verification Required
+                </h3>
+                <span class="modal-close" onclick="closeModal('apk-admin-verify-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--color-text-secondary); margin:0 0 20px; font-size:14px; line-height:1.6;
+                           padding:10px 14px; background:var(--color-primary-light); border-radius:6px;
+                           border-left:3px solid var(--color-accent);">
+                    <i class="fas fa-lock" style="margin-right:6px;"></i>
+                    Downloading the VapeCrib APK requires admin credentials. Enter the admin account details below.
+                </p>
+
+                <div class="form-group">
+                    <label for="apk-verify-username">
+                        <i class="fas fa-user" style="margin-right:5px;"></i>Admin Username
+                    </label>
+                    <input type="text" id="apk-verify-username" autocomplete="username"
+                        placeholder="Enter admin username"
+                        onkeydown="if(event.key==='Enter') verifyAndDownloadApk()" />
+                </div>
+
+                <div class="form-group">
+                    <label for="apk-verify-password">
+                        <i class="fas fa-key" style="margin-right:5px;"></i>Admin Password
+                    </label>
+                    <div style="position:relative;">
+                        <input type="password" id="apk-verify-password" autocomplete="current-password"
+                            placeholder="Enter admin password"
+                            style="padding-right:40px;"
+                            onkeydown="if(event.key==='Enter') verifyAndDownloadApk()" />
+                        <button type="button" onclick="toggleApkPassVis()" tabindex="-1"
+                            style="position:absolute; right:10px; top:50%; transform:translateY(-50%);
+                                   background:none; border:none; cursor:pointer; color:var(--color-text-secondary);
+                                   font-size:15px; padding:0;">
+                            <i id="apk-pass-eye" class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="apk-verify-error" style="display:none; padding:10px 14px;
+                     background:rgba(239,68,68,0.12); border-left:4px solid #ef4444;
+                     border-radius:6px; color:#fca5a5; font-size:13px; margin-bottom:16px;">
+                    <i class="fas fa-exclamation-circle" style="margin-right:6px;"></i>
+                    <span id="apk-verify-error-msg">Invalid admin credentials.</span>
+                </div>
+
+                <button onclick="verifyAndDownloadApk()" id="apk-verify-btn" class="btn btn-primary"
+                    style="width:100%; padding:13px; font-size:15px; font-weight:700; letter-spacing:0.04em;">
+                    <i class="fas fa-download" style="margin-right:7px;"></i>Verify &amp; Download APK
+                </button>
+
+                <div id="apk-verify-success" style="display:none; margin-top:14px; padding:10px 14px;
+                     background:rgba(16,185,129,0.12); border-left:4px solid #10b981;
+                     border-radius:6px; color:#6ee7b7; font-size:13px;">
+                    <i class="fas fa-check-circle" style="margin-right:6px;"></i>Verified! Downloading VapeCrib APK&hellip;
+                </div>
+            </div>
+        </div>
+    </div>
+
         <!-- Currency formatting utilities -->
         <script src="{{ url_for('static', filename='utils.js') }}?v={{ range(1, 99999) | random }}"></script>
         <script src="{{ url_for('static', filename='app.js') }}?v={{ range(1, 99999) | random }}"></script>
@@ -336,14 +405,92 @@
             loadQuickStats();
         }
 
-        // Show download options
+        // Show APK admin verification modal
         function showDownloadOptions() {
-            const link = document.createElement('a');
-            link.href = '/static/app-release.apk';
-            link.download = 'VapeCrib.apk';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Reset modal state
+            document.getElementById('apk-verify-username').value = '';
+            document.getElementById('apk-verify-password').value = '';
+            document.getElementById('apk-verify-error').style.display = 'none';
+            document.getElementById('apk-verify-success').style.display = 'none';
+            var btn = document.getElementById('apk-verify-btn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-download" style="margin-right:7px;"></i>Verify &amp; Download APK';
+            openModal('apk-admin-verify-modal');
+            setTimeout(function(){ document.getElementById('apk-verify-username').focus(); }, 150);
+        }
+
+        // Toggle password visibility in apk verify modal
+        function toggleApkPassVis() {
+            var inp = document.getElementById('apk-verify-password');
+            var eye = document.getElementById('apk-pass-eye');
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                eye.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                inp.type = 'password';
+                eye.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
+        // Verify admin credentials and trigger APK download
+        function verifyAndDownloadApk() {
+            var username = document.getElementById('apk-verify-username').value.trim();
+            var password = document.getElementById('apk-verify-password').value;
+            var errorDiv = document.getElementById('apk-verify-error');
+            var errorMsg = document.getElementById('apk-verify-error-msg');
+            var successDiv = document.getElementById('apk-verify-success');
+            var btn = document.getElementById('apk-verify-btn');
+
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            if (!username || !password) {
+                errorMsg.textContent = 'Please enter both username and password.';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:7px;"></i>Verifying&hellip;';
+
+            var csrfToken = document.querySelector('meta[name="csrf-token"]') ?
+                document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+
+            fetch('/api/verify-admin-download', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ username: username, password: password })
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    successDiv.style.display = 'block';
+                    btn.innerHTML = '<i class="fas fa-check" style="margin-right:7px;"></i>Downloading&hellip;';
+                    setTimeout(function() {
+                        var link = document.createElement('a');
+                        link.href = '/static/app-release.apk';
+                        link.download = 'VapeCrib.apk';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        setTimeout(function(){ closeModal('apk-admin-verify-modal'); }, 1800);
+                    }, 600);
+                } else {
+                    errorMsg.textContent = data.message || 'Invalid admin credentials.';
+                    errorDiv.style.display = 'block';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-download" style="margin-right:7px;"></i>Verify &amp; Download APK';
+                }
+            })
+            .catch(function() {
+                errorMsg.textContent = 'Network error. Please try again.';
+                errorDiv.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-download" style="margin-right:7px;"></i>Verify &amp; Download APK';
+            });
         }
 
         // Load users for manage users modal
