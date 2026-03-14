@@ -157,5 +157,5 @@ if __name__ == '__main__':
     
     # Run Flask development server with auto-reload
         # Only run the development server if not in production
-        if __name__ == "__main__":
+    if __name__ == "__main__":
             app.run(debug=debug_mode, port=port, use_reloader=debug_mode)
