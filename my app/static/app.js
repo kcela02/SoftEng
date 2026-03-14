@@ -554,14 +554,14 @@ function loadDashboardData(period, dateRange = null) {
     
     if (unitsHint) unitsHint.textContent = periodLabel;
     if (revenueHint) revenueHint.textContent = periodLabel;
-    if (accuracyHint) accuracyHint.textContent = `Based on ${periodLabel}`;
+    if (accuracyHint) accuracyHint.textContent = 'Overall forecast accuracy';
     
     if (period === 'custom' && dateRange) {
         url = `/api/metrics?start_date=${dateRange.start}&end_date=${dateRange.end}`;
         const customLabel = `${dateRange.start} to ${dateRange.end}`;
         if (unitsHint) unitsHint.textContent = customLabel;
         if (revenueHint) revenueHint.textContent = customLabel;
-        if (accuracyHint) accuracyHint.textContent = `Based on ${customLabel}`;
+        if (accuracyHint) accuracyHint.textContent = 'Overall forecast accuracy';
     }
     
     // Map period to days_back for accuracy API
@@ -1978,6 +1978,8 @@ window.closeInventoryModal = function() {
 document.addEventListener('DOMContentLoaded', function() {
     const exportAlertsBtn = document.getElementById('export-alerts-csv');
     const downloadReportBtn = document.getElementById('download-report');
+    const exportProductsBtn = document.getElementById('export-products-btn');
+    const exportStatus = document.getElementById('export-status');
 
     if (exportAlertsBtn) {
         exportAlertsBtn.addEventListener('click', function() {
@@ -1988,6 +1990,31 @@ document.addEventListener('DOMContentLoaded', function() {
     if (downloadReportBtn) {
         downloadReportBtn.addEventListener('click', function() {
             window.location.href = '/api/export-report';
+        });
+    }
+
+    if (exportProductsBtn && exportStatus) {
+        exportProductsBtn.addEventListener('click', function() {
+            // Show styled feedback for export start
+            exportStatus.style.display = 'block';
+            exportStatus.style.background = '#fef3c7';
+            exportStatus.style.borderLeft = '4px solid #f59e0b';
+            exportStatus.style.color = '#92400e';
+            exportStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Export started. Downloading CSV...';
+
+            // Start download
+            window.location.href = '/api/download-all-data';
+
+            // Show completed after a short delay
+            setTimeout(function() {
+                exportStatus.style.background = '#d1fae5';
+                exportStatus.style.borderLeft = '4px solid #10b981';
+                exportStatus.style.color = '#065f46';
+                exportStatus.innerHTML = '<i class="fas fa-check-circle"></i> Export completed. If download did not start, check your browser settings.';
+                setTimeout(function() {
+                    exportStatus.style.display = 'none';
+                }, 4000);
+            }, 2000);
         });
     }
 

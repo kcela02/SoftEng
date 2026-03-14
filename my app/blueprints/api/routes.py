@@ -376,7 +376,7 @@ def get_metrics():
         chart_end_actual = today
     
     # Extend the chart 7 days into the future so the forecast line is visible
-    chart_end = chart_end_actual + timedelta(days=7)
+    chart_end = chart_end_actual  # Only show the selected time period
     
     # Calculate number of days in the range
     num_days = (chart_end - chart_start).days + 1
@@ -1056,15 +1056,23 @@ def backup_system():
                 Sale.product_id
             ).join(Product, Sale.product_id == Product.id).order_by(Sale.sale_date.desc()).all()
             
+            from sqlalchemy import func
             for sale in sales:
                 forecast_value = ''
-                forecast = Forecast.query.filter_by(
-                    product_id=sale.product_id,
-                    forecast_date=sale.sale_date.date() if hasattr(sale.sale_date, 'date') else sale.sale_date
+                sale_date = sale.sale_date.date() if hasattr(sale.sale_date, 'date') else sale.sale_date
+                # Try exact match (date only)
+                forecast = Forecast.query.filter(
+                    Forecast.product_id == sale.product_id,
+                    func.date(Forecast.forecast_date) == sale_date
                 ).first()
+                # If not found, try closest forecast before sale date
+                if not forecast:
+                    forecast = Forecast.query.filter(
+                        Forecast.product_id == sale.product_id,
+                        Forecast.forecast_date <= sale.sale_date
+                    ).order_by(Forecast.forecast_date.desc()).first()
                 if forecast:
                     forecast_value = f'{forecast.predicted_quantity:.2f}'
-                
                 sales_writer.writerow([
                     sale.product_name,
                     sale.category or '',
@@ -1231,7 +1239,8 @@ def restore_system():
                                         forecast_date=pd.to_datetime(row['sale_date']).date(),
                                         predicted_quantity=forecast_val,
                                         model_name='restored_from_backup',
-                                        aggregation_level='daily'
+                                        aggregation_level='daily',
+                                        model_used='LINEAR_REGRESSION'
                                     )
                                     db.session.add(forecast)
                                     stats['forecasts_added'] += 1
@@ -1321,10 +1330,10 @@ def restore_system():
             db.session.commit()
         
         # Log restoration activity
-        ActivityLogger.log_activity(
+        ActivityLogger.log(
+            action=f"System restore ({restore_mode} mode)",
             user_id=current_user.id,
-            action=f"System restore ({restore_mode} mode): {stats['products_added']} products, {stats['sales_added']} sales, {stats['users_added']} users",
-            details=f"Restored from {filename}"
+            details=f"{stats['products_added']} products, {stats['sales_added']} sales, {stats['users_added']} users | Restored from {filename}"
         )
         
         return jsonify({

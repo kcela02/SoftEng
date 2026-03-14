@@ -841,7 +841,9 @@ body::after {
     border-radius: 4px;
     width: 100%;
     background-color: var(--color-primary-dark);
-    color: var(--color-text-primary);
+    color: #222 !important;
+    font-weight: 500;
+    /* Ensures text is visible on white backgrounds */
 }
 
 #import-status {
