@@ -522,21 +522,67 @@ def get_metrics():
     monthly_data = []
     
     if filter_start and filter_end:
-        # Group by month within the filtered date range
         from sqlalchemy import extract
-        results = db.session.query(
-            extract('year', Sale.sale_date).label('year'),
-            extract('month', Sale.sale_date).label('month'),
-            db.func.sum(Sale.quantity * Sale.price).label('revenue')
-        ).filter(
-            Sale.sale_date >= filter_start,
-            Sale.sale_date < filter_end
-        ).group_by('year', 'month').order_by('year', 'month').all()
-        
-        for year, month, revenue in results:
-            month_date = datetime(int(year), int(month), 1)
-            monthly_labels.append(month_date.strftime('%b %Y'))
-            monthly_data.append(float(revenue or 0))
+        if period in ['7d', '30d', 'all']:
+            # Aggregate all days into a single bar
+            total_revenue = db.session.query(
+                db.func.sum(Sale.quantity * Sale.price).label('revenue')
+            ).filter(
+                Sale.sale_date >= filter_start,
+                Sale.sale_date < filter_end
+            ).scalar() or 0.0
+            if period == '7d':
+                monthly_labels.append('Last 7 Days')
+            elif period == '30d':
+                monthly_labels.append('Last 30 Days')
+            else:
+                monthly_labels.append('All Time')
+            monthly_data.append(float(total_revenue))
+        elif period in ['3m', '6m', '1y']:
+            # Calculate exact month boundaries
+            now = datetime.now()
+            if period == '3m':
+                month_count = 3
+            elif period == '6m':
+                month_count = 6
+            else:
+                month_count = 12
+            # Calculate the first day of the current month
+            first_day_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            month_starts = []
+            for i in range(month_count):
+                # Go back i months from the current month
+                year = first_day_this_month.year
+                month = first_day_this_month.month - i
+                while month <= 0:
+                    month += 12
+                    year -= 1
+                month_start = datetime(year, month, 1)
+                month_starts.append(month_start)
+            month_starts = sorted(month_starts)
+            monthly_labels = []
+            monthly_data = []
+            for i in range(month_count):
+                start = month_starts[i]
+                if i < month_count-1:
+                    end = month_starts[i+1]
+                else:
+                    # End at the first day of the next month (not future)
+                    end_year = start.year
+                    end_month = start.month + 1
+                    if end_month > 12:
+                        end_month = 1
+                        end_year += 1
+                    end = datetime(end_year, end_month, 1)
+                revenue = db.session.query(
+                    db.func.sum(Sale.quantity * Sale.price).label('revenue')
+                ).filter(
+                    Sale.sale_date >= start,
+                    Sale.sale_date < end,
+                    Sale.sale_date <= now
+                ).scalar() or 0.0
+                monthly_labels.append(start.strftime('%b %Y'))
+                monthly_data.append(float(revenue))
     else:
         # Default: last 6 months — single GROUP BY query
         from sqlalchemy import extract
@@ -1041,11 +1087,12 @@ def backup_system():
             
             zipf.writestr('products.csv', products_csv.getvalue())
             
+
             # 2. Sales CSV (unified_sales format with forecast)
             sales_csv = io.StringIO()
             sales_writer = csv.writer(sales_csv)
             sales_writer.writerow(['product_name', 'category', 'unit_cost', 'quantity_sold', 'sale_price', 'sale_date', 'forecast'])
-            
+
             sales = db.session.query(
                 Product.name.label('product_name'),
                 Product.category,
@@ -1055,7 +1102,7 @@ def backup_system():
                 Sale.sale_date,
                 Sale.product_id
             ).join(Product, Sale.product_id == Product.id).order_by(Sale.sale_date.desc()).all()
-            
+
             from sqlalchemy import func
             for sale in sales:
                 forecast_value = ''
@@ -1082,8 +1129,36 @@ def backup_system():
                     sale.sale_date.strftime('%Y-%m-%d %H:%M:%S'),
                     forecast_value
                 ])
-            
+
             zipf.writestr('sales.csv', sales_csv.getvalue())
+
+            # 4. Forecasts CSV (all forecasts, past and future)
+            forecasts_csv = io.StringIO()
+            forecasts_writer = csv.writer(forecasts_csv)
+            forecasts_writer.writerow(['product_name', 'forecast_date', 'predicted_quantity', 'model_name', 'aggregation_level', 'model_used'])
+
+            forecasts = db.session.query(
+                Forecast.product_id,
+                Forecast.forecast_date,
+                Forecast.predicted_quantity,
+                Forecast.model_name,
+                Forecast.aggregation_level,
+                Forecast.model_used
+            ).all()
+
+            for f in forecasts:
+                product = Product.query.get(f.product_id)
+                product_name = product.name if product else ''
+                forecasts_writer.writerow([
+                    product_name,
+                    f.forecast_date.strftime('%Y-%m-%d'),
+                    f'{f.predicted_quantity:.2f}',
+                    f.model_name,
+                    f.aggregation_level,
+                    f.model_used
+                ])
+
+            zipf.writestr('forecasts.csv', forecasts_csv.getvalue())
             
             # 3. Users CSV (with password hashes for restoration)
             users_csv = io.StringIO()
@@ -1251,6 +1326,30 @@ def restore_system():
                             stats['errors'].append(f"Sale import error: {str(e)}")
                     
                     db.session.commit()
+
+                # Restore forecasts from forecasts.csv if present
+                if 'forecasts.csv' in zipf.namelist():
+                    forecasts_data = zipf.read('forecasts.csv').decode('utf-8')
+                    forecasts_df = pd.read_csv(io.StringIO(forecasts_data))
+                    for _, row in forecasts_df.iterrows():
+                        try:
+                            product = Product.query.filter_by(name=str(row['product_name']).strip()).first()
+                            if not product:
+                                stats['errors'].append(f"Product '{row['product_name']}' not found for forecast")
+                                continue
+                            forecast = Forecast(
+                                product_id=product.id,
+                                forecast_date=pd.to_datetime(row['forecast_date']).date(),
+                                predicted_quantity=float(row['predicted_quantity']),
+                                model_name=str(row['model_name']),
+                                aggregation_level=str(row['aggregation_level']),
+                                model_used=str(row['model_used'])
+                            )
+                            db.session.add(forecast)
+                            stats['forecasts_added'] += 1
+                        except Exception as e:
+                            stats['errors'].append(f"Forecast import error: {str(e)}")
+                    db.session.commit()
                 
                 # Restore users (hard mode only)
                 if restore_mode == 'hard' and 'users.csv' in zipf.namelist():
@@ -1336,6 +1435,11 @@ def restore_system():
             details=f"{stats['products_added']} products, {stats['sales_added']} sales, {stats['users_added']} users | Restored from {filename}"
         )
         
+        feedback = None
+        if restore_mode == 'soft':
+            feedback = "Soft restore only keeps users and replaces products & sales."
+        elif restore_mode == 'hard':
+            feedback = "Hard restore replaces everything including users."
         return jsonify({
             'success': True,
             'message': f"Restore completed ({restore_mode} mode)",
@@ -1343,6 +1447,7 @@ def restore_system():
             'sales_added': stats['sales_added'],
             'users_added': stats['users_added'],
             'forecasts_restored': stats['forecasts_added'],
+            'feedback': feedback,
             'errors': stats['errors']
         })
         
@@ -5247,10 +5352,9 @@ def train_model():
         
         # Log training start
         ActivityLogger.log(
-            action_type=ActivityLogger.FORECAST,
+            ActivityLogger.FORECAST_GENERATE,
             user_id=current_user.id,
-            action='Model retraining initiated',
-            details=f'Mode: {mode}'
+            details=f'Model retraining initiated: Mode: {mode}'
         )
         
         if mode == 'standard':

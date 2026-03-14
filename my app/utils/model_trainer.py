@@ -70,13 +70,12 @@ class ForecastingPipeline:
                     continue
             
             # Log the retraining activity
-            if user_id and retrained_count > 0:
-                ActivityLogger.log(
-                    action_type=ActivityLogger.FORECAST,
-                    user_id=user_id,
-                    action='Auto-generated forecasts after CSV import',
-                    details=f'Retrained {retrained_count} products, Skipped {skipped_count} (insufficient data), Failed {failed_count}'
-                )
+                if user_id and retrained_count > 0:
+                    ActivityLogger.log(
+                        ActivityLogger.FORECAST_GENERATE,
+                        user_id=user_id,
+                        details=f'Auto-generated forecasts after CSV import: Retrained {retrained_count} products, Skipped {skipped_count} (insufficient data), Failed {failed_count}'
+                    )
             
             return {
                 'retrained': retrained_count,
