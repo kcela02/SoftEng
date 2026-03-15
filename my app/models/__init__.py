@@ -106,6 +106,7 @@ class Sale(db.Model):
     sale_date = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     is_fake = db.Column(db.Boolean, default=False)  # Flag for fake data
+    used_for_training = db.Column(db.Boolean, default=False)  # Track if sale was used for model training
 
     def to_dict(self):
         product = Product.query.get(self.product_id)
