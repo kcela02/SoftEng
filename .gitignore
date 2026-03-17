@@ -32,6 +32,8 @@ my app/instance/models/
 _for_collaborators/
 my app/data/*.csv
 my app/sample_*.csv
+# ── Documentation files ───────────────────────────────────────────────────────
+Document/
 
 # ── Dev-only scripts (local use only, not for deployment) ──────────────────────
 /runtime.txt
