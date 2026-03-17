@@ -2277,9 +2277,7 @@ def delete_product(product_id):
             Forecast.aggregation_level == 'daily',
             db.func.date(Forecast.forecast_date) > datetime.now().date()
         ).count(),
-        'forecasts_snapshots': db.session.query(db.func.count()).select_entity_from(
-            Forecast.__table__
-        ).filter(Forecast.product_id == product_id).scalar(),
+        'forecasts_snapshots': Forecast.query.filter(Forecast.product_id == product_id).count(),
         'inventory_batches': InventoryBatch.query.filter_by(product_id=product_id).count(),
         'alerts': Alert.query.filter_by(product_id=product_id).count(),
         'inventory_records': Inventory.query.filter_by(product_id=product_id).count(),
@@ -2345,9 +2343,7 @@ def delete_product(product_id):
             print(f"  [WARNING] Deleted {deleted_forecasts} forecast records (including {impact['historical_forecasts']} historical)")
         
         # Delete forecast snapshots related to this product
-        deleted_snapshots = db.session.query(db.func.count()).select_entity_from(
-            Forecast.__table__
-        ).filter(Forecast.product_id == product_id).scalar()
+        deleted_snapshots = Forecast.query.filter(Forecast.product_id == product_id).count()
         
         # Delete inventory records related to this product
         deleted_inventory = Inventory.query.filter_by(product_id=product_id).delete()
@@ -3580,17 +3576,29 @@ def get_synchronized_daily_forecast():
                 week_start = current_week_start
                 week_end = week_start + timedelta(days=6)
             else:
-                # Different week requested - calculate it normally
+                # Different week requested - calculate based on week number
+                if week_num == 1:
+                    # Week 1 always starts on the 1st day of the month
+                    week_start = month_start
+                    week_end = week_start + timedelta(days=6)
+                else:
+                    # Weeks 2-5: align to Monday
+                    week_start = month_start + timedelta(days=(week_num - 1) * 7)
+                    days_to_monday = week_start.weekday()
+                    week_start = week_start - timedelta(days=days_to_monday)
+                    week_end = week_start + timedelta(days=6)
+        else:
+            # Not current month - calculate week boundaries
+            if week_num == 1:
+                # Week 1 always starts on the 1st day of the month (no Monday alignment)
+                week_start = month_start
+                week_end = week_start + timedelta(days=6)
+            else:
+                # Weeks 2-5: align to Monday
                 week_start = month_start + timedelta(days=(week_num - 1) * 7)
                 days_to_monday = week_start.weekday()
                 week_start = week_start - timedelta(days=days_to_monday)
                 week_end = week_start + timedelta(days=6)
-        else:
-            # Not current month - calculate week normally
-            week_start = month_start + timedelta(days=(week_num - 1) * 7)
-            days_to_monday = week_start.weekday()
-            week_start = week_start - timedelta(days=days_to_monday)
-            week_end = week_start + timedelta(days=6)
         
         # IMPORTANT: Determine if we're viewing historical data or future data
         # If the selected week is in the past, show all data for that week
@@ -5404,16 +5412,17 @@ def get_training_history():
         if user_role not in ('admin', 'manager'):
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
         
-        # Get training logs from activity logs
-        training_logs = Log.query.filter(
-            Log.action.like('%retrain%') | Log.action.like('%forecast%')
+        # Get training logs from activity logs with user information
+        training_logs = db.session.query(Log, User).outerjoin(User, Log.user_id == User.id).filter(
+            (Log.action.like('%retrain%')) | (Log.action.like('%forecast%')) | (Log.action.like('%training%'))
         ).order_by(Log.timestamp.desc()).limit(50).all()
         
         history = []
-        for log in training_logs:
+        for log, user in training_logs:
             history.append({
-                'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else None,
                 'action': log.action,
+                'user': user.username if user else 'System',
                 'user_id': log.user_id
             })
         

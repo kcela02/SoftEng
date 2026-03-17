@@ -1,0 +1,106 @@
+================================================================================
+4.2 TESTING PROCEDURES
+================================================================================
+
+This section explains the methods used to test the system. It describes the 
+types of testing conducted to ensure correctness and reliability.
+
+
+4.2.1 Unit Testing
+--------------------------------------------------------------------------------
+
+Unit testing was conducted to verify the functionality of individual 
+components and functions within the system.
+
+A. Backend Unit Tests
+----------------------
+Tests conducted on Python/Flask components:
+
+| Component | Test Description | Expected Result |
+|-----------|------------------|-----------------|
+| Data Validation | Test CSV column validation | Correct columns accepted, invalid rejected |
+| Data Cleaning | Test missing value handling | Missing values handled correctly |
+| Linear Regression | Test trend calculation | Correct trend direction identified |
+| ARIMA Model | Test forecast generation | Forecast values generated |
+| Authentication | Test login validation | Valid credentials accepted, invalid rejected |
+| Database Operations | Test CRUD operations | All operations work correctly |
+
+B. Frontend Unit Tests
+-----------------------
+[INSERT FRONTEND TESTS IF APPLICABLE]
+
+
+4.2.2 Integration Testing
+--------------------------------------------------------------------------------
+
+Integration testing was conducted to verify that the different modules 
+work together correctly.
+
+A. API Integration Tests
+------------------------
+| Test | Description | Expected Result |
+|------|-------------|-----------------|
+| Login Flow | Test login via API | Successful authentication |
+| Upload Flow | Test CSV upload via API | File uploaded and processed |
+| Forecast Flow | Test forecast generation API | Forecast data returned |
+| Alert Flow | Test alert generation | Alerts created correctly |
+
+B. Frontend-Backend Integration
+-------------------------------
+- Test dashboard loads data correctly
+- Test real-time inventory updates
+- Test alert notifications
+
+
+4.2.3 System Testing
+--------------------------------------------------------------------------------
+
+System testing was conducted to verify the complete system functions 
+as specified in the requirements.
+
+A. Functional Requirements Testing
+-----------------------------------
+
+| Requirement | Test Description | Status |
+|-------------|------------------|--------|
+| User Authentication | Users can log in with valid credentials | [PASS/FAIL] |
+| CSV Upload | Users can upload CSV files | [PASS/FAIL] |
+| Data Processing | Data is validated and cleaned | [PASS/FAIL] |
+| Forecasting | ARIMA and Linear Regression work | [PASS/FAIL] |
+| Dashboard Display | All visualizations render correctly | [PASS/FAIL] |
+| Inventory Management | Products can be added/edited/deleted | [PASS/FAIL] |
+| Restock Alerts | Alerts generated when stock is low | [PASS/FAIL] |
+
+B. Non-Functional Requirements Testing
+--------------------------------------
+
+1. Performance Testing
+   - Response time for dashboard load
+   - Processing time for CSV upload
+   - Forecast generation time
+
+2. Security Testing
+   - Password protection
+   - Role-based access control
+   - SQL injection prevention
+
+3. Compatibility Testing
+   - Tested on Chrome, Firefox, Edge, Safari
+   - Responsive design on different screen sizes
+
+
+4.2.4 User Acceptance Testing (UAT)
+--------------------------------------------------------------------------------
+
+UAT was conducted with the VAPE CRIB owner and staff to validate 
+the system from an end-user perspective.
+
+Test Environment:
+- Location: [INSERT LOCATION]
+- Date: [INSERT DATE]
+- Participants: [INSERT PARTICIPANTS]
+
+[ADD MORE DETAILS]
+
+
+================================================================================

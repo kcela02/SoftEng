@@ -315,12 +315,22 @@
             
             const navLinks = document.querySelectorAll('.nav [data-tab-link]');
             function activateTab(name){
-                buttons.forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
-                Object.entries(sections).forEach(([k,el])=> el.classList.toggle('active', k===name));
+                if (buttons) {
+                    buttons.forEach(b=> {
+                        if (b && b.classList) b.classList.toggle('active', b.dataset.tab===name);
+                    });
+                }
+                if (sections) {
+                    Object.entries(sections).forEach(([k,el])=> {
+                        if (el && el.classList) el.classList.toggle('active', k===name);
+                    });
+                }
                 sessionStorage.setItem('dashboard_active_tab', name);
                 // Toggle navbar active state for in-page tabs
                 if (navLinks && navLinks.length) {
-                    navLinks.forEach(a=> a.classList.toggle('active', a.getAttribute('data-tab-link')===name));
+                    navLinks.forEach(a=> {
+                        if (a && a.classList) a.classList.toggle('active', a.getAttribute('data-tab-link')===name);
+                    });
                 }
             }
             buttons.forEach(b=> b.addEventListener('click', ()=> activateTab(b.dataset.tab)));

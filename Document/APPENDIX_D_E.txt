@@ -1,0 +1,227 @@
+================================================================================
+APPENDIX D: SOURCE CODE
+================================================================================
+
+[INSERT TITLE PAGE]
+
+This appendix contains the relevant source code of the Predictive Sales & 
+Restocking Dashboard System.
+
+
+D.1 PROJECT STRUCTURE
+--------------------------------------------------------------------------------
+
+[INSERT PROJECT FOLDER STRUCTURE]
+
+vape_crib_dashboard/
+├── backend/
+│   ├── app.py
+│   ├── models.py
+│   ├── routes/
+│   │   ├── auth.py
+│   │   ├── products.py
+│   │   ├── sales.py
+│   │   ├── forecast.py
+│   │   └── alerts.py
+│   ├── utils/
+│   │   ├── data_cleaning.py
+│   │   ├── forecasting.py
+│   │   └── validation.py
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── App.js
+│   │   └── index.js
+│   └── package.json
+└── README.md
+
+
+D.2 BACKEND SOURCE CODE
+--------------------------------------------------------------------------------
+
+D.2.1 Main Application (app.py)
+---------------------------------
+[INSERT app.py CODE]
+
+D.2.2 Database Models (models.py)
+----------------------------------
+[INSERT models.py CODE]
+
+D.2.3 Forecasting Module (forecasting.py)
+-----------------------------------------
+[INSERT forecasting.py CODE]
+
+[INCLUDE KEY SOURCE CODE FILES - INSERT YOUR ACTUAL CODE]
+
+
+D.3 FRONTEND SOURCE CODE
+--------------------------------------------------------------------------------
+
+D.3.1 Main App Component (App.js)
+----------------------------------
+[INSERT App.js CODE]
+
+D.3.2 Dashboard Component
+--------------------------
+[INSERT Dashboard component CODE]
+
+[INCLUDE KEY FRONTEND CODE]
+
+
+================================================================================
+END OF APPENDIX D
+================================================================================
+
+
+================================================================================
+APPENDIX E: USER MANUAL
+================================================================================
+
+[INSERT TITLE PAGE]
+
+This appendix provides instructions on how to use the Predictive Sales & 
+Restocking Dashboard System.
+
+
+E.1 SYSTEM REQUIREMENTS
+--------------------------------------------------------------------------------
+
+Hardware Requirements:
+- Computer/Laptop with internet connection
+- Minimum 4GB RAM
+- 100MB free storage
+
+Software Requirements:
+- Web Browser (Chrome, Firefox, Edge, or Safari - latest version)
+- Python 3.x (for local deployment)
+- Node.js (for local deployment)
+
+
+E.2 INSTALLATION INSTRUCTIONS
+--------------------------------------------------------------------------------
+
+For Local Deployment:
+
+1. Clone the repository
+   ```
+   git clone [REPOSITORY_URL]
+   ```
+
+2. Set up backend
+   ```
+   cd backend
+   pip install -r requirements.txt
+   python app.py
+   ```
+
+3. Set up frontend
+   ```
+   cd frontend
+   npm install
+   npm start
+   ```
+
+4. Access the application
+   - Open browser and navigate to: http://localhost:3000
+
+
+E.3 USER GUIDE
+--------------------------------------------------------------------------------
+
+E.3.1 Logging In
+-----------------
+1. Open the application in a web browser
+2. Enter your username and password
+3. Click "Login" button
+4. You will be redirected to the dashboard
+
+Default Admin Credentials:
+- Username: [INSERT DEFAULT USERNAME]
+- Password: [INSERT DEFAULT PASSWORD]
+
+
+E.3.2 Uploading Sales Data
+---------------------------
+1. Click on "Upload" or "Data Upload" in the navigation menu
+2. Click "Choose File" button
+3. Select your CSV file from your computer
+4. Click "Upload" button
+5. Wait for processing to complete
+6. View the validation results
+
+CSV File Format Requirements:
+- Required columns: date, product_name, quantity, price
+- Date format: YYYY-MM-DD
+- File format: .csv only
+
+
+E.3.3 Viewing Forecasts
+------------------------
+1. Click on "Forecasts" in the navigation menu
+2. Select a product from the dropdown
+3. View the forecast chart and predicted values
+4. Use date filters to adjust the time range
+
+
+E.3.4 Managing Inventory
+-------------------------
+1. Click on "Inventory" in the navigation menu
+2. View current stock levels
+3. To add a new product:
+   - Click "Add Product"
+   - Fill in product details
+   - Set reorder level
+   - Click "Save"
+4. To update stock:
+   - Click on the product
+   - Update quantity
+   - Click "Update"
+
+
+E.3.5 Viewing and Managing Alerts
+----------------------------------
+1. Click on "Alerts" in the navigation menu
+2. View all pending restock alerts
+3. To resolve an alert:
+   - Click on the alert
+   - Update inventory (add stock)
+   - Mark alert as "Resolved"
+
+
+E.3.6 Logging Out
+------------------
+1. Click on your username/profile in the top right corner
+2. Click "Logout" button
+3. You will be redirected to the login page
+
+
+E.4 TROUBLESHOOTING
+--------------------------------------------------------------------------------
+
+| Problem | Solution |
+|---------|----------|
+| Cannot login | Check credentials, contact admin |
+| CSV upload fails | Verify file format and columns |
+| Forecast not generating | Ensure sufficient historical data |
+| Page not loading | Clear browser cache, refresh |
+| System slow | Check internet connection |
+
+
+E.5 FREQUENTLY ASKED QUESTIONS (FAQs)
+--------------------------------------------------------------------------------
+
+Q: What if my CSV file has errors?
+A: The system will show validation errors. Fix the issues and re-upload.
+
+Q: How much historical data do I need?
+A: For accurate forecasts, at least 12 months of data is recommended.
+
+Q: Can I export the reports?
+A: [INSERT IF EXPORT FEATURE EXISTS]
+
+
+================================================================================
+END OF APPENDIX E
+================================================================================

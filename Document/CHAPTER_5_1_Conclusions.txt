@@ -1,0 +1,81 @@
+================================================================================
+CHAPTER V: CONCLUSION AND RECOMMENDATION
+================================================================================
+
+(This chapter presents the conclusions derived from the study and provides 
+recommendations for VAPE CRIB, future system development, and further research.)
+
+
+5.1 CONCLUSIONS
+================================================================================
+
+This section presents conclusions based on the objectives of the study.
+
+
+5.1.1 Summary of Findings
+--------------------------------------------------------------------------------
+
+Based on the results presented in Chapter IV, the following conclusions 
+are drawn:
+
+1. [INSERT CONCLUSION RELATED TO FORECASTING]
+
+   The Predictive Sales & Restocking Dashboard successfully analyzed 
+   historical sales data and generated forecasts using ARIMA and Linear 
+   Regression models. The system was able to [INSERT FINDING].
+
+2. [INSERT CONCLUSION RELATED TO INVENTORY MANAGEMENT]
+
+   The system provides real-time inventory tracking and automatic restock 
+   alerts when stock falls below the reorder level. This helps VAPE CRIB 
+   [INSERT FINDING].
+
+3. [INSERT CONCLUSION RELATED TO USER ACCEPTANCE]
+
+   User acceptance testing showed that the system is [INSERT FINDING]. 
+   The dashboard interface was found to be [INSERT FINDING].
+
+4. [INSERT CONCLUSION RELATED TO SYSTEM FUNCTIONALITY]
+
+   All core features including CSV upload, data processing, forecasting, 
+   and alert generation were successfully implemented and tested. The 
+   system [INSERT FINDING].
+
+
+5.1.2 Hypothesis Testing Results
+--------------------------------------------------------------------------------
+
+From Section 1.5:
+
+| Hypothesis | Statistical Test | p-value | Decision |
+|------------|------------------|---------|----------|
+| H₁: Implementation leads to improvement in inventory efficiency | [INSERT TEST] | [INSERT] | [ACCEPT/REJECT] |
+| H₁: Implementation leads to reduction in stockout incidents | [INSERT TEST] | [INSERT] | [ACCEPT/REJECT] |
+| H₁: Implementation leads to reduction in overstock capital | [INSERT TEST] | [INSERT] | [ACCEPT/REJECT] |
+| H₀: No significant effect on inventory efficiency | - | - | [ACCEPT/REJECT] |
+
+Significance Level: α = 0.05
+
+
+5.1.3 Achievement of General Objective
+--------------------------------------------------------------------------------
+
+The general objective of this study was:
+
+"To design, develop, implement, and evaluate a Predictive Sales & 
+Restocking Dashboard System to optimize VAPE CRIB's inventory management."
+
+Assessment of Objective:
+
+| Objective Component | Achievement |
+|--------------------|-------------|
+| Design | ✓ Achieved - System architecture, ERD, DFD, and Use Cases designed |
+| Develop | ✓ Achieved - All modules implemented using Flask, React, ARIMA |
+| Implement | ✓ Achieved - System deployed and tested at VAPE CRIB |
+| Evaluate | ✓ Achieved - Tested via unit, integration, system, and UAT |
+
+The study successfully [ACHIEVED/DID NOT FULLY ACHIEVE] the general objective 
+as evidenced by [INSERT EVIDENCE].
+
+
+================================================================================

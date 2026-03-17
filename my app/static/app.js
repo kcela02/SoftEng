@@ -504,12 +504,12 @@ function initializePeriodFilters() {
             const endDate = document.getElementById('custom-end-date').value;
             
             if (!startDate || !endDate) {
-                showToast('Please select both start and end dates', 'error');
+                showNotification('Please select both start and end dates', 'error');
                 return;
             }
             
             if (new Date(startDate) > new Date(endDate)) {
-                showToast('Start date must be before end date', 'error');
+                showNotification('Start date must be before end date', 'error');
                 return;
             }
             
@@ -522,7 +522,7 @@ function initializePeriodFilters() {
             
             // Reload with custom range
             loadDashboardData('custom', customDateRange);
-            showToast('Custom date range applied', 'success');
+            showNotification('Custom date range applied', 'success');
         });
     }
     
@@ -603,7 +603,7 @@ function loadDashboardData(period, dateRange = null) {
         })
         .catch(error => {
             console.error('Error loading dashboard data:', error);
-            showToast('Failed to load dashboard data: ' + error.message, 'error');
+            showNotification('Failed to load dashboard data: ' + error.message, 'error');
         });
 
     // Refresh accuracy with matching period
@@ -1884,11 +1884,22 @@ window.openDeleteModal = function(productId, productName) {
     warning.style.display = 'block';
     
     // Get impact assessment WITHOUT actually deleting
+    const csrfToken = getCsrfToken();
     fetch(`/api/products/${productId}?confirm=false`, {
         method: 'DELETE',
+        headers: { 'X-CSRFToken': csrfToken },
         credentials: 'same-origin'
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            // Handle non-JSON responses (like HTML error pages)
+            return response.text().then(text => {
+                console.error('[Products] Delete impact assessment failed:', response.status, text);
+                throw new Error(`Server error (${response.status}): ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.action === 'confirm_required' && data.impact_assessment) {
             const alerts = data.impact_assessment.alerts;
@@ -1929,7 +1940,7 @@ window.openDeleteModal = function(productId, productName) {
     })
     .catch(error => {
         console.error('Error getting impact assessment:', error);
-        warning.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${error.message}`;
+        warning.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${error.message}<br><br>Unable to load deletion impact. The product may not exist or there may be a server issue.`;
     });
     
     modal.classList.add('show');
@@ -1970,6 +1981,88 @@ window.closeInventoryModal = function() {
         modal.classList.remove('show');
     }
     currentInventoryProduct = null;
+};
+
+// Inventory History Modal Functions
+window.openInventoryHistoryModal = function(productId, productName) {
+    console.log('[Products] openInventoryHistoryModal called:', productId, productName);
+    const modal = document.getElementById('inventory-history-modal');
+    const productNameEl = document.getElementById('inventory-history-product-name');
+    const historyListEl = document.getElementById('inventory-history-list');
+    
+    if (!modal || !productNameEl || !historyListEl) {
+        console.error('[Products] Inventory history modal elements not found!');
+        return;
+    }
+    
+    // Set product name
+    productNameEl.textContent = productName;
+    
+    // Show loading
+    historyListEl.innerHTML = `
+        <div style="text-align: center; padding: 30px; color: var(--color-text-secondary);">
+            <div style="width: 24px; height: 24px; border: 3px solid var(--color-text-secondary); border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;"></div>
+            Loading history...
+        </div>
+    `;
+    
+    modal.classList.add('show');
+    
+    // Fetch inventory history
+    fetch(`/api/inventory/history?product_id=${productId}&limit=50`, { credentials: 'same-origin' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.history && data.history.length > 0) {
+                let html = '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">';
+                html += '<thead style="background: var(--color-primary-light); position: sticky; top: 0;">';
+                html += '<tr style="border-bottom: 2px solid var(--color-divider);">';
+                html += '<th style="padding: 10px; text-align: left; color: var(--color-text-secondary);">Date</th>';
+                html += '<th style="padding: 10px; text-align: center; color: var(--color-text-secondary);">Type</th>';
+                html += '<th style="padding: 10px; text-align: right; color: var(--color-text-secondary);">Qty</th>';
+                html += '<th style="padding: 10px; text-align: left; color: var(--color-text-secondary);">By</th>';
+                html += '</tr></thead><tbody>';
+                
+                data.history.forEach(item => {
+                    const isAdd = item.operation === 'add';
+                    const typeColor = isAdd ? '#10b981' : '#ef4444';
+                    const typeIcon = isAdd ? '<i class="fas fa-plus-circle"></i>' : '<i class="fas fa-minus-circle"></i>';
+                    const typeText = isAdd ? 'Add' : 'Remove';
+                    
+                    html += `<tr style="border-bottom: 1px solid var(--color-divider);">`;
+                    html += `<td style="padding: 10px; color: var(--color-text-primary);">${item.date}</td>`;
+                    html += `<td style="padding: 10px; text-align: center; color: ${typeColor}; font-weight: 600;">${typeIcon} ${typeText}</td>`;
+                    html += `<td style="padding: 10px; text-align: right; font-weight: 600; color: ${typeColor};">${item.quantity}</td>`;
+                    html += `<td style="padding: 10px; color: var(--color-text-secondary);">${item.username}</td>`;
+                    html += `</tr>`;
+                });
+                
+                html += '</tbody></table>';
+                historyListEl.innerHTML = html;
+            } else {
+                historyListEl.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px; color: var(--color-text-secondary);">
+                        <div style="font-size: 2em; margin-bottom: 10px;"><i class="fas fa-inbox"></i></div>
+                        <div style="font-size: 1.1em; font-weight: 600; margin-bottom: 5px;">No History</div>
+                        <div style="font-size: 0.9em;">No inventory adjustments recorded yet</div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading inventory history:', error);
+            historyListEl.innerHTML = `
+                <div style="text-align: center; padding: 30px; color: #ef4444;">
+                    <i class="fas fa-exclamation-triangle"></i> Error loading history
+                </div>
+            `;
+        });
+};
+
+window.closeInventoryHistoryModal = function() {
+    const modal = document.getElementById('inventory-history-modal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
 };
 
 // ==================== END PRODUCT MANAGEMENT FUNCTIONS ====================
@@ -2428,7 +2521,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (stock < 10) stockClass = 'low';
                         else if (stock < 50) stockClass = 'medium';
 
-                        return `
+                                return `
                             <div class="product-item" data-product-id="${product.id}">
                                 <div class="product-info">
                                     <div class="product-name">${product.name}</div>
@@ -2439,6 +2532,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </div>
                                 </div>
                                 <div class="product-actions">
+                                    <button class="btn-stock" onclick="openInventoryHistoryModal(${product.id}, '${product.name.replace(/'/g, "\\'")}')" title="View History">
+                                        <i class="fas fa-history"></i> History
+                                    </button>
                                     <button class="btn-stock" onclick="openInventoryModal(${product.id}, '${product.name.replace(/'/g, "\\'")}', ${stock})">
                                         <i class="fas fa-box"></i> Update
                                     </button>
@@ -2506,9 +2602,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const url = productId ? `/api/products/${productId}` : '/api/products';
                 const method = productId ? 'PUT' : 'POST';
 
+                const csrfToken = getCsrfToken();
                 const response = await fetch(url, {
                     method: method,
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
                     body: JSON.stringify(productData),
                     credentials: 'same-origin'
                 });
@@ -2548,8 +2648,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             try {
                 // Now actually delete with confirm=true
+                const csrfToken = getCsrfToken();
                 const response = await fetch(`/api/products/${currentDeletingProduct.id}?confirm=true`, {
                     method: 'DELETE',
+                    headers: { 'X-CSRFToken': csrfToken },
                     credentials: 'same-origin'
                 });
 
@@ -2563,12 +2665,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     const nextSteps = result.next_steps ? result.next_steps.join('\n') : '';
                     showNotification(`[OK] ${result.message}\n${nextSteps}`, 'success');
                 } else {
-                    showNotification(`Error: ${result.error}`, 'error');
+                    showNotification(`Error: ${result.error || 'Failed to delete product'}`, 'error');
                     confirmDeleteBtn.disabled = false;
                     confirmDeleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Yes, Delete Permanently';
                 }
             } catch (error) {
-                showNotification(`Error: ${error.message}`, 'error');
+                console.error('[Products] Delete error:', error);
+                showNotification(`Error: ${error.message || 'Network error occurred'}`, 'error');
                 confirmDeleteBtn.disabled = false;
                 confirmDeleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Yes, Delete Permanently';
             }
@@ -2586,14 +2689,18 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const productId = document.getElementById('inventory-product-id').value;
             const quantity = parseInt(document.getElementById('inventory-quantity').value);
-            const operation = document.querySelector('input[name="inventory-operation"]:checked').value;
+            const operation = document.getElementById('inventory-operation').value;
             const reason = document.getElementById('inventory-reason').value;
 
             try {
+                const csrfToken = getCsrfToken();
                 const response = await fetch('/api/inventory/adjust', {
                     method: 'POST',
                     credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
                     body: JSON.stringify({
                         product_id: productId,
                         quantity: quantity,
@@ -2609,10 +2716,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     loadProducts();
                     showNotification(`Stock updated! New stock: ${result.product.current_stock} units`, 'success');
                 } else {
-                    showNotification(`Error: ${result.error}`, 'error');
+                    showNotification(`Error: ${result.error || 'Failed to update inventory'}`, 'error');
                 }
             } catch (error) {
-                showNotification(`Error: ${error.message}`, 'error');
+                console.error('[Products] Inventory update error:', error);
+                showNotification(`Error: ${error.message || 'Network error occurred'}`, 'error');
             }
         });
     }

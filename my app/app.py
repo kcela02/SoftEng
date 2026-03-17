@@ -123,6 +123,43 @@ def create_app(config_name=None):
     with app.app_context():
         db.create_all()
         
+        # Auto-migrate missing columns
+        try:
+            from sqlalchemy import text
+            engine = db.engine
+            db_type = engine.dialect.name
+            
+            # Add used_for_training column to sale table if missing
+            try:
+                if db_type == 'postgresql':
+                    db.session.execute(text("""
+                        DO $$ 
+                        BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 FROM information_schema.columns 
+                                WHERE table_name = 'sale' 
+                                AND column_name = 'used_for_training'
+                            ) THEN
+                                ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT 0;
+                            END IF;
+                        END $$;
+                    """))
+                else:
+                    # SQLite
+                    result = db.session.execute(text("PRAGMA table_info(sale)"))
+                    columns = [row[1] for row in result]
+                    if 'used_for_training' not in columns:
+                        db.session.execute(text(
+                            "ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT 0"
+                        ))
+                db.session.commit()
+                print("[OK] Database schema up to date")
+            except Exception as e:
+                print(f"[OK] Schema check: {e}")
+                db.session.rollback()
+        except Exception as e:
+            print(f"[OK] Auto-migration skipped: {e}")
+        
         # Create default admin user if not exists
         if not User.query.filter_by(username='admin').first():
             admin = User(username='admin', email='admin@example.com', role='admin')

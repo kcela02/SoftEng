@@ -173,18 +173,20 @@ class ForecastGenerator:
             else:
                 month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
             
-            # Calculate weeks in month (7-day chunks)
+            # Calculate weeks in month (7-day chunks starting from day 1)
+            # FIX: Week 1 always starts on day 1 of the month, not dependent on day of week
             weeks = []
             current_week_start = month_start
             week_num = 1
             
             while current_week_start <= month_end:
+                # Week always has 7 days (or until month ends)
                 current_week_end = min(current_week_start + timedelta(days=6), month_end)
                 weeks.append({
                     'week_num': week_num,
                     'start': current_week_start,
                     'end': current_week_end,
-                    'period_key': f"{current_week_start.year}-W{week_num:02d}-{month_start.strftime('%m')}"
+                    'period_key': f"{month_start.year}-{month_start.strftime('%m')}-W{week_num}"
                 })
                 current_week_start = current_week_end + timedelta(days=1)
                 week_num += 1

@@ -1,0 +1,95 @@
+================================================================================
+REFERENCES
+================================================================================
+
+This section lists all books, journals, articles, websites, and other sources 
+cited in the study following APA 7th Edition style.
+
+
+================================================================================
+FOREIGN LITERATURE
+================================================================================
+
+Al-Salami, K., & Hassan, M. (2024). Development of an automated web-based 
+sales forecasting and inventory control system. *International Journal of 
+Computer Trends and Technology, 72*(3), 61-65. 
+https://doi.org/10.14445/22312803/IJCTT-V72I3P109
+
+Bukat, P., Ibrahim, R., & Chen, L. (2024). Optimising inventory management 
+strategies for cost reduction in supply chains: A systematic review. 
+*Jurnal Akuntansi dan Bisnis, 10*(1), 48-55. 
+https://doi.org/10.31289/jab.v10i1.11678
+
+Farhan, T., Hassan, R., & Malik, S. (2024). Validation of ARIMA models for 
+product sales seasonality and trends. [Source needed - verify]
+
+Narsepalle, K. R. (2025). Real-time GenAI dashboards for end-to-end retail 
+supply chain optimization. *European Journal of Computer Science and 
+Information Technology, 13*(51), 76-87. 
+https://doi.org/10.37745/ejcsit.2013/vol13n57687
+
+Patel, S., & Kumar, A. (2024). Data science for inventory management: 
+Challenges of data ingestion and quality. [Source needed - verify]
+
+Reddy, K. M., Ravikanth, K., Penjarla, N. K., Poola, S., & Patha, S. (2023). 
+Sales forecasting using predictive analytics: A machine learning and 
+time-series approach. *Computing, 106*, 3945-3965. 
+https://doi.org/10.1007/s00607-024-01320-y
+
+S., et al. (2023). Predictive analysis of retail sales forecasting. 
+[Source needed - verify]
+
+
+================================================================================
+LOCAL LITERATURE
+================================================================================
+
+de los Santos, J. R. N., Suyom, J. R., Comora, M. B., Giovanni, N., 
+Michelle, G., & Aruy, R. C. (2021). Imbentaryo app: An intelligent inventory 
+and decision support system. Eastern Visayas State University. 
+https://www.evsu.edu.ph/university-research-and-created-works/
+
+Dumlao, M. T. (2019). Prediction of product sales using business analytics 
+[Thesis, Philippine Women's University]. [Source needed - verify]
+
+Manlolo, J., & Garcia, R. (2021). Web-based inventory system with decision 
+support for small enterprises. [Source needed - verify]
+
+Nolasco, A. P., & Cuaresma, J. M. (2024). Inventory management systems of 
+small-scale businesses in the Philippines. [Source needed - verify]
+
+RichestPH. (2024). Boosting sales in the Philippines with predictive analytics. 
+[Source needed - verify]
+
+RSIS International. (2025). Data-driven point-of-sale and inventory system 
+for Pastil Sa Tabi: Integrating sales forecasting algorithms and predictive 
+analytics. [Source needed - verify]
+
+
+================================================================================
+ONLINE RESOURCES
+================================================================================
+
+[INSERT ANY WEBSITES OR ONLINE RESOURCES CITED IN THE DOCUMENT]
+
+
+================================================================================
+NOTES
+================================================================================
+
+The following references need verification:
+
+1. Farhan et al. (2024)
+2. Patel & Kumar (2024)
+3. S. et al. (2023)
+4. Dumlao (2019)
+5. Manlolo et al. (2021)
+6. RichestPH (2024)
+7. Nolasco & Cuaresma (2024)
+8. RSIS International (2025)
+
+Please obtain the full citation details for these sources and update 
+accordingly.
+
+
+================================================================================

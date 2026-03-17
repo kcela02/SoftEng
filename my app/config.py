@@ -34,7 +34,7 @@ class Config:
     PASSWORD_REQUIRE_SPECIAL = False  # Optional: require special characters
     
     # Session Settings
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)  # Sessions expire after 8 hours of inactivity
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=2)  # Sessions expire after 8 hours of inactivity
 
     # Forecasting Settings
     DEFAULT_FORECAST_DAYS = 7

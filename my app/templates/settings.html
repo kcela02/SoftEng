@@ -324,6 +324,47 @@
             </div>
         </div>
     </div>
+
+    <!-- Training History Modal -->
+    <div id="training-history-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-line"></i> Training History</h3>
+                <span class="modal-close" onclick="closeModal('training-history-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">View history of model training sessions and forecasts.</p>
+                
+                <div id="training-loading" style="text-align: center; padding: 20px;">
+                    <p style="color: var(--color-text-secondary);">Loading training history...</p>
+                </div>
+                
+                <div id="training-container" style="display: none;">
+                    <div style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="position: sticky; top: 0; background: var(--color-primary-dark); z-index: 1;">
+                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Timestamp</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">User</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="training-table-body">
+                                <!-- Training history will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="training-error" style="display: none; padding: 15px; background: #fee2e2; border-radius: 8px; color: #991b1b; margin-top: 15px;">
+                    <p id="training-error-message"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('training-history-modal')">Close</button>
+            </div>
+        </div>
+    </div>
     {% endif %}
 
     <!-- Account Edit Modal (available to all users) -->
@@ -459,8 +500,52 @@
         }
         
         function viewTrainingHistory() {
-            alert('Training history feature - View logs of all model training sessions');
-            // This could open another modal with training history
+            // Open the modal
+            openModal('training-history-modal');
+            
+            // Show loading
+            document.getElementById('training-loading').style.display = 'block';
+            document.getElementById('training-container').style.display = 'none';
+            document.getElementById('training-error').style.display = 'none';
+            
+            // Fetch training history
+            fetch('/api/admin/training-history')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('training-loading').style.display = 'none';
+                    
+                    if (data.success) {
+                        document.getElementById('training-container').style.display = 'block';
+                        const tbody = document.getElementById('training-table-body');
+                        tbody.innerHTML = '';
+                        
+                        if (data.history.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="3" style="padding: 20px; text-align: center; color: #64748b;">No training history found</td></tr>';
+                        } else {
+                            data.history.forEach(item => {
+                                const row = document.createElement('tr');
+                                row.style.borderBottom = '1px solid #e5e7eb';
+                                
+                                row.innerHTML = `
+                                    <td style="padding: 12px; font-size: 0.9em; white-space: nowrap;">${item.timestamp || 'N/A'}</td>
+                                    <td style="padding: 12px; font-weight: 500;">${item.user || 'System'}</td>
+                                    <td style="padding: 12px; font-size: 0.9em;">${item.action || 'Unknown action'}</td>
+                                `;
+                                
+                                tbody.appendChild(row);
+                            });
+                        }
+                    } else {
+                        document.getElementById('training-error').style.display = 'block';
+                        document.getElementById('training-error-message').textContent = data.error || 'Failed to load training history';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading training history:', error);
+                    document.getElementById('training-loading').style.display = 'none';
+                    document.getElementById('training-error').style.display = 'block';
+                    document.getElementById('training-error-message').textContent = 'Error: ' + error.message;
+                });
         }
         
         // Data Wipe Functions

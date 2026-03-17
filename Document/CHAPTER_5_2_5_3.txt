@@ -1,0 +1,109 @@
+================================================================================
+5.2 RECOMMENDATIONS
+================================================================================
+
+Based on the findings and conclusions of this study, the following 
+recommendations are provided.
+
+
+5.2.1 Recommendations for VAPE CRIB
+--------------------------------------------------------------------------------
+
+1. [INSERT RECOMMENDATION]
+
+   [INSERT EXPLANATION]
+
+2. [INSERT RECOMMENDATION]
+
+   [INSERT EXPLANATION]
+
+3. [INSERT RECOMMENDATION]
+
+   [INSERT EXPLANATION]
+
+4. [INSERT RECOMMENDATION]
+
+   [INSERT EXPLANATION]
+
+
+5.2.2 Recommendations for Future System Development
+--------------------------------------------------------------------------------
+
+1. [INSERT RECOMMENDATION]
+
+   [INSERT EXPLANATION]
+
+2. [INSERT RECOMMENDATION]
+
+   [INSERT EXPLANATION]
+
+3. [INSERT RECOMMENDATION]
+
+   [INSERT EXPLANATION]
+
+
+================================================================================
+5.3 FUTURE ENHANCEMENTS
+================================================================================
+
+This section discusses possible features or improvements that were not 
+implemented due to limitations.
+
+
+5.3.1 Point-of-Sale (POS) Integration
+--------------------------------------------------------------------------------
+
+Currently, the system is a decision-support tool that does not process 
+live transactions. Future development could integrate a POS system to 
+automatically capture sales data in real-time.
+
+
+5.3.2 Additional Forecasting Models
+--------------------------------------------------------------------------------
+
+Future versions could incorporate additional forecasting algorithms such as:
+- Prophet (Facebook)
+- LSTM (Long Short-Term Memory)
+- XGBoost
+- Exponential Smoothing
+
+
+5.3.3 Mobile Application
+--------------------------------------------------------------------------------
+
+A mobile application could be developed to provide:
+- Push notifications for restock alerts
+- Mobile inventory updates
+- Real-time sales monitoring
+
+
+5.3.4 API Integration
+--------------------------------------------------------------------------------
+
+Future development could include:
+- Integration with supplier APIs for automated ordering
+- Integration with accounting software
+- Multi-store support
+
+
+5.3.5 Enhanced Data Visualization
+--------------------------------------------------------------------------------
+
+Future enhancements could include:
+- More interactive charts
+- Customizable dashboards
+- Export to PDF/Excel
+
+
+5.3.6 Artificial Intelligence Enhancements
+--------------------------------------------------------------------------------
+
+Future AI features could include:
+- Anomaly detection
+- Demand sensing
+- Natural language queries
+
+
+================================================================================
+END OF CHAPTER V
+================================================================================
