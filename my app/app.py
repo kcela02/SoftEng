@@ -126,24 +126,29 @@ def create_app(config_name=None):
         # Auto-migrate missing columns
         try:
             from sqlalchemy import text
+            from sqlalchemy import inspect
             engine = db.engine
             db_type = engine.dialect.name
+            print(f"[AUTO-MIGRATION] Database type: {db_type}")
             
             # Add used_for_training column to sale table if missing
             try:
+                inspector = inspect(engine)
+                
                 if db_type == 'postgresql':
-                    db.session.execute(text("""
-                        DO $$ 
-                        BEGIN
-                            IF NOT EXISTS (
-                                SELECT 1 FROM information_schema.columns 
-                                WHERE table_name = 'sale' 
-                                AND column_name = 'used_for_training'
-                            ) THEN
-                                ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT 0;
-                            END IF;
-                        END $$;
-                    """))
+                    # Check if column exists using inspector
+                    columns = inspector.get_columns('sale')
+                    column_names = [col['name'] for col in columns]
+                    
+                    if 'used_for_training' not in column_names:
+                        print("[AUTO-MIGRATION] Adding used_for_training column to sale table...")
+                        db.session.execute(text(
+                            "ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT 0"
+                        ))
+                        db.session.commit()
+                        print("[AUTO-MIGRATION] Column added successfully!")
+                    else:
+                        print("[AUTO-MIGRATION] Column used_for_training already exists")
                 else:
                     # SQLite
                     result = db.session.execute(text("PRAGMA table_info(sale)"))
@@ -152,13 +157,16 @@ def create_app(config_name=None):
                         db.session.execute(text(
                             "ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT 0"
                         ))
-                db.session.commit()
+                        db.session.commit()
+                        print("[AUTO-MIGRATION] Column added successfully!")
+                    else:
+                        print("[AUTO-MIGRATION] Column already exists")
                 print("[OK] Database schema up to date")
             except Exception as e:
-                print(f"[OK] Schema check: {e}")
+                print(f"[AUTO-MIGRATION] Error: {e}")
                 db.session.rollback()
         except Exception as e:
-            print(f"[OK] Auto-migration skipped: {e}")
+            print(f"[AUTO-MIGRATION] Skipped: {e}")
         
         # Create default admin user if not exists
         if not User.query.filter_by(username='admin').first():
