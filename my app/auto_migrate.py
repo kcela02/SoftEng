@@ -21,7 +21,7 @@ def auto_migrate():
         
         # List of columns to add: (table_name, column_name, column_definition)
         columns_to_add = [
-            ('sale', 'used_for_training', 'BOOLEAN DEFAULT 0'),
+            ('sale', 'used_for_training', 'BOOLEAN DEFAULT FALSE'),
         ]
         
         try:

@@ -143,7 +143,7 @@ def create_app(config_name=None):
                     if 'used_for_training' not in column_names:
                         print("[AUTO-MIGRATION] Adding used_for_training column to sale table...")
                         db.session.execute(text(
-                            "ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT 0"
+                            "ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT FALSE"
                         ))
                         db.session.commit()
                         print("[AUTO-MIGRATION] Column added successfully!")
@@ -155,7 +155,7 @@ def create_app(config_name=None):
                     columns = [row[1] for row in result]
                     if 'used_for_training' not in columns:
                         db.session.execute(text(
-                            "ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT 0"
+                            "ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT FALSE"
                         ))
                         db.session.commit()
                         print("[AUTO-MIGRATION] Column added successfully!")

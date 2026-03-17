@@ -22,7 +22,7 @@ def migrate_sale_table():
                 # PostgreSQL syntax
                 db.session.execute(text("""
                     ALTER TABLE sale 
-                    ADD COLUMN IF NOT EXISTS used_for_training BOOLEAN DEFAULT 0
+                    ADD COLUMN IF NOT EXISTS used_for_training BOOLEAN DEFAULT FALSE
                 """))
             else:
                 # SQLite and others
@@ -32,7 +32,7 @@ def migrate_sale_table():
                 
                 if 'used_for_training' not in columns:
                     db.session.execute(text(
-                        "ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT 0"
+                        "ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT FALSE"
                     ))
                     print("Column 'used_for_training' added successfully!")
                 else:
@@ -45,7 +45,7 @@ def migrate_sale_table():
             db.session.rollback()
             print(f"[ERROR] Migration failed: {e}")
             print("\nFor PostgreSQL, try running manually:")
-            print("  ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT 0;")
+            print("  ALTER TABLE sale ADD COLUMN used_for_training BOOLEAN DEFAULT FALSE;")
 
 
 if __name__ == "__main__":
