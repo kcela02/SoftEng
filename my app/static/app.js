@@ -526,8 +526,10 @@ function initializePeriodFilters() {
         });
     }
     
-    // Initial load with saved or default period
-    loadDashboardData(currentPeriod);
+    // Only load dashboard data if .dashboard element exists
+    if (document.querySelector('.dashboard')) {
+        loadDashboardData(currentPeriod);
+    }
 }
 
 function loadDashboardData(period, dateRange = null) {
@@ -943,13 +945,10 @@ function renderEnhancedAlerts(alerts, summary) {
                 </div>
                 
                 <!-- Action Row: Recommended Order -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: ${{'CRITICAL': '#fecaca', 'HIGH': '#fde047', 'MEDIUM': '#86efac'}[alert.urgency] || '#e5e7eb'}; border-radius: 4px;">
-                    <div style="font-size: 0.85em; font-weight: 600; color: ${textColor};">
+                <div style="display: flex; justify-content: center; align-items: center; padding: 10px; background: ${{'CRITICAL': '#fecaca', 'HIGH': '#fde047', 'MEDIUM': '#86efac'}[alert.urgency] || '#e5e7eb'}; border-radius: 4px;">
+                    <div style="font-size: 0.85em; font-weight: 600; color: ${textColor}; text-align: center;">
                         <i class="fas fa-box"></i> Order: <span style="font-size: 1.1em; font-weight: 700;">${alert.recommended_order_qty}</span> units
                     </div>
-                    <button class="btn btn-primary" style="padding: 5px 12px; font-size: 0.8em; background: ${borderColor}; border: none; cursor: pointer; color: white; border-radius: 4px; font-weight: 600;" onclick="quickRestock(${alert.product_id}, ${alert.recommended_order_qty})">
-                        Order Now
-                    </button>
                 </div>
             </div>
         `;
