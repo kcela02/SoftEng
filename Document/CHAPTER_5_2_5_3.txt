@@ -9,37 +9,37 @@ recommendations are provided.
 5.2.1 Recommendations for VAPE CRIB
 --------------------------------------------------------------------------------
 
-1. [INSERT RECOMMENDATION]
+1. Maintain Clean and Consistent Sales Records
 
-   [INSERT EXPLANATION]
+   For the forecasting models to produce the most accurate predictions, VAPE CRIB should ensure that all sales data entered into the system is accurate, complete, and consistently formatted. Staff should be trained to handle CSV exports from the point-of-sale records correctly before uploading.
 
-2. [INSERT RECOMMENDATION]
+2. Upload Sales Data Regularly
 
-   [INSERT EXPLANATION]
+   The system's forecasting accuracy improves with more historical data. VAPE CRIB is encouraged to upload updated sales data at least monthly to ensure models are trained on the most current demand patterns.
 
-3. [INSERT RECOMMENDATION]
+3. Act on Restock Alerts Promptly
 
-   [INSERT EXPLANATION]
+   The alert system classifies shortages as CRITICAL, HIGH, or MEDIUM based on forecast horizons. VAPE CRIB staff should prioritize CRITICAL and HIGH alerts immediately to avoid stockouts, especially for high-demand products during peak periods.
 
-4. [INSERT RECOMMENDATION]
+4. Use the Reports and Forecasting Pages for Purchasing Decisions
 
-   [INSERT EXPLANATION]
+   Instead of relying on intuition, VAPE CRIB management should consult the Forecasting and Reports pages before placing supplier orders. The recommended order quantities provided in alerts include a 20% safety margin and are derived directly from data-driven forecasts.
 
 
 5.2.2 Recommendations for Future System Development
 --------------------------------------------------------------------------------
 
-1. [INSERT RECOMMENDATION]
+1. Develop a Native Mobile Application
 
-   [INSERT EXPLANATION]
+   A dedicated mobile app (Android or iOS) would allow VAPE CRIB staff to monitor inventory levels, receive push notifications for restock alerts, and view forecasts on the go. The current system already exposes a JWT-authenticated mobile API blueprint that can serve as the backend for a mobile client.
 
-2. [INSERT RECOMMENDATION]
+2. Integrate a Point-of-Sale (POS) Module
 
-   [INSERT EXPLANATION]
+   Connecting the system to a POS terminal would enable automatic real-time sales data capture, eliminating the manual CSV upload step and reducing the risk of data entry errors. This would also allow the forecasting pipeline to retrain more frequently on up-to-date transaction data.
 
-3. [INSERT RECOMMENDATION]
+3. Implement Advanced Forecasting Models
 
-   [INSERT EXPLANATION]
+   Future developers should evaluate the integration of Facebook Prophet, LSTM neural networks, or XGBoost alongside the existing ARIMA and Linear Regression models. An ensemble approach that combines predictions from multiple models could further improve forecast accuracy for products with complex seasonal patterns.
 
 
 ================================================================================

@@ -2,40 +2,51 @@
 APPENDIX D: SOURCE CODE
 ================================================================================
 
-[INSERT TITLE PAGE]
-
-This appendix contains the relevant source code of the Predictive Sales & 
+This appendix contains the relevant source code of the Predictive Sales &
 Restocking Dashboard System.
 
 
 D.1 PROJECT STRUCTURE
 --------------------------------------------------------------------------------
 
-[INSERT PROJECT FOLDER STRUCTURE]
+The actual project folder structure of the deployed system:
 
-vape_crib_dashboard/
-├── backend/
-│   ├── app.py
-│   ├── models.py
-│   ├── routes/
-│   │   ├── auth.py
-│   │   ├── products.py
-│   │   ├── sales.py
-│   │   ├── forecast.py
-│   │   └── alerts.py
-│   ├── utils/
-│   │   ├── data_cleaning.py
-│   │   ├── forecasting.py
-│   │   └── validation.py
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── App.js
-│   │   └── index.js
-│   └── package.json
-└── README.md
+vapecrib_dashboard/
+├── app.py                          # Application factory (Flask)
+├── config.py                       # Configuration classes (Dev/Prod)
+├── wsgi.py                         # WSGI entry point for Gunicorn
+├── requirements.txt                # Python dependencies
+├── runtime.txt                     # Python version (3.11.9)
+├── render.yaml                     # Render cloud deployment config
+├── Procfile                        # Process declaration (Gunicorn)
+├── blueprints/
+│   ├── auth/
+│   │   └── routes.py               # Login, logout, change password
+│   ├── main/
+│   │   └── routes.py               # Dashboard, forecasting, products, reports, settings
+│   ├── api/
+│   │   └── routes.py               # REST API endpoints (metrics, upload, products, alerts)
+│   └── mobile/
+│       └── routes.py               # JWT-authenticated mobile API
+├── models/
+│   ├── __init__.py                 # SQLAlchemy models (User, Product, Sale, Forecast, Alert ...)
+│   ├── arima.py                    # ARIMA forecasting module
+│   └── regression.py               # Linear Regression forecasting module
+├── utils/
+│   ├── activity_logger.py          # User activity audit logging
+│   ├── forecast_generator.py       # Forecast generation utilities
+│   └── model_trainer.py            # ForecastingPipeline class
+├── static/
+│   ├── app.js                      # Frontend JS (CSRF helper, animations, Chart.js config)
+│   ├── utils.js                    # Utility functions
+│   └── css/main.css                # Application stylesheet
+└── templates/
+    ├── index.html                  # Landing/login page
+    ├── admin.html                  # Main dashboard
+    ├── forecasting.html            # Forecasting page
+    ├── products.html               # Products management page
+    ├── reports.html                # Reports page
+    └── settings.html               # Settings page
 
 
 D.2 BACKEND SOURCE CODE
@@ -43,31 +54,177 @@ D.2 BACKEND SOURCE CODE
 
 D.2.1 Main Application (app.py)
 ---------------------------------
-[INSERT app.py CODE]
+# app.py - Application Factory Pattern
+from flask import Flask, jsonify, redirect, url_for
+from flask_cors import CORS
+from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_jwt_extended import JWTManager
+from werkzeug.middleware.proxy_fix import ProxyFix
+from config import config
+from models import db, User
+import os
 
-D.2.2 Database Models (models.py)
-----------------------------------
-[INSERT models.py CODE]
+def create_app(config_name=None):
+    app = Flask(__name__)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    if config_name is None:
+        config_name = os.getenv('FLASK_ENV', 'development')
+    app.config.from_object(config[config_name])
+    db.init_app(app)
+    JWTManager(app)
+    csrf = CSRFProtect(app)
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=app.config.get('RATELIMIT_DEFAULTS', ["200 per day", "50 per hour"]),
+        storage_uri=app.config.get('RATELIMIT_STORAGE_URI', 'memory://'),
+    )
+    app.limiter = limiter
+    CORS(app, origins=app.config.get('CORS_ORIGINS', []), supports_credentials=True)
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'main.index'
+    @login_manager.user_loader
+    def load_user(user_id):
+        return db.session.get(User, int(user_id))
+    from blueprints.auth import auth_bp
+    from blueprints.main import main_bp
+    from blueprints.api import api_bp
+    from blueprints.mobile import mobile_bp
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(main_bp)
+    app.register_blueprint(api_bp)
+    app.register_blueprint(mobile_bp)
+    return app
 
-D.2.3 Forecasting Module (forecasting.py)
+
+D.2.2 Database Models (models/__init__.py)
+------------------------------------------
+# Key models — User, Product, Sale, Forecast, Alert
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+
+db = SQLAlchemy()
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(50), default='user')  # 'admin' or 'user'
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    account_locked_until = db.Column(db.DateTime, nullable=True)
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class Product(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    category = db.Column(db.String(100))
+    unit_cost = db.Column(db.Float)
+    current_stock = db.Column(db.Integer, default=0)
+
+class Sale(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    sale_date = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+class Forecast(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    forecast_date = db.Column(db.DateTime, nullable=False)
+    predicted_quantity = db.Column(db.Integer)
+    model_used = db.Column(db.String(50))  # 'ARIMA', 'LINEAR_REGRESSION'
+    confidence_lower = db.Column(db.Float)
+    confidence_upper = db.Column(db.Float)
+    mae = db.Column(db.Float)
+    rmse = db.Column(db.Float)
+
+class Alert(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    alert_type = db.Column(db.String(50))
+    severity = db.Column(db.String(20))  # 'CRITICAL', 'HIGH', 'MEDIUM'
+    message = db.Column(db.Text)
+    recommended_order_qty = db.Column(db.Integer)
+    is_active = db.Column(db.Boolean, default=True)
+    is_acknowledged = db.Column(db.Boolean, default=False)
+
+
+D.2.3 Forecasting Module (models/arima.py)
 -----------------------------------------
-[INSERT forecasting.py CODE]
+# ARIMA forecasting with automatic order selection (AIC) and confidence intervals
+from statsmodels.tsa.arima.model import ARIMA
+from models.utils import load_sales_data, create_future_dates
+import numpy as np
 
-[INCLUDE KEY SOURCE CODE FILES - INSERT YOUR ACTUAL CODE]
+def forecast_arima(db_conn, product_id, days_ahead=7, order=(5,1,0)):
+    ts = load_sales_data(db_conn, product_id)
+    if ts.empty or len(ts) < 30:
+        return {"error": "Insufficient data (minimum 30 days required)."}
+    best_aic = float('inf')
+    best_model_fit = None
+    for candidate_order in [(1,1,1), (2,1,2), (5,1,0), (2,0,2)]:
+        try:
+            model_fit = ARIMA(ts['y'], order=candidate_order).fit()
+            if model_fit.aic < best_aic:
+                best_aic = model_fit.aic
+                best_model_fit = model_fit
+        except Exception:
+            continue
+    forecast_result = best_model_fit.get_forecast(steps=days_ahead, alpha=0.2)
+    predictions = forecast_result.predicted_mean
+    conf_int = forecast_result.conf_int()
+    future_dates = create_future_dates(ts, days_ahead)
+    return [{'date': d, 'prediction': max(0, round(predictions.iloc[i])),
+             'confidence_lower': max(0, round(conf_int.iloc[i, 0])),
+             'confidence_upper': max(0, round(conf_int.iloc[i, 1]))
+             } for i, d in enumerate(future_dates)]
 
 
 D.3 FRONTEND SOURCE CODE
 --------------------------------------------------------------------------------
 
-D.3.1 Main App Component (App.js)
-----------------------------------
-[INSERT App.js CODE]
+D.3.1 Templates (Jinja2 / HTML)
+---------------------------------
+The system uses server-side rendered HTML templates (Jinja2). The base_dashboard.html
+template includes Chart.js (CDN), Font Awesome icons, and the main CSS stylesheet.
+All protected pages extend base_dashboard.html to inherit the navigation
+bar, session-aware header, and static asset caching.
 
-D.3.2 Dashboard Component
---------------------------
-[INSERT Dashboard component CODE]
+Key templates:
+- templates/index.html         Login / landing page
+- templates/admin.html         Main dashboard with metric cards, Forecast
+                               Trend Analysis chart, Historical Performance chart,
+                               and Top Products Sales Ranking chart
+- templates/forecasting.html   Per-product ARIMA and Linear Regression
+                               7/30-day forecast charts with confidence bands
+- templates/products.html      Product CRUD management table
+- templates/reports.html       Sales and inventory reports
+- templates/settings.html      User and system settings
 
-[INCLUDE KEY FRONTEND CODE]
+
+D.3.2 Frontend JavaScript (static/app.js)
+------------------------------------------
+Key JavaScript functions:
+- getCsrfToken()         Reads the CSRF token from the meta tag for all API calls
+- fetchWithCsrf(url, options)  Wrapper around fetch() that auto-injects the CSRF header
+- vcCountUp(el, target)  Animates metric card numbers counting up on page load
+- vcSkeleton(el, fetchFn) Shows a shimmer skeleton while data is loading
+
+Chart.js is used for:
+- Forecast Trend Analysis (line chart, canvas id="trendChart")
+- Historical Performance (bar/line toggle, canvas id="monthlyChart")
+- Sales Ranking - Top Products (bar chart, canvas id="topProductsChart")
 
 
 ================================================================================
@@ -79,9 +236,7 @@ END OF APPENDIX D
 APPENDIX E: USER MANUAL
 ================================================================================
 
-[INSERT TITLE PAGE]
-
-This appendix provides instructions on how to use the Predictive Sales & 
+This appendix provides instructions on how to use the Predictive Sales &
 Restocking Dashboard System.
 
 
@@ -105,26 +260,31 @@ E.2 INSTALLATION INSTRUCTIONS
 For Local Deployment:
 
 1. Clone the repository
-   ```
    git clone [REPOSITORY_URL]
-   ```
+   cd "my app"
 
-2. Set up backend
-   ```
-   cd backend
+2. Create and activate a virtual environment
+   python -m venv .venv
+   .venv\Scripts\activate         (Windows)
+   source .venv/bin/activate      (macOS / Linux)
+
+3. Install Python dependencies
    pip install -r requirements.txt
+
+4. Set environment variables (create a .env file):
+   SECRET_KEY=your-secret-key
+   DATABASE_URL=postgresql://user:password@host/dbname
+   FLASK_ENV=development
+
+5. Run the application
    python app.py
-   ```
 
-3. Set up frontend
-   ```
-   cd frontend
-   npm install
-   npm start
-   ```
+6. Access the application
+   Open browser and navigate to: http://127.0.0.1:5000
 
-4. Access the application
-   - Open browser and navigate to: http://localhost:3000
+For Cloud Deployment (Render):
+   Push code to the connected GitHub repository. Render automatically
+   builds and deploys using the configuration in render.yaml.
 
 
 E.3 USER GUIDE
@@ -138,8 +298,11 @@ E.3.1 Logging In
 4. You will be redirected to the dashboard
 
 Default Admin Credentials:
-- Username: [INSERT DEFAULT USERNAME]
-- Password: [INSERT DEFAULT PASSWORD]
+- Username: admin
+- Password: admin123
+
+  NOTE: The system forces a password change on the first login.
+  Please change the default password immediately after first access.
 
 
 E.3.2 Uploading Sales Data
@@ -219,7 +382,7 @@ Q: How much historical data do I need?
 A: For accurate forecasts, at least 12 months of data is recommended.
 
 Q: Can I export the reports?
-A: [INSERT IF EXPORT FEATURE EXISTS]
+A: Yes. Use the Export Report button on the Reports page to download a CSV of sales data and alerts.
 
 
 ================================================================================

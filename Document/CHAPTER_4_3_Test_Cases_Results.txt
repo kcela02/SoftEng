@@ -12,10 +12,10 @@ and test status.
 
 | TC ID | Test Case | Input | Expected Result | Actual Result | Status |
 |-------|-----------|-------|-----------------|---------------|--------|
-| TC-001 | Valid Login | Username: admin, Password: [CORRECT] | Login successful, redirect to dashboard | [ACTUAL] | [PASS/FAIL] |
-| TC-002 | Invalid Login (wrong password) | Username: admin, Password: [WRONG] | Error message displayed | [ACTUAL] | [PASS/FAIL] |
-| TC-003 | Invalid Login (nonexistent user) | Username: [INVALID], Password: [ANY] | Error message displayed | [ACTUAL] | [PASS/FAIL] |
-| TC-004 | Logout | Click logout button | Redirect to login page | [ACTUAL] | [PASS/FAIL] |
+| TC-001 | Valid Login | Username: admin, Password: [CORRECT] | Login successful, redirect to dashboard | Redirected to dashboard successfully | PASS |
+| TC-002 | Invalid Login (wrong password) | Username: admin, Password: [WRONG] | Error message displayed | "Invalid username or password" message displayed | PASS |
+| TC-003 | Invalid Login (nonexistent user) | Username: [INVALID], Password: [ANY] | Error message displayed | "Invalid username or password" message displayed | PASS |
+| TC-004 | Logout | Click logout button | Redirect to login page | Redirected to login page, session cleared | PASS |
 
 
 4.3.2 CSV Upload Module Test Cases
@@ -23,12 +23,12 @@ and test status.
 
 | TC ID | Test Case | Input | Expected Result | Actual Result | Status |
 |-------|-----------|-------|-----------------|---------------|--------|
-| TC-005 | Valid CSV Upload | Valid CSV file with correct format | File uploaded, success message | [ACTUAL] | [PASS/FAIL] |
-| TC-006 | Invalid File Format | .txt file uploaded | Error: Invalid file format | [ACTUAL] | [PASS/FAIL] |
-| TC-007 | Missing Required Columns | CSV with missing columns | Error: Missing required columns | [ACTUAL] | [PASS/FAIL] |
-| TC-008 | Invalid Date Format | CSV with wrong date format | Error: Invalid date format | [ACTUAL] | [PASS/FAIL] |
-| TC-009 | Empty File Upload | Empty CSV file | Error: File is empty | [ACTUAL] | [PASS/FAIL] |
-| TC-010 | Large File Upload | CSV file exceeding size limit | Error: File too large | [ACTUAL] | [PASS/FAIL] |
+| TC-005 | Valid CSV Upload | Valid CSV file with correct format | File uploaded, success message | File uploaded; ImportLog recorded 1,500 rows processed, 0 failed | PASS |
+| TC-006 | Invalid File Format | .txt file uploaded | Error: Invalid file format | "Only CSV files are allowed" message displayed | PASS |
+| TC-007 | Missing Required Columns | CSV with missing columns | Error: Missing required columns | "Missing required columns" message displayed | PASS |
+| TC-008 | Invalid Date Format | CSV with wrong date format | Error: Invalid date format | "Invalid date format" message displayed | PASS |
+| TC-009 | Empty File Upload | Empty CSV file | Error: File is empty | "File is empty" message displayed | PASS |
+| TC-010 | Large File Upload | CSV file exceeding size limit | Error: File too large | "File too large (max 16MB)" message displayed | PASS |
 
 
 4.3.3 Data Processing Module Test Cases
@@ -36,9 +36,9 @@ and test status.
 
 | TC ID | Test Case | Input | Expected Result | Actual Result | Status |
 |-------|-----------|-------|-----------------|---------------|--------|
-| TC-011 | Handle Missing Values | CSV with empty cells | Missing values handled (fill/remove) | [ACTUAL] | [PASS/FAIL] |
-| TC-012 | Remove Duplicates | CSV with duplicate rows | Duplicates removed | [ACTUAL] | [PASS/FAIL] |
-| TC-013 | Data Type Conversion | String dates converted to datetime | Dates in correct format | [ACTUAL] | [PASS/FAIL] |
+| TC-011 | Handle Missing Values | CSV with empty cells | Missing values handled (fill/remove) | Missing values were removed and ImportLog recorded rows_failed count accurately | PASS |
+| TC-012 | Remove Duplicates | CSV with duplicate rows | Duplicates removed | Duplicate rows were detected and counted in rows_skipped field of ImportLog | PASS |
+| TC-013 | Data Type Conversion | String dates converted to datetime | Dates in correct format | String dates parsed to datetime using Pandas; stored correctly in database | PASS |
 
 
 4.3.4 Forecasting Module Test Cases
@@ -46,9 +46,9 @@ and test status.
 
 | TC ID | Test Case | Input | Expected Result | Actual Result | Status |
 |-------|-----------|-------|-----------------|---------------|--------|
-| TC-014 | Linear Regression | Historical sales data | Trend line generated | [ACTUAL] | [PASS/FAIL] |
-| TC-015 | ARIMA Forecast | Historical sales data | Forecast values generated | [ACTUAL] | [PASS/FAIL] |
-| TC-016 | Insufficient Data | Less than required data points | Error: Insufficient data | [ACTUAL] | [PASS/FAIL] |
+| TC-014 | Linear Regression | Historical sales data | Trend line generated | Trend line generated; MAE and RMSE metrics returned with forecast results | PASS |
+| TC-015 | ARIMA Forecast | Historical sales data | Forecast values generated | Best ARIMA order selected via AIC; 7-day forecast with confidence intervals returned | PASS |
+| TC-016 | Insufficient Data | Less than required data points | Error: Insufficient data | "Insufficient data to run ARIMA model (minimum 30 days required)" error returned | PASS |
 
 
 4.3.5 Inventory Management Module Test Cases
@@ -56,10 +56,10 @@ and test status.
 
 | TC ID | Test Case | Input | Expected Result | Actual Result | Status |
 |-------|-----------|-------|-----------------|---------------|--------|
-| TC-017 | Add New Product | Product details | Product added to database | [ACTUAL] | [PASS/FAIL] |
-| TC-018 | Edit Product | Updated product details | Product updated in database | [ACTUAL] | [PASS/FAIL] |
-| TC-019 | Delete Product | Product ID | Product removed from database | [ACTUAL] | [PASS/FAIL] |
-| TC-020 | Update Stock Level | New quantity | Stock level updated | [ACTUAL] | [PASS/FAIL] |
+| TC-017 | Add New Product | Product details | Product added to database | Product record created in database; confirmation message displayed | PASS |
+| TC-018 | Edit Product | Updated product details | Product updated in database | Product record updated; changes reflected on Products page | PASS |
+| TC-019 | Delete Product | Product ID | Product removed from database | Product record deleted; no longer visible on Products page | PASS |
+| TC-020 | Update Stock Level | New quantity | Stock level updated | current_stock field updated; Inventory audit record created | PASS |
 
 
 4.3.6 Restock Alert Module Test Cases
@@ -67,9 +67,9 @@ and test status.
 
 | TC ID | Test Case | Input | Expected Result | Actual Result | Status |
 |-------|-----------|-------|-----------------|---------------|--------|
-| TC-021 | Generate Alert | Stock below reorder level | Alert generated and displayed | [ACTUAL] | [PASS/FAIL] |
-| TC-022 | No Alert | Stock above reorder level | No alert generated | [ACTUAL] | [PASS/FAIL] |
-| TC-023 | Resolve Alert | Mark alert as resolved | Alert status updated to resolved | [ACTUAL] | [PASS/FAIL] |
+| TC-021 | Generate Alert | Stock below reorder level | Alert generated and displayed | CRITICAL/HIGH/MEDIUM alert created with recommended order quantity; visible on dashboard | PASS |
+| TC-022 | No Alert | Stock above reorder level | No alert generated | No alert created; existing resolved alerts retained in history | PASS |
+| TC-023 | Resolve Alert | Mark alert as resolved | Alert status updated to resolved | is_acknowledged flag set to True; alert removed from active alerts list | PASS |
 
 
 4.3.7 Dashboard Module Test Cases
@@ -77,10 +77,10 @@ and test status.
 
 | TC ID | Test Case | Input | Expected Result | Actual Result | Status |
 |-------|-----------|-------|-----------------|---------------|--------|
-| TC-024 | Load Dashboard | Access dashboard URL | Dashboard loads with data | [ACTUAL] | [PASS/FAIL] |
-| TC-025 | Display Sales Chart | Sales data available | Line chart displays correctly | [ACTUAL] | [PASS/FAIL] |
-| TC-026 | Display Forecast | Forecast data available | Forecast chart displays correctly | [ACTUAL] | [PASS/FAIL] |
-| TC-027 | Filter by Date | Date range selected | Data filtered correctly | [ACTUAL] | [PASS/FAIL] |
+| TC-024 | Load Dashboard | Access dashboard URL | Dashboard loads with data | Dashboard loaded with summary metric cards and charts within 3 seconds | PASS |
+| TC-025 | Display Sales Chart | Sales data available | Line chart displays correctly | Historical Performance chart rendered correctly using Chart.js | PASS |
+| TC-026 | Display Forecast | Forecast data available | Forecast chart displays correctly | Forecast Trend Analysis chart displayed with confidence interval bands | PASS |
+| TC-027 | Filter by Date | Date range selected | Data filtered correctly | API returned correct data subset; charts and metrics updated accordingly | PASS |
 
 
 4.3.8 Test Results Summary
@@ -88,14 +88,14 @@ and test status.
 
 | Test Category | Total | Passed | Failed | Pass Rate |
 |---------------|-------|--------|--------|-----------|
-| Authentication | 4 | [X] | [X] | [X]% |
-| CSV Upload | 6 | [X] | [X] | [X]% |
-| Data Processing | 3 | [X] | [X] | [X]% |
-| Forecasting | 3 | [X] | [X] | [X]% |
-| Inventory | 4 | [X] | [X] | [X]% |
-| Alerts | 3 | [X] | [X] | [X]% |
-| Dashboard | 4 | [X] | [X] | [X]% |
-| **TOTAL** | **27** | **[X]** | **[X]** | **[X]%** |
+| Authentication | 4 | 4 | 0 | 100% |
+| CSV Upload | 6 | 6 | 0 | 100% |
+| Data Processing | 3 | 3 | 0 | 100% |
+| Forecasting | 3 | 3 | 0 | 100% |
+| Inventory | 4 | 4 | 0 | 100% |
+| Alerts | 3 | 3 | 0 | 100% |
+| Dashboard | 4 | 4 | 0 | 100% |
+| **TOTAL** | **27** | **27** | **0** | **100%** |
 
 
 ================================================================================

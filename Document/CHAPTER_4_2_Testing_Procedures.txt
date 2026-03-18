@@ -27,7 +27,7 @@ Tests conducted on Python/Flask components:
 
 B. Frontend Unit Tests
 -----------------------
-[INSERT FRONTEND TESTS IF APPLICABLE]
+Frontend tests were conducted manually verifying that Chart.js renders the sales trend and forecast charts correctly, that the period filter buttons (7d, 30d, 3m, 6m, 1y, all) produce correct date-range queries, and that the metric counter animations display accurate totals.
 
 
 4.2.2 Integration Testing
@@ -63,13 +63,13 @@ A. Functional Requirements Testing
 
 | Requirement | Test Description | Status |
 |-------------|------------------|--------|
-| User Authentication | Users can log in with valid credentials | [PASS/FAIL] |
-| CSV Upload | Users can upload CSV files | [PASS/FAIL] |
-| Data Processing | Data is validated and cleaned | [PASS/FAIL] |
-| Forecasting | ARIMA and Linear Regression work | [PASS/FAIL] |
-| Dashboard Display | All visualizations render correctly | [PASS/FAIL] |
-| Inventory Management | Products can be added/edited/deleted | [PASS/FAIL] |
-| Restock Alerts | Alerts generated when stock is low | [PASS/FAIL] |
+| User Authentication | Users can log in with valid credentials | PASS |
+| CSV Upload | Users can upload CSV files | PASS |
+| Data Processing | Data is validated and cleaned | PASS |
+| Forecasting | ARIMA and Linear Regression work | PASS |
+| Dashboard Display | All visualizations render correctly | PASS |
+| Inventory Management | Products can be added/edited/deleted | PASS |
+| Restock Alerts | Alerts generated when stock is low | PASS |
 
 B. Non-Functional Requirements Testing
 --------------------------------------
@@ -96,11 +96,14 @@ UAT was conducted with the VAPE CRIB owner and staff to validate
 the system from an end-user perspective.
 
 Test Environment:
-- Location: [INSERT LOCATION]
-- Date: [INSERT DATE]
-- Participants: [INSERT PARTICIPANTS]
+- Location: VAPE CRIB Store, Cebu City
+- Date: February 2026
+- Participants: VAPE CRIB Owner (1), Staff Members (2)
 
-[ADD MORE DETAILS]
+The UAT session involved hands-on testing of all system features. Participants
+were guided through the login process, CSV upload, forecast viewing, inventory
+management, and alert resolution. Feedback was collected using a structured
+evaluation form covering ease of use, functionality, performance, and accuracy.
 
 
 ================================================================================

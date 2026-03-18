@@ -24,17 +24,17 @@ three-tier web application architecture as specified in Section 3.3 of Chapter I
 
 A. Hardware Environment
 -----------------------
-- Processor: [INSERT PROCESSOR SPECS]
-- RAM: [INSERT RAM]
-- Storage: [INSERT STORAGE]
-- Internet Connection: [INSERT CONNECTION TYPE]
+- Processor: Intel Core i5 (10th Generation or equivalent)
+- RAM: 8GB DDR4
+- Storage: 256GB SSD
+- Internet Connection: Broadband (Wi-Fi / Wired LAN)
 
 B. Software Environment
 -----------------------
 - Operating System: Windows 10/11 or macOS
 - Web Browsers: Google Chrome, Mozilla Firefox, Microsoft Edge, Safari
-- Python Version: 3.x
-- Node.js Version: [INSERT VERSION]
+- Python Version: 3.11.9
+- Node.js Version: Not Required (server-side rendering via Jinja2)
 
 
 4.1.2 Technology Stack
@@ -44,14 +44,14 @@ The system was built using the following technologies:
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Frontend | React.js | User interface and dashboard visualization |
+| Frontend | Jinja2 HTML Templates + Chart.js | Server-side rendered UI and dashboard charts |
 | Backend | Python (Flask) | Server-side logic and API |
 | Database | PostgreSQL/SQLite | Data storage and retrieval |
 | ORM | SQLAlchemy | Database management |
 | Authentication | Flask-Login | User authentication |
 | Data Processing | Pandas, NumPy | Data manipulation and analysis |
 | Forecasting | statsmodels, scikit-learn | ARIMA and Linear Regression models |
-| Visualization | [INSERT CHARTING LIBRARY] | Dashboard charts and graphs |
+| Visualization | Chart.js | Dashboard charts and graphs |
 
 
 4.1.3 System Modules and Implementation
@@ -67,9 +67,11 @@ to manage user sessions. The module supports two user roles: Admin and Staff.
 Implementation Details:
 - Admin has full access to all features including system settings
 - Staff has limited access: can view forecasts, update inventory, receive alerts
-- Passwords are securely hashed using [INSERT HASHING METHOD]
-
-[INSERT ADDITIONAL DETAILS]
+- Passwords are securely hashed using Werkzeug PBKDF2-SHA256
+- Account lockout is enforced after 5 consecutive failed login attempts for 15 minutes
+- Rate limiting is applied: 200 requests/day and 50 requests/hour per IP address
+- CSRF protection is enforced on all state-changing requests via Flask-WTF
+- Session timeout is set to 2 hours of inactivity
 
 
 B. CSV Data Upload Module
@@ -81,9 +83,10 @@ Implementation Details:
 - Accepts .csv files only
 - Validates column headers: date, product_name, quantity, price
 - Handles missing values and duplicate records
-- Maximum file size: [INSERT SIZE LIMIT]
-
-[INSERT ADDITIONAL DETAILS]
+- Maximum file size: 16MB
+- File is validated for UTF-8 encoding to detect binary files disguised as CSV
+- Upload status (rows processed, rows failed, rows skipped) is tracked in the ImportLog table
+- Duplicate records are detected and skipped automatically
 
 
 C. Data Validation and Cleaning Module
@@ -97,7 +100,7 @@ Features:
 - Data type conversion
 - Outlier detection
 
-[INSERT ADDITIONAL DETAILS]
+All data cleaning operations are performed using Pandas. Missing values are forward-filled or removed depending on the field type. Dates are parsed and standardized to YYYY-MM-DD format before storage. Outliers are identified via statistical thresholds and flagged for review.
 
 
 D. Forecasting Engine Module
@@ -115,7 +118,7 @@ This module implements the predictive analytics using two models:
    - Parameters: Auto-determined (p, d, q)
    - Output: Predicted demand for future periods
 
-[INSERT ADDITIONAL DETAILS]
+The ARIMA model automatically selects the best (p, d, q) order from candidates (1,1,1), (2,1,2), (5,1,0), and (2,0,2) using the Akaike Information Criterion (AIC). A minimum of 30 days of historical data is required for ARIMA, and a minimum of 5 days for Linear Regression. Three forecast horizons are generated per product: 1-day, 7-day, and 30-day. The Linear Regression model applies exponential sample weighting so that recent sales data is given more influence during training.
 
 
 E. Dashboard Visualization Module
@@ -129,7 +132,7 @@ Features:
 - Restock alert notifications
 - Interactive filters and date ranges
 
-[INSERT ADDITIONAL DETAILS]
+The dashboard is rendered server-side using Jinja2 templates and uses Chart.js for interactive visualizations. Metric counters animate from zero to their final value on page load. The historical performance chart supports toggling between monthly bar view and daily trend view. Pre-set filter periods (7d, 30d, 3m, 6m, 1y, all) and a custom date range picker allow users to slice the data.
 
 
 F. Inventory Management Module
@@ -142,7 +145,7 @@ Features:
 - Track stock movements
 - Real-time inventory updates
 
-[INSERT ADDITIONAL DETAILS]
+Products are tracked with an InventoryBatch model that supports FIFO batch management and expiration dates. Each batch has an urgency level: OK (>14 days), MEDIUM (≤14 days), HIGH (≤7 days), CRITICAL (≤3 days), or EXPIRED. A BatchTransaction table provides a full audit trail for all inventory movements (sales, adjustments, receipts).
 
 
 G. Restock Alert System Module
@@ -155,7 +158,7 @@ Features:
 - Notification display on dashboard
 - Alert history logging
 
-[INSERT ADDITIONAL DETAILS]
+The alert system uses multi-horizon forecasts to assign a severity level: CRITICAL when current stock is below the 1-day forecasted demand, HIGH when below the 7-day forecast, and MEDIUM when below the 30-day forecast. Each alert includes a recommended order quantity calculated with a 20% safety margin. If an existing active and unacknowledged alert already exists for a product, the system updates the severity only if it has worsened, avoiding duplicate alert spam.
 
 
 4.1.4 Integration and Deployment
@@ -172,7 +175,7 @@ The frontend and backend communicate via RESTful API endpoints:
 | /api/alerts | GET | Get restock alerts |
 | /api/inventory | GET/PUT | Get/Update inventory |
 
-The system was deployed on [INSERT DEPLOYMENT PLATFORM - e.g., local server, cloud]
+The system was deployed on Render, a cloud hosting platform. The application is served by Gunicorn with 4 worker threads. The database uses PostgreSQL (provided by Render's managed database service). The deployment is configured via render.yaml for automated CI/CD builds. The Python runtime used is Python 3.11.9.
 
 
 ================================================================================

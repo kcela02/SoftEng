@@ -70,7 +70,17 @@ analytics. [Source needed - verify]
 ONLINE RESOURCES
 ================================================================================
 
-[INSERT ANY WEBSITES OR ONLINE RESOURCES CITED IN THE DOCUMENT]
+Flask Documentation. (2024). Flask web framework. https://flask.palletsprojects.com/
+
+Scikit-learn Developers. (2024). scikit-learn: Machine learning in Python. https://scikit-learn.org/
+
+StatsModels Project. (2024). Statistical models, hypothesis tests, and data exploration. https://www.statsmodels.org/
+
+Render. (2024). Cloud hosting platform for web applications and databases. https://render.com/
+
+Chart.js Contributors. (2024). Chart.js: Simple yet flexible JavaScript charting. https://www.chartjs.org/
+
+Pandas Development Team. (2024). pandas: Python data analysis library. https://pandas.pydata.org/
 
 
 ================================================================================
