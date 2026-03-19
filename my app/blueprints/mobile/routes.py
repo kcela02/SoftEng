@@ -464,8 +464,31 @@ def products():
 
     paginated = q.paginate(page=page, per_page=limit, error_out=False)
 
+    # Build a map of product_id → highest active alert severity so the
+    # mobile app can display the same classification as the web dashboard.
+    product_ids = [p.id for p in paginated.items]
+    alert_map = {}
+    if product_ids:
+        severity_order = {'CRITICAL': 3, 'HIGH': 2, 'MEDIUM': 1}
+        active_alerts = Alert.query.filter(
+            Alert.product_id.in_(product_ids),
+            Alert.is_active == True,
+            Alert.is_acknowledged == False,
+        ).all()
+        for a in active_alerts:
+            cur = alert_map.get(a.product_id)
+            a_rank = severity_order.get(a.severity, 0)
+            if cur is None or a_rank > severity_order.get(cur, 0):
+                alert_map[a.product_id] = a.severity
+
+    data = []
+    for p in paginated.items:
+        d = p.to_dict()
+        d['alert_level'] = alert_map.get(p.id)   # None when stock is adequate
+        data.append(d)
+
     return _ok(
-        [p.to_dict() for p in paginated.items],
+        data,
         pagination={
             'page':       paginated.page,
             'limit':      limit,
