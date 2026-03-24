@@ -733,6 +733,47 @@ def forecasts():
     )
 
 
+def _generate_backtest_forecasts(product_ids, week_start, week_end):
+    """Generate on-the-fly backtested forecasts for a historical period.
+
+    Trains the model on data available *before* the period, then predicts
+    the period's dates.  Returns {date_obj: {quantity, conf_lower, conf_upper}}.
+    """
+    from models.regression import forecast_linear_regression
+    days_ahead = (week_end - week_start).days + 1
+    training_end = week_start - timedelta(days=1)
+
+    aggregated: dict = {}
+    for pid in product_ids:
+        try:
+            results = forecast_linear_regression(
+                db_conn=None,
+                product_id=pid,
+                days_ahead=days_ahead,
+                start_date=week_start,
+                training_end_date=training_end,
+            )
+            if results and not (isinstance(results, dict) and 'error' in results):
+                for item in results:
+                    d = item['date']
+                    if isinstance(d, str):
+                        d = datetime.strptime(d, '%Y-%m-%d').date()
+                    elif hasattr(d, 'date'):
+                        d = d.date()
+                    pred = max(0, item.get('prediction', 0))
+                    cl = max(0, item.get('confidence_lower', pred))
+                    cu = max(0, item.get('confidence_upper', pred))
+                    if d not in aggregated:
+                        aggregated[d] = {'quantity': 0.0, 'conf_lower': 0.0, 'conf_upper': 0.0}
+                    aggregated[d]['quantity'] += pred
+                    aggregated[d]['conf_lower'] += cl
+                    aggregated[d]['conf_upper'] += cu
+        except Exception as e:
+            print(f"[BACKTEST-mobile] Error for product {pid}: {e}")
+            continue
+    return aggregated
+
+
 @mobile_bp.route('/forecast/daily', methods=['GET'])
 @jwt_required()
 def forecast_daily():
@@ -886,6 +927,15 @@ def forecast_daily():
                 'conf_lower': float(fc.conf_lower or fc.quantity or 0),
                 'conf_upper': float(fc.conf_upper or fc.quantity or 0),
             }
+
+        # Backtest fallback — if no stored forecasts exist for a historical week,
+        # generate them on-the-fly (same as the web endpoint).
+        if is_historical and not fc_by_date:
+            if aggregate_all:
+                all_pids = [p.id for p in Product.query.filter_by(is_fake=False).all()]
+                fc_by_date = _generate_backtest_forecasts(all_pids, week_start, week_end)
+            else:
+                fc_by_date = _generate_backtest_forecasts([product_id], week_start, week_end)
 
         forecast_data = []
         cur = forecast_start
