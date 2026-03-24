@@ -733,6 +733,209 @@ def forecasts():
     )
 
 
+@mobile_bp.route('/forecast/daily', methods=['GET'])
+@jwt_required()
+def forecast_daily():
+    """
+    Daily forecast for a specific week — mirrors the web's /api/forecast/daily
+    so the mobile chart shows identical data.
+
+    Query params:
+        product_id (int, optional)    — omit to aggregate all products
+        year       (int, optional)    — defaults to current year
+        month      (int, optional)    — 1-12, defaults to current month
+        week       (int, optional)    — week within month (1-5), defaults to current week
+    """
+    user = _current_user()
+    if not user:
+        return _error('User not found', 401)
+
+    try:
+        product_id = request.args.get('product_id', type=int)
+        year       = request.args.get('year', type=int)
+        month      = request.args.get('month', type=int)
+        week_num   = request.args.get('week', type=int)
+
+        aggregate_all = not product_id
+        today = datetime.now().date()
+        basis_year  = year  if year  else today.year
+        basis_month = month if month else today.month
+        month_start = datetime(basis_year, basis_month, 1).date()
+
+        # ── Week boundary calculation (mirrors web exactly) ─────────────────
+        if not week_num:
+            if basis_year == today.year and basis_month == today.month:
+                week_start = today - timedelta(days=today.weekday())
+                week_end   = week_start + timedelta(days=6)
+                days_into  = (week_start - month_start).days
+                week_num   = max(1, (days_into // 7) + 1)
+            else:
+                week_num = 1
+
+        if basis_year == today.year and basis_month == today.month:
+            current_ws   = today - timedelta(days=today.weekday())
+            days_into_c  = (current_ws - month_start).days
+            current_wn   = max(1, (days_into_c // 7) + 1)
+            if week_num == current_wn:
+                week_start = current_ws
+                week_end   = week_start + timedelta(days=6)
+            else:
+                if week_num == 1:
+                    week_start = month_start
+                    week_end   = week_start + timedelta(days=6)
+                else:
+                    week_start = month_start + timedelta(days=(week_num - 1) * 7)
+                    week_start = week_start - timedelta(days=week_start.weekday())
+                    week_end   = week_start + timedelta(days=6)
+        else:
+            if week_num == 1:
+                week_start = month_start
+                week_end   = week_start + timedelta(days=6)
+            else:
+                week_start = month_start + timedelta(days=(week_num - 1) * 7)
+                week_start = week_start - timedelta(days=week_start.weekday())
+                week_end   = week_start + timedelta(days=6)
+
+        # Historical vs current/future
+        if week_end < today:
+            basis_date     = week_start - timedelta(days=1)
+            forecast_start = week_start
+            forecast_end   = week_end
+            is_historical  = True
+        else:
+            basis_date     = today
+            forecast_start = week_start
+            forecast_end   = week_end
+            is_historical  = False
+
+        # ── Actual sales ────────────────────────────────────────────────────
+        end_for_actual = week_end if is_historical else min(basis_date, week_end)
+        actual_q = db.session.query(
+            func.date(Sale.sale_date).label('date'),
+            func.sum(Sale.quantity).label('quantity'),
+        ).filter(
+            Sale.is_fake == False,
+            func.date(Sale.sale_date) >= week_start,
+            func.date(Sale.sale_date) <= end_for_actual,
+        )
+        if not aggregate_all:
+            actual_q = actual_q.filter(Sale.product_id == product_id)
+        actual_rows = actual_q.group_by(func.date(Sale.sale_date)).all()
+
+        day_names = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+        sales_by_date = {}
+        for row in actual_rows:
+            d = row.date if isinstance(row.date, datetime) else datetime.strptime(str(row.date), '%Y-%m-%d').date()
+            if isinstance(d, datetime):
+                d = d.date()
+            sales_by_date[d] = float(row.quantity)
+
+        actual_data = []
+        cur = week_start
+        while cur <= end_for_actual:
+            actual_data.append({
+                'date':     cur.isoformat(),
+                'sales':    sales_by_date.get(cur, 0.0),
+                'day_name': day_names[cur.weekday()],
+            })
+            cur += timedelta(days=1)
+
+        # ── Forecasts ───────────────────────────────────────────────────────
+        if aggregate_all:
+            fc_q = db.session.query(
+                func.date(Forecast.forecast_date).label('date'),
+                func.sum(Forecast.predicted_quantity).label('quantity'),
+                func.sum(Forecast.confidence_lower).label('conf_lower'),
+                func.sum(Forecast.confidence_upper).label('conf_upper'),
+            ).filter(
+                Forecast.aggregation_level == 'daily',
+                func.date(Forecast.forecast_date) >= forecast_start,
+                func.date(Forecast.forecast_date) <= forecast_end,
+            )
+            if is_historical:
+                fc_q = fc_q.filter(
+                    db.or_(Forecast.generated_at < week_start, Forecast.generated_at.is_(None))
+                )
+            fc_rows = fc_q.group_by(func.date(Forecast.forecast_date)) \
+                          .order_by(func.date(Forecast.forecast_date)).all()
+        else:
+            fc_filter = [
+                Forecast.product_id == product_id,
+                Forecast.aggregation_level == 'daily',
+                func.date(Forecast.forecast_date) >= forecast_start,
+                func.date(Forecast.forecast_date) <= forecast_end,
+            ]
+            if is_historical:
+                fc_filter.append(
+                    db.or_(Forecast.generated_at < week_start, Forecast.generated_at.is_(None))
+                )
+            fc_rows = db.session.query(
+                func.date(Forecast.forecast_date).label('date'),
+                Forecast.predicted_quantity.label('quantity'),
+                Forecast.confidence_lower.label('conf_lower'),
+                Forecast.confidence_upper.label('conf_upper'),
+            ).filter(*fc_filter).order_by(Forecast.forecast_date).all()
+
+        fc_by_date = {}
+        for fc in fc_rows:
+            d = fc.date if isinstance(fc.date, datetime) else datetime.strptime(str(fc.date), '%Y-%m-%d').date()
+            if isinstance(d, datetime):
+                d = d.date()
+            fc_by_date[d] = {
+                'quantity':   float(fc.quantity   or 0),
+                'conf_lower': float(fc.conf_lower or fc.quantity or 0),
+                'conf_upper': float(fc.conf_upper or fc.quantity or 0),
+            }
+
+        forecast_data = []
+        cur = forecast_start
+        while cur <= week_end:
+            fd = fc_by_date.get(cur, {'quantity': 0, 'conf_lower': 0, 'conf_upper': 0})
+            forecast_data.append({
+                'date':             cur.isoformat(),
+                'sales':            fd['quantity'],
+                'confidence_lower': fd['conf_lower'],
+                'confidence_upper': fd['conf_upper'],
+                'day_name':         day_names[cur.weekday()],
+            })
+            cur += timedelta(days=1)
+
+        # ── Accuracy (yesterday, single product only) ───────────────────────
+        accuracy = None
+        if not aggregate_all and actual_rows:
+            yesterday = basis_date - timedelta(days=1)
+            yfc = Forecast.query.filter(
+                Forecast.product_id == product_id,
+                Forecast.aggregation_level == 'daily',
+                func.date(Forecast.forecast_date) == yesterday,
+            ).first()
+            if yfc:
+                ya = db.session.query(func.sum(Sale.quantity)).filter(
+                    Sale.product_id == product_id,
+                    func.date(Sale.sale_date) == yesterday,
+                ).scalar() or 0
+                if ya > 0:
+                    accuracy = round((1 - abs(yfc.predicted_quantity - ya) / ya) * 100, 2)
+
+        return jsonify({
+            'success':       True,
+            'product_id':    product_id if not aggregate_all else 'all',
+            'aggregate_all': aggregate_all,
+            'week_start':    week_start.isoformat(),
+            'week_end':      week_end.isoformat(),
+            'week_number':   week_num,
+            'current_day':   basis_date.isoformat(),
+            'actual':        actual_data,
+            'forecast':      forecast_data,
+            'accuracy':      accuracy,
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return _error(str(e), 500)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Batches (expiration tracking)
 # ══════════════════════════════════════════════════════════════════════════════
