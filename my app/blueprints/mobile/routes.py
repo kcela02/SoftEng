@@ -245,9 +245,15 @@ def dashboard():
         Product.current_stock <= 10
     ).count()
 
-    active_alerts = Alert.query.filter_by(
-        is_active=True, is_acknowledged=False
-    ).count()
+    # Count DISTINCT products with active alerts (not individual alert rows).
+    # A product can have multiple alert records (e.g. forecast_shortage + batch_expiring)
+    # but should only count as ONE alerted product — matching what the products list shows.
+    active_alerts = db.session.query(
+        func.count(func.distinct(Alert.product_id))
+    ).filter(
+        Alert.is_active == True,
+        Alert.is_acknowledged == False
+    ).scalar()
 
     # Alert breakdown by severity
     alerts_critical = Alert.query.filter_by(

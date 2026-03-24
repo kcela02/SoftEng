@@ -328,12 +328,17 @@ def get_metrics():
         for p in all_products:
             check_low_stock_and_alert(p)
     
-    alerts_count = Alert.query.filter(
+    # Count DISTINCT products with active alerts (not individual alert rows).
+    # A product can have multiple alert records (e.g. forecast_shortage + batch_expiring)
+    # but should only count as ONE alerted product — matching what the products list shows.
+    alerts_count = db.session.query(
+        func.count(func.distinct(Alert.product_id))
+    ).filter(
         Alert.is_active == True,
         Alert.is_acknowledged == False,
         Alert.severity.in_(['CRITICAL', 'HIGH', 'MEDIUM'])
-    ).count()
-    
+    ).scalar()
+
     alerts = alerts_count
     
     # Period comparison: current 7 days vs previous 7 days — 4 values in one CASE query
