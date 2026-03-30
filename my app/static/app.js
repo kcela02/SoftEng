@@ -1012,7 +1012,7 @@ function updateDashboardWithData(data) {
     if (totalInventoryValue) totalInventoryValue.textContent = formatPHP(data.total_inventory_value || 0);
     // Accuracy summary card is driven by /api/metrics so it updates with every other card
     if (accuracy) accuracy.textContent = (data.accuracy !== undefined && data.accuracy !== null) ? data.accuracy.toFixed(1) + '%' : '--';
-    if (alertsCount) alertsCount.textContent = data.alerts !== undefined ? data.alerts : 0;
+    // alerts-count is controlled exclusively by fetchEnhancedRestockAlerts (live forecast-based)
     if (turnoverRateEl && typeof data.turnover_rate !== 'undefined') turnoverRateEl.textContent = Number(data.turnover_rate || 0).toFixed(2);
 
     // Synthetic data banner
@@ -1803,7 +1803,7 @@ function updateChartsWithForecast(forecastResult) {
 
     if (totalActual) totalActual.textContent = forecastResult.total_sales;
     if (turnover) turnover.textContent = forecastResult.turnover.toFixed(2);
-    if (alertsCount) alertsCount.textContent = forecastResult.alerts_count;
+    // alerts-count is controlled exclusively by fetchEnhancedRestockAlerts (live forecast-based)
 }
 
 // ==================== PRODUCT MANAGEMENT FUNCTIONS (GLOBAL SCOPE) ====================

@@ -578,10 +578,12 @@
                 return;
             }
             
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
             fetch(`/api/admin/users/${userId}/role`, {
                 method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({role: newRole})
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+                body: JSON.stringify({role: newRole}),
+                credentials: 'same-origin'
             })
             .then(response => response.json())
             .then(data => {
@@ -604,8 +606,11 @@
                 return;
             }
             
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
             fetch(`/api/admin/users/${userId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: {'X-CSRFToken': csrf},
+                credentials: 'same-origin'
             })
             .then(response => response.json())
             .then(data => {
