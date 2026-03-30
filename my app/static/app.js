@@ -2288,7 +2288,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 
                 // Send request
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
                 xhr.open('POST', '/api/upload-csv');
+                xhr.setRequestHeader('X-CSRFToken', csrfToken);
                 xhr.send(formData);
                 
             } catch (error) {
@@ -2407,8 +2409,10 @@ document.addEventListener('DOMContentLoaded', function() {
             statusDiv.innerHTML = '<p style="color: #007bff;">Uploading and validating...</p>';
 
             try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
                 const response = await fetch('/api/upload-csv', {
                     method: 'POST',
+                    headers: {'X-CSRFToken': csrfToken},
                     credentials: 'same-origin',
                     body: formData
                 });
@@ -2430,16 +2434,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     `;
                     fileInput.value = '';
                     loadImportsList();
-                    // Reload products if products were imported
-                    if (dataTypeSelect.value === 'products') {
-                        loadProducts();
-                    }
-                    // Refresh forecast accuracy after sales data import
-                    if (dataTypeSelect.value === 'sales') {
-                        fetchForecastAccuracy();
-                        fetchWeeklyForecast();
-                        fetchEnhancedRestockAlerts();
-                    }
+                    fetchForecastAccuracy();
+                    fetchWeeklyForecast();
+                    fetchEnhancedRestockAlerts();
                 } else {
                     // Handle validation errors with detailed formatting
                     let errorHTML = result.error || 'Unknown error occurred';
