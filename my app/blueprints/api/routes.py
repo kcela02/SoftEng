@@ -3448,16 +3448,16 @@ def get_enhanced_restock_alerts():
         # Sort by severity (CRITICAL first)
         alerts_data.sort(key=lambda x: x['severity'], reverse=True)
         
-        # Filter to show only CRITICAL and HIGH alerts (to avoid overcrowding dashboard)
-        critical_high_alerts = [a for a in alerts_data if a['urgency'] in ['CRITICAL', 'HIGH']]
+        # Filter to show CRITICAL, HIGH, and MEDIUM alerts
+        actionable_alerts = [a for a in alerts_data if a['urgency'] in ['CRITICAL', 'HIGH', 'MEDIUM']]
         
         # Limit to top 10 alerts for dashboard display
-        top_10_alerts = critical_high_alerts[:10]
+        top_10_alerts = actionable_alerts[:10]
         
         return jsonify({
             'success': True,
-            'alerts': top_10_alerts,  # Only top 10 CRITICAL + HIGH
-            'total_alerts': len(critical_high_alerts),
+            'alerts': top_10_alerts,  # Top 10 CRITICAL + HIGH + MEDIUM
+            'total_alerts': len(actionable_alerts),
             'critical_count': sum(1 for a in alerts_data if a['urgency'] == 'CRITICAL'),
             'high_count': sum(1 for a in alerts_data if a['urgency'] == 'HIGH'),
             'medium_count': sum(1 for a in alerts_data if a['urgency'] == 'MEDIUM')

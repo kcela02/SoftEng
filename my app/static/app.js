@@ -833,11 +833,13 @@ async function fetchEnhancedRestockAlerts() {
             throw new Error(data.error || 'Unknown error');
         }
         
-        // Update alerts count in Overview tab
-        const alertsCountEl = document.getElementById('alerts-count');
-        if (alertsCountEl) {
-            alertsCountEl.textContent = data.total_alerts || 0;
-        }
+        // Update alerts count badges in Overview tab
+        const criticalBadge = document.getElementById('alert-critical-badge');
+        const highBadge = document.getElementById('alert-high-badge');
+        const mediumBadge = document.getElementById('alert-medium-badge');
+        if (criticalBadge) criticalBadge.textContent = `⚠ ${data.critical_count || 0} Critical`;
+        if (highBadge) highBadge.textContent = `⚠ ${data.high_count || 0} High`;
+        if (mediumBadge) mediumBadge.textContent = `⚠ ${data.medium_count || 0} Medium`;
         
         // Render alerts in the alerts panel
         renderEnhancedAlerts(data.alerts, data);
@@ -880,6 +882,9 @@ function renderEnhancedAlerts(alerts, summary) {
             </span>
             <span style="flex: 1; text-align: center; padding: 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
                 <i class="fas fa-square" style="color: #f97316;"></i> ${summary.high_count || 0}
+            </span>
+            <span style="flex: 1; text-align: center; padding: 6px; background: #fefce8; color: #854d0e; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
+                <i class="fas fa-square" style="color: #eab308;"></i> ${summary.medium_count || 0}
             </span>
         </div>
     `;
