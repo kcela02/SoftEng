@@ -259,16 +259,6 @@
             });
         }
         
-        // CSV upload button handler
-        const uploadBtn = document.getElementById('upload-csv-btn');
-        if (uploadBtn) {
-            uploadBtn.addEventListener('click', function() {
-                if (typeof handleCSVUpload === 'function') {
-                    handleCSVUpload();
-                }
-            });
-        }
-        
     });
 </script>
 {% endblock %}
