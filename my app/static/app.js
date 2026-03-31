@@ -881,8 +881,8 @@ function renderEnhancedAlerts(alerts, summary) {
             <span style="flex: 1; text-align: center; padding: 6px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
                 <i class="fas fa-square" style="color: #f97316;"></i> ${summary.high_count || 0}
             </span>
-            <span style="flex: 1; text-align: center; padding: 6px; background: #fefce8; color: #854d0e; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
-                <i class="fas fa-square" style="color: #eab308;"></i> ${summary.medium_count || 0}
+            <span style="flex: 1; text-align: center; padding: 6px; background: #fff7ed; color: #9a3412; border-radius: 4px; font-size: 0.8em; font-weight: 600;">
+                <i class="fas fa-square" style="color: #f97316;"></i> ${summary.medium_count || 0}
             </span>
         </div>
     `;
@@ -892,19 +892,19 @@ function renderEnhancedAlerts(alerts, summary) {
         const urgencyIcon = {
             'CRITICAL': '<i class="fas fa-square" style="color: #dc2626;"></i>',
             'HIGH': '<i class="fas fa-square" style="color: #f97316;"></i>',
-            'MEDIUM': '<i class="fas fa-square" style="color: #eab308;"></i>'
+            'MEDIUM': '<i class="fas fa-square" style="color: #f97316;"></i>'
         }[alert.urgency] || '<i class="fas fa-exclamation-triangle"></i>';
         
         const bgColor = {
-            'CRITICAL': '#fee2e2',  // Darker red background
-            'HIGH': '#fef3c7',      // Darker amber background
-            'MEDIUM': '#dcfce7'     // Darker green background
+            'CRITICAL': '#fee2e2',  // red background
+            'HIGH': '#fef3c7',      // amber background
+            'MEDIUM': '#fff7ed'     // orange background
         }[alert.urgency] || '#f9fafb';
         
         const textColor = {
-            'CRITICAL': '#7f1d1d',  // Darker red text
-            'HIGH': '#78350f',      // Darker amber text
-            'MEDIUM': '#15803d'     // Darker green text
+            'CRITICAL': '#7f1d1d',  // red text
+            'HIGH': '#78350f',      // amber text
+            'MEDIUM': '#9a3412'     // orange text
         }[alert.urgency] || '#374151';
         
         const borderColor = alert.urgency_color;
@@ -948,7 +948,7 @@ function renderEnhancedAlerts(alerts, summary) {
                 </div>
                 
                 <!-- Action Row: Recommended Order -->
-                <div style="display: flex; justify-content: center; align-items: center; padding: 10px; background: ${{'CRITICAL': '#fecaca', 'HIGH': '#fde047', 'MEDIUM': '#86efac'}[alert.urgency] || '#e5e7eb'}; border-radius: 4px;">
+                <div style="display: flex; justify-content: center; align-items: center; padding: 10px; background: ${{'CRITICAL': '#fecaca', 'HIGH': '#fde047', 'MEDIUM': '#fed7aa'}[alert.urgency] || '#e5e7eb'}; border-radius: 4px;">
                     <div style="font-size: 0.85em; font-weight: 600; color: ${textColor}; text-align: center;">
                         <i class="fas fa-box"></i> Order: <span style="font-size: 1.1em; font-weight: 700;">${alert.recommended_order_qty}</span> units
                     </div>

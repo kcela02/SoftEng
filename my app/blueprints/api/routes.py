@@ -3384,7 +3384,7 @@ def get_enhanced_restock_alerts():
                         },
                         'urgency_color': {
                             'HIGH': '#f59e0b',
-                            'MEDIUM': '#10b981'
+                            'MEDIUM': '#f97316'
                         }.get(urgency, '#6b7280'),
                         'note': 'Based on reorder point (no forecast data yet)'
                     })
@@ -3441,7 +3441,7 @@ def get_enhanced_restock_alerts():
                     'urgency_color': {
                         'CRITICAL': '#ef4444',
                         'HIGH': '#f59e0b', 
-                        'MEDIUM': '#10b981'
+                        'MEDIUM': '#f97316'
                     }.get(urgency, '#6b7280')
                 })
         
