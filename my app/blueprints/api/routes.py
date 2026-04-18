@@ -1650,11 +1650,28 @@ def upload_csv_file():
         # ==================== PERFORMANCE OPTIMIZATION ====================
         # Pre-load existing data to avoid N+1 query problems
         product_ids = [p.id for p in valid_product_map.values()]
-        
-        # Build set of existing sales (product_id, quantity, price, sale_date) for duplicate detection
+
+        def normalize_sale_key(product_id, quantity, price_value, sale_dt):
+            """Normalize transaction identity for reliable duplicate detection."""
+            normalized_price = round(float(price_value), 2)
+
+            if isinstance(sale_dt, pd.Timestamp):
+                normalized_date = sale_dt.to_pydatetime()
+            elif isinstance(sale_dt, datetime):
+                normalized_date = sale_dt
+            else:
+                normalized_date = pd.to_datetime(sale_dt).to_pydatetime()
+
+            if normalized_date.tzinfo is not None:
+                normalized_date = normalized_date.astimezone().replace(tzinfo=None)
+
+            normalized_date = normalized_date.replace(microsecond=0)
+            return (int(product_id), int(quantity), normalized_price, normalized_date)
+
+        # Build set of existing sales (normalized product_id, quantity, price, sale_date) for duplicate detection
         existing_sales_data = Sale.query.filter(Sale.product_id.in_(product_ids)).all()
         existing_sales_set = {
-            (s.product_id, s.quantity, s.price, s.sale_date)
+            normalize_sale_key(s.product_id, s.quantity, s.price, s.sale_date)
             for s in existing_sales_data
         }
         print(f"[CSV Upload] Pre-loaded {len(existing_sales_set)} existing sales for duplicate detection")
@@ -1709,7 +1726,7 @@ def upload_csv_file():
 
                 # Smart duplicate check: use pre-loaded set (OPTIMIZED - no DB query)
                 # Check for EXACT match (same product, quantity, price, and timestamp to the second)
-                sale_key = (product.id, quantity, price, sale_date)
+                sale_key = normalize_sale_key(product.id, quantity, price, sale_date)
                 if sale_key in existing_sales_set:
                     # This exact transaction already exists - likely duplicate upload
                     rows_skipped += 1
@@ -1777,6 +1794,29 @@ def upload_csv_file():
                 print(f"[CSV Upload ERROR] {error_msg}")
                 import traceback
                 print(traceback.format_exc())
+
+        # Reject when the upload contains only duplicates and no new rows were imported.
+        if rows_processed == 0 and rows_skipped > 0 and rows_failed == 0:
+            duplicate_msg = 'Import rejected: all rows are duplicates of existing sales records.'
+            import_log.rows_processed = rows_processed
+            import_log.rows_failed = rows_failed
+            import_log.rows_skipped = rows_skipped
+            import_log.status = 'failed'
+            import_log.validation_errors = duplicate_msg
+            db.session.commit()
+
+            return jsonify({
+                'success': False,
+                'error': duplicate_msg,
+                'summary': {
+                    'total_rows': len(df),
+                    'processed': rows_processed,
+                    'failed': rows_failed,
+                    'skipped': rows_skipped,
+                    'duplicates_found': rows_skipped,
+                    'new_records': rows_processed
+                }
+            }), 409
 
         # Commit all changes
         db.session.commit()
