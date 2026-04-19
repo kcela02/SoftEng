@@ -5416,6 +5416,18 @@ def train_model():
         else:
             # Incremental learning mode - preserve historical patterns
             results = ForecastingPipeline.retrain_on_csv_upload(user_id=current_user.id)
+
+        # Backfill historical daily forecasts so accuracy has past forecast-vs-actual overlap.
+        rolling_created = 0
+        try:
+            rolling_created = ForecastingPipeline.rolling_retrain_all_products(
+                foundation_days_large=365,
+                foundation_days_small=90,
+                horizon_days=30,
+                step_days=1,
+            )
+        except Exception as rolling_err:
+            print(f"[TRAIN_MODEL] Rolling retrain warning: {rolling_err}")
         
         if 'error' in results:
             return jsonify({
@@ -5431,12 +5443,14 @@ def train_model():
                 'retrained': results.get('retrained', 0),
                 'skipped': results.get('skipped', 0),
                 'failed': results.get('failed', 0),
-                'total_products': results.get('total_products', 0)
+                'total_products': results.get('total_products', 0),
+                'rolling_backfilled': rolling_created
             },
             'details': [
                 f"[OK] {results.get('retrained', 0)} products retrained with Linear Regression",
                 f"[SKIP] {results.get('skipped', 0)} products skipped (insufficient data)",
                 f"[FAILED] {results.get('failed', 0)} products failed",
+                f"[OK] {rolling_created} historical daily forecasts backfilled for accuracy",
                 "[TIP] Model uses incremental learning to preserve historical patterns"
             ]
         })
