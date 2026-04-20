@@ -10,6 +10,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_jwt_extended import JWTManager
 from werkzeug.middleware.proxy_fix import ProxyFix
+from sqlalchemy import create_engine, text
 from config import config
 from models import db, User
 import os
@@ -36,6 +37,38 @@ def create_app(config_name=None):
         config_name = os.getenv('FLASK_ENV', 'development')
     
     app.config.from_object(config[config_name])
+
+    # In development, optional fallback to local SQLite when explicitly enabled.
+    # Default behavior is to keep using the same remote DB as production.
+    if config_name == 'development':
+        allow_fallback = os.getenv('LOCAL_SQLITE_FALLBACK', '0').strip().lower() in ('1', 'true', 'yes')
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        if allow_fallback and isinstance(db_uri, str) and db_uri.startswith('postgresql'):
+            try:
+                probe_engine = create_engine(db_uri, connect_args={'connect_timeout': 8})
+                with probe_engine.connect() as conn:
+                    conn.execute(text('SELECT 1'))
+            except Exception as e:
+                os.makedirs(app.instance_path, exist_ok=True)
+                fallback_db_path = os.path.join(app.instance_path, 'local_dev.db').replace('\\', '/')
+                app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{fallback_db_path}"
+                app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {}
+                print(f"[DB FALLBACK] Remote PostgreSQL unreachable in development: {e}")
+                print(f"[DB FALLBACK] Using local SQLite database: {fallback_db_path}")
+
+    # Harden PostgreSQL connection settings for local-to-Render reliability.
+    db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    if isinstance(db_uri, str) and db_uri.startswith('postgresql'):
+        engine_opts = dict(app.config.get('SQLALCHEMY_ENGINE_OPTIONS') or {})
+        connect_args = dict(engine_opts.get('connect_args') or {})
+        connect_args.setdefault('sslmode', 'require')
+        connect_args.setdefault('connect_timeout', 10)
+        connect_args.setdefault('keepalives', 1)
+        connect_args.setdefault('keepalives_idle', 30)
+        connect_args.setdefault('keepalives_interval', 10)
+        connect_args.setdefault('keepalives_count', 5)
+        engine_opts['connect_args'] = connect_args
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_opts
     
     # Initialize extensions
     db.init_app(app)

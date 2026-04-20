@@ -85,8 +85,12 @@ def rolling_retrain_product(
 
     start_gen = foundation_end
     if last_gen:
-        # continue from the next day after last generation
-        start_gen = max(start_gen, _to_date(last_gen) + timedelta(days=step_days))
+        last_gen_date = _to_date(last_gen)
+        # If last_gen is within the target window, continue from next day.
+        # If last_gen is beyond up_to (e.g., future-only forecasts already generated),
+        # keep foundation start so historical backfill is not skipped.
+        if last_gen_date <= up_to:
+            start_gen = max(start_gen, last_gen_date + timedelta(days=step_days))
 
     gen_date = start_gen
     while gen_date <= up_to:

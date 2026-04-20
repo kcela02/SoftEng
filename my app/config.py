@@ -1,13 +1,36 @@
 # config.py
 import os
 from datetime import timedelta
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+
+def _normalize_database_url(url: str) -> str:
+    """Normalize PostgreSQL URLs and enforce Render SSL params."""
+    if not url:
+        return url
+
+    if url.startswith('postgres://'):
+        url = url.replace('postgres://', 'postgresql://', 1)
+
+    if not url.startswith('postgresql://'):
+        return url
+
+    parsed = urlparse(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query.setdefault('sslmode', 'require')
+    query.setdefault('connect_timeout', '10')
+
+    return urlunparse(parsed._replace(query=urlencode(query)))
 
 class Config:
     """Base configuration"""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'a-very-secret-key-for-dev'
     
     # Database Configuration (PostgreSQL)
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://softeng2_db_user:ZpQr8FErKxXR412nZOMTBbKhTv7lF0LL@dpg-d6n73675gffc73bsk9f0-a/softeng2_db'
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(
+        os.environ.get('DATABASE_URL')
+        or 'postgresql://softeng2_db_user:ZpQr8FErKxXR412nZOMTBbKhTv7lF0LL@dpg-d6n73675gffc73bsk9f0-a/softeng2_db'
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
@@ -67,7 +90,7 @@ class DevelopmentConfig(Config):
     # Fix for older Render connection strings in local .env files
     _db_url = os.environ.get('DATABASE_URL', '')
     if _db_url.startswith('postgres://'):
-        SQLALCHEMY_DATABASE_URI = _db_url.replace('postgres://', 'postgresql://', 1)
+        SQLALCHEMY_DATABASE_URI = _normalize_database_url(_db_url)
     
     # CORS Configuration - Allow localhost and local network for development and mobile testing
     CORS_ORIGINS = [
@@ -88,7 +111,7 @@ class ProductionConfig(Config):
     # Override with secure settings – validated lazily so importing this
     # module in development mode doesn't raise errors.
     SECRET_KEY = os.environ.get('SECRET_KEY', '')
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', '')
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(os.environ.get('DATABASE_URL', ''))
     
     # Keep DB connections alive; recycle before Render's idle timeout
     SQLALCHEMY_ENGINE_OPTIONS = {
@@ -104,7 +127,7 @@ class ProductionConfig(Config):
 
     # Fix for Render: Replace postgres:// with postgresql://
     if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
-        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
+        SQLALCHEMY_DATABASE_URI = _normalize_database_url(SQLALCHEMY_DATABASE_URI)
 
     @classmethod
     def init_app(cls, app):
