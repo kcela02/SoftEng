@@ -1589,21 +1589,10 @@ def upload_csv_file():
                 # Look up product in database
                 product = Product.query.filter_by(name=product_name).first()
                 if not product:
-                    # Temporarily auto-create missing product so initial CSV import succeeds
-                    sale_price = float(row['sale_price']) if ('sale_price' in row and pd.notna(row['sale_price'])) else 0.0
-                    unit_cost_val = float(row['unit_cost']) if ('unit_cost' in row and pd.notna(row['unit_cost'])) else (sale_price * 0.7)
-                    category_val = str(row['category']).strip() if ('category' in row and pd.notna(row['category'])) else 'General'
-                    stock_val = int(row['stock_after_sale']) if ('stock_after_sale' in row and pd.notna(row['stock_after_sale'])) else 100
-                    product = Product(
-                        name=product_name,
-                        category=category_val,
-                        unit_cost=round(unit_cost_val, 2),
-                        current_stock=stock_val
-                    )
-                    db.session.add(product)
-                    db.session.flush()
-                    valid_product_map[product_name] = product
-                    print(f"[CSV Upload] Auto-created missing product: {product_name}")
+                    unknown_products.append({
+                        'row': idx + 2,  # Excel row number (header = row 1)
+                        'product_name': product_name
+                    })
                 else:
                     # Cache the product for later use
                     valid_product_map[product_name] = product
@@ -1613,10 +1602,48 @@ def upload_csv_file():
                 print(f"[CSV Upload] Error reading row {idx + 2}: {str(e)}")
                 continue
         
-        db.session.commit()
-        # [TEMPORARILY BYPASSED] Strict unknown products check disabled for initial Render deployment import.
-        # if unknown_products:
-        #     ...
+        # If ANY unknown products found, reject the entire import with detailed report
+        if unknown_products:
+            # Get all existing product names for helpful suggestions
+            all_products = Product.query.with_entities(Product.name).all()
+            existing_names = [p.name for p in all_products]
+
+            error_details = []
+            for unknown in unknown_products[:10]:  # Show first 10 to avoid overwhelming user
+                row_num = unknown['row']
+                product_name = unknown['product_name']
+
+                # Try to find similar product names (simple contains check)
+                suggestions = [name for name in existing_names if product_name.lower() in name.lower() or name.lower() in product_name.lower()]
+
+                if suggestions:
+                    suggestion_text = f" (Did you mean: {', '.join(suggestions[:3])}?)"
+                else:
+                    suggestion_text = ""
+
+                error_details.append(f"Row {row_num}: '{product_name}'{suggestion_text}")
+
+            if len(unknown_products) > 10:
+                error_details.append(f"... and {len(unknown_products) - 10} more unknown products")
+
+            error_msg = (
+                f"[WARNING] Import Rejected - {len(unknown_products)} unknown product(s) found.\n\n"
+                f"All products must exist in the system before importing sales.\n"
+                f"Please add missing products manually or fix typos in your CSV.\n\n"
+                f"Unknown Products:\n" + "\n".join(error_details)
+            )
+
+            import_log.status = 'failed'
+            import_log.validation_errors = error_msg
+            import_log.rows_failed = len(unknown_products)
+            db.session.commit()
+
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'unknown_products': unknown_products,
+                'total_unknown': len(unknown_products)
+            }), 400
 
         print(f"[CSV Upload] [OK] Validation passed - all {len(valid_product_map)} products exist")
         
@@ -1667,27 +1694,15 @@ def upload_csv_file():
                     rows_skipped += 1
                     continue
 
-                # Get product from cache (or auto-create if missing)
+                # Get product from cache (we already validated it exists)
                 product = valid_product_map.get(product_name)
                 if not product:
+                    # Should never happen after validation, but safety check
                     product = Product.query.filter_by(name=product_name).first()
                     if not product:
-                        sale_price = float(row['sale_price']) if ('sale_price' in row and pd.notna(row['sale_price'])) else 0.0
-                        unit_cost_val = float(row['unit_cost']) if ('unit_cost' in row and pd.notna(row['unit_cost'])) else (sale_price * 0.7)
-                        cat_val = str(row['category']).strip() if ('category' in row and pd.notna(row['category'])) else 'General'
-                        stock_val = int(row['stock_after_sale']) if ('stock_after_sale' in row and pd.notna(row['stock_after_sale'])) else 100
-                        product = Product(
-                            name=product_name,
-                            category=cat_val,
-                            unit_cost=round(unit_cost_val, 2),
-                            current_stock=stock_val
-                        )
-                        db.session.add(product)
-                        db.session.flush()
-                        valid_product_map[product_name] = product
-                        print(f"[CSV Upload] Auto-created product on row processing: {product_name}")
-                    else:
-                        valid_product_map[product_name] = product
+                        rows_failed += 1
+                        errors.append(f"Row {idx + 2}: Product '{product_name}' not found")
+                        continue
 
                 # Parse sale fields
                 quantity = int(row['quantity_sold'])
