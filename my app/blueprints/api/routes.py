@@ -1591,13 +1591,14 @@ def upload_csv_file():
                 if not product:
                     # Temporarily auto-create missing product so initial CSV import succeeds
                     sale_price = float(row['sale_price']) if ('sale_price' in row and pd.notna(row['sale_price'])) else 0.0
+                    unit_cost_val = float(row['unit_cost']) if ('unit_cost' in row and pd.notna(row['unit_cost'])) else (sale_price * 0.7)
                     category_val = str(row['category']).strip() if ('category' in row and pd.notna(row['category'])) else 'General'
+                    stock_val = int(row['stock_after_sale']) if ('stock_after_sale' in row and pd.notna(row['stock_after_sale'])) else 100
                     product = Product(
                         name=product_name,
                         category=category_val,
-                        price=sale_price,
-                        cost_price=round(sale_price * 0.7, 2),
-                        stock_quantity=100
+                        unit_cost=round(unit_cost_val, 2),
+                        current_stock=stock_val
                     )
                     db.session.add(product)
                     db.session.flush()
@@ -1671,14 +1672,15 @@ def upload_csv_file():
                 if not product:
                     product = Product.query.filter_by(name=product_name).first()
                     if not product:
-                        price_val = float(row['sale_price']) if ('sale_price' in row and pd.notna(row['sale_price'])) else 0.0
+                        sale_price = float(row['sale_price']) if ('sale_price' in row and pd.notna(row['sale_price'])) else 0.0
+                        unit_cost_val = float(row['unit_cost']) if ('unit_cost' in row and pd.notna(row['unit_cost'])) else (sale_price * 0.7)
                         cat_val = str(row['category']).strip() if ('category' in row and pd.notna(row['category'])) else 'General'
+                        stock_val = int(row['stock_after_sale']) if ('stock_after_sale' in row and pd.notna(row['stock_after_sale'])) else 100
                         product = Product(
                             name=product_name,
                             category=cat_val,
-                            price=price_val,
-                            cost_price=round(price_val * 0.7, 2),
-                            stock_quantity=100
+                            unit_cost=round(unit_cost_val, 2),
+                            current_stock=stock_val
                         )
                         db.session.add(product)
                         db.session.flush()
