@@ -1522,8 +1522,8 @@ def upload_csv_file():
         # Read CSV
         df = pd.read_csv(file)
         
-        # Validate schema
-        schema = SCHEMA_DEFINITIONS.get(data_type)
+        # Validate schema - fallback to unified_sales if data_type is 'sales' or unspecified
+        schema = SCHEMA_DEFINITIONS.get(data_type) or SCHEMA_DEFINITIONS.get('unified_sales')
         if not schema:
             raise ValueError(f"Unknown data type: {data_type}")
         
@@ -1666,15 +1666,26 @@ def upload_csv_file():
                     rows_skipped += 1
                     continue
 
-                # Get product from cache (we already validated it exists)
+                # Get product from cache (or auto-create if missing)
                 product = valid_product_map.get(product_name)
                 if not product:
-                    # Should never happen after validation, but safety check
                     product = Product.query.filter_by(name=product_name).first()
                     if not product:
-                        rows_failed += 1
-                        errors.append(f"Row {idx + 2}: Product '{product_name}' not found")
-                        continue
+                        price_val = float(row['sale_price']) if ('sale_price' in row and pd.notna(row['sale_price'])) else 0.0
+                        cat_val = str(row['category']).strip() if ('category' in row and pd.notna(row['category'])) else 'General'
+                        product = Product(
+                            name=product_name,
+                            category=cat_val,
+                            price=price_val,
+                            cost_price=round(price_val * 0.7, 2),
+                            stock_quantity=100
+                        )
+                        db.session.add(product)
+                        db.session.flush()
+                        valid_product_map[product_name] = product
+                        print(f"[CSV Upload] Auto-created product on row processing: {product_name}")
+                    else:
+                        valid_product_map[product_name] = product
 
                 # Parse sale fields
                 quantity = int(row['quantity_sold'])
