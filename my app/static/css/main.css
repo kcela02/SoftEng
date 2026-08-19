@@ -335,6 +335,9 @@ body::after {
     padding: 1rem 0;
     box-shadow: 0 2px 10px rgba(0,0,0,0.6);
     border-bottom: 1px solid var(--color-divider);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
 .header-content {

@@ -498,47 +498,47 @@
                 <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Create full system backups and restore from previous backups.</p>
                 
                 <!-- Backup Section -->
-                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="color: white; margin: 0 0 10px 0;"><i class="fas fa-download"></i> Create Backup</h4>
-                    <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--color-divider); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: var(--color-text-primary); margin: 0 0 10px 0;"><i class="fas fa-download"></i> Create Backup</h4>
+                    <p style="color: var(--color-text-secondary); font-size: 14px; margin-bottom: 15px;">
                         Download a complete backup (ZIP) containing all products, sales, and users.
                     </p>
-                    <button id="create-backup-btn" onclick="downloadBackup()" class="btn" style="background: white; color: #10b981; width: 100%; font-weight: 600;">
+                    <button id="create-backup-btn" onclick="downloadBackup()" class="btn btn-primary" style="width: 100%; font-weight: 600;">
                         <i class="fas fa-file-archive"></i> Download Full Backup (ZIP)
                     </button>
                 </div>
                 
                 <!-- Restore Section -->
-                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="color: white; margin: 0 0 10px 0;"><i class="fas fa-upload"></i> Restore from Backup</h4>
-                    <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--color-divider); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: var(--color-text-primary); margin: 0 0 10px 0;"><i class="fas fa-upload"></i> Restore from Backup</h4>
+                    <p style="color: var(--color-text-secondary); font-size: 14px; margin-bottom: 15px;">
                         Upload a backup ZIP or CSV file to restore data.
                     </p>
                     
                     <div style="margin-bottom: 15px;">
-                        <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Restore Mode:</label>
-                        <select id="restore-mode-select" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px;">
+                        <label style="display: block; color: var(--color-text-primary); font-weight: 600; margin-bottom: 8px;">Restore Mode:</label>
+                        <select id="restore-mode-select" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--color-divider); background: var(--color-primary-light); color: var(--color-text-primary); font-size: 14px;">
                             <option value="soft">Soft Restore (Keep users, replace products & sales)</option>
                             <option value="hard">Hard Restore (Replace everything including users)</option>
                         </select>
                     </div>
                     
                     <div style="margin-bottom: 15px;">
-                            <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Backup File (ZIP or CSV):</label>
-                        <input type="file" id="restore-file-input" accept=".zip,.csv" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px; background: white; color: #333;">
+                            <label style="display: block; color: var(--color-text-primary); font-weight: 600; margin-bottom: 8px;">Backup File (ZIP or CSV):</label>
+                        <input type="file" id="restore-file-input" accept=".zip,.csv" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--color-divider); background: var(--color-primary-light); color: var(--color-text-primary); font-size: 14px;">
                     </div>
                     
                     <div style="margin-bottom: 15px;">
-                        <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Confirm Password:</label>
+                        <label style="display: block; color: var(--color-text-primary); font-weight: 600; margin-bottom: 8px;">Confirm Password:</label>
                         <div class="password-input-wrapper">
-                            <input type="password" id="restore-password-input" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px;">
+                            <input type="password" id="restore-password-input" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--color-divider); background: var(--color-primary-light); color: var(--color-text-primary); font-size: 14px;">
                             <button type="button" class="toggle-password-btn" onclick="togglePassword('restore-password-input', this)" tabindex="-1" aria-label="Toggle password visibility">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
                     </div>
                     
-                    <button id="restore-backup-btn" onclick="restoreBackup()" class="btn" style="background: white; color: #f59e0b; width: 100%; font-weight: 600;">
+                    <button id="restore-backup-btn" onclick="restoreBackup()" class="btn btn-secondary" style="width: 100%; font-weight: 600; border: 1px solid var(--color-divider);">
                         <i class="fas fa-redo"></i> Restore from Backup
                     </button>
                 </div>
@@ -564,9 +564,9 @@
             <div class="modal-body">
                 <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Retrain the forecasting model with current sales data. The model uses incremental learning to preserve historical patterns while adapting to new data.</p>
                 
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="color: white; margin: 0 0 10px 0;">Model Information</h4>
-                    <ul style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0; padding-left: 20px;">
+                <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--color-divider); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: var(--color-text-primary); margin: 0 0 10px 0;">Model Information</h4>
+                    <ul style="color: var(--color-text-secondary); font-size: 14px; margin: 0; padding-left: 20px;">
                         <li>Uses Linear Regression algorithm</li>
                         <li>Requires minimum 730 days (2 years) of sales data</li>
                         <li>Preserves prior knowledge (incremental learning)</li>
@@ -586,7 +586,7 @@
                 
                 <div id="training-results" style="display: none; padding: 15px; border-radius: 6px; margin-bottom: 20px;"></div>
                 
-                <button id="train-model-btn" onclick="startModelTraining()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; font-weight: 600;">
+                <button id="train-model-btn" onclick="startModelTraining()" class="btn btn-primary" style="width: 100%; font-weight: 600;">
                     <i class="fas fa-play-circle"></i> Start Training
                 </button>
                 
@@ -603,9 +603,9 @@
     <!-- Wipe Data Modal -->
     <div id="wipe-data-modal" class="modal" aria-hidden="true">
         <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header" style="background: #dc2626;">
-                <h3 style="color: white;"><i class="fas fa-trash-alt"></i> Wipe Database Data</h3>
-                <span class="modal-close" onclick="closeModal('wipe-data-modal')" style="color: white;">&times;</span>
+            <div class="modal-header">
+                <h3><i class="fas fa-trash-alt"></i> Wipe Database Data</h3>
+                <span class="modal-close" onclick="closeModal('wipe-data-modal')">&times;</span>
             </div>
             <div class="modal-body">
                 <div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
@@ -713,9 +713,9 @@
     <!-- Account Edit Modal (available to all users) -->
     <div id="account-edit-modal" class="modal" aria-hidden="true">
         <div class="modal-content" style="max-width: 480px;">
-            <div class="modal-header" style="background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border-radius: 12px 12px 0 0;">
-                <h3 style="color: white;"><i class="fas fa-user-edit"></i> Edit Account</h3>
-                <span class="modal-close" onclick="closeModal('account-edit-modal')" style="color: white;">&times;</span>
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit"></i> Edit Account</h3>
+                <span class="modal-close" onclick="closeModal('account-edit-modal')">&times;</span>
             </div>
             <div class="modal-body">
                 <div style="margin-bottom: 20px;">
