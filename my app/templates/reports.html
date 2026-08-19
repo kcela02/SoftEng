@@ -71,7 +71,26 @@
                         <button onclick="closeSalesReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-secondary);">&times;</button>
                     </div>
                     <div style="padding: 20px; overflow-y: auto; flex: 1;">
-                        <div id="salesReportContent">Loading...</div>
+                        <div id="salesReportContent">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid var(--color-divider);">
+                                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 80px;"></div></th>
+                                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 60px;"></div></th>
+                                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 90px;"></div></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for i in range(5) %}
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 100px;"></div></td>
+                                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 50px;"></div></td>
+                                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 70px;"></div></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
                         <button onclick="closeSalesReportModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
@@ -88,7 +107,28 @@
                         <button onclick="closeInventoryReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-secondary);">&times;</button>
                     </div>
                     <div style="padding: 20px; overflow-y: auto; flex: 1;">
-                        <div id="inventoryReportContent">Loading...</div>
+                        <div id="inventoryReportContent">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid var(--color-divider);">
+                                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 80px;"></div></th>
+                                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 60px;"></div></th>
+                                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 90px;"></div></th>
+                                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 70px;"></div></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for i in range(5) %}
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 120px;"></div></td>
+                                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 50px;"></div></td>
+                                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 70px;"></div></td>
+                                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 20px; width: 50px; border-radius: 10px;"></div></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
                         <button onclick="closeInventoryReportModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
@@ -105,7 +145,19 @@
                         <button onclick="closeImportHistoryModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--color-text-secondary);">&times;</button>
                     </div>
                     <div style="padding: 20px; overflow-y: auto; flex: 1;">
-                        <div id="importHistoryContent">Loading...</div>
+                        <div id="importHistoryContent">
+                            <div style="display: grid; gap: 12px;">
+                                {% for i in range(4) %}
+                                <div style="padding: 15px; border: 1px solid var(--color-divider); border-radius: 8px; display: flex; justify-content: space-between;">
+                                    <div style="flex-grow: 1;">
+                                        <div class="vc-skeleton" style="height: 16px; width: 40%; margin-bottom: 8px;"></div>
+                                        <div class="vc-skeleton" style="height: 12px; width: 60%;"></div>
+                                    </div>
+                                    <div class="vc-skeleton" style="height: 24px; width: 80px; border-radius: 4px;"></div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                     <div style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px;">
                         <button onclick="closeImportHistoryModal()" class="btn" style="background: #6b7280; color: white;">Close</button>
@@ -124,7 +176,26 @@
         const content = document.getElementById('salesReportContent');
         
         modal.style.display = 'block';
-        content.innerHTML = '<div style="text-align: center; padding: 40px;"><p>Loading sales data...</p></div>';
+        content.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--color-divider);">
+                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 80px;"></div></th>
+                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 60px;"></div></th>
+                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 90px;"></div></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${Array(5).fill().map(() => `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 100px;"></div></td>
+                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 50px;"></div></td>
+                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 70px;"></div></td>
+                    </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
         
         fetch('/api/sales-report?period=' + period)
             .then(response => response.json())
@@ -181,7 +252,28 @@
         const content = document.getElementById('inventoryReportContent');
         
         modal.style.display = 'block';
-        content.innerHTML = '<div style="text-align: center; padding: 40px;"><p>Loading inventory data...</p></div>';
+        content.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--color-divider);">
+                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 80px;"></div></th>
+                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 60px;"></div></th>
+                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 90px;"></div></th>
+                        <th style="padding: 10px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 70px;"></div></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${Array(5).fill().map(() => `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 120px;"></div></td>
+                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 50px;"></div></td>
+                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 70px;"></div></td>
+                        <td style="padding: 12px;"><div class="vc-skeleton" style="height: 20px; width: 50px; border-radius: 10px;"></div></td>
+                    </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
         
         fetch('/api/inventory-report?type=' + reportType)
             .then(response => response.json())
@@ -236,7 +328,19 @@
         const content = document.getElementById('importHistoryContent');
         
         modal.style.display = 'block';
-        content.innerHTML = '<div style="text-align: center; padding: 40px;"><p>Loading import history...</p></div>';
+        content.innerHTML = `
+            <div style="display: grid; gap: 12px;">
+                ${Array(4).fill().map(() => `
+                <div style="padding: 15px; border: 1px solid var(--color-divider); border-radius: 8px; display: flex; justify-content: space-between;">
+                    <div style="flex-grow: 1;">
+                        <div class="vc-skeleton" style="height: 16px; width: 40%; margin-bottom: 8px;"></div>
+                        <div class="vc-skeleton" style="height: 12px; width: 60%;"></div>
+                    </div>
+                    <div class="vc-skeleton" style="height: 24px; width: 80px; border-radius: 4px;"></div>
+                </div>
+                `).join('')}
+            </div>
+        `;
         
         const url = limit === 'all' ? '/api/list-imports' : '/api/list-imports?limit=' + limit;
         

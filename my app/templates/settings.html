@@ -2,414 +2,7 @@
 
 {% block title %}Settings - VapeCrib Dashboard{% endblock %}
 
-{% block content %}
-            <div class="container" style="max-width: 1200px; padding: 28px 20px;">
-
-                <!-- Page Header -->
-                <div class="stg-page-header">
-                    <div class="stg-page-header-icon"><i class="fas fa-cog"></i></div>
-                    <div>
-                        <h2 class="stg-page-title">Settings</h2>
-                        <p class="stg-page-subtitle">Manage your account and system preferences.</p>
-                    </div>
-                </div>
-
-                <!-- Top grid: Account | Admin Controls | Download App -->
-                <div class="stg-top-grid">
-
-                    <!-- Account Card -->
-                    <div class="stg-card">
-                        <div class="stg-card-header">
-                            <i class="fas fa-user stg-card-header-icon"></i>
-                            <h3 class="stg-card-title">Account</h3>
-                        </div>
-                        <div class="stg-avatar">{{ current_user.username[0]|upper }}</div>
-                        <div class="stg-info-row">
-                            <span class="stg-info-label">Username</span>
-                            <span class="stg-info-value">{{ current_user.username }}</span>
-                        </div>
-                        <div class="stg-info-row">
-                            <span class="stg-info-label">Email</span>
-                            <span class="stg-info-value">{{ current_user.email }}</span>
-                        </div>
-                        <div class="stg-info-row">
-                            <span class="stg-info-label">Role</span>
-                            <span class="stg-role-badge">{{ current_user.role }}</span>
-                        </div>
-                        <div class="stg-info-row">
-                            <span class="stg-info-label">Member Since</span>
-                            <span class="stg-info-value">{{ current_user.created_at.strftime('%B %d, %Y') if current_user.created_at else 'N/A' }}</span>
-                        </div>
-                        <button class="stg-btn" onclick="openModal('account-edit-modal')">
-                            <i class="fas fa-pencil-alt"></i> Edit Account
-                        </button>
-                    </div>
-
-                    <!-- Admin Controls (admin only) -->
-                    {% if current_user.role == 'admin' %}
-                    <div class="stg-card">
-                        <div class="stg-card-header">
-                            <i class="fas fa-tools stg-card-header-icon"></i>
-                            <h3 class="stg-card-title">Admin Controls</h3>
-                        </div>
-                        <button class="stg-admin-btn" onclick="refreshAllForecasts()">
-                            <i class="fas fa-sync-alt stg-btn-icon"></i> Refresh All Forecasts
-                        </button>
-                        <button class="stg-admin-btn" onclick="openModal('train-model-modal')">
-                            <i class="fas fa-brain stg-btn-icon"></i> Train Model
-                        </button>
-                        <button class="stg-admin-btn" onclick="openManageUsersModal()">
-                            <i class="fas fa-users stg-btn-icon"></i> Manage Users
-                        </button>
-                        <button class="stg-admin-btn" onclick="openModal('system-logs-modal')">
-                            <i class="fas fa-clipboard-list stg-btn-icon"></i> System Logs
-                        </button>
-                        <button class="stg-admin-btn" onclick="openModal('database-backup-modal')">
-                            <i class="fas fa-database stg-btn-icon"></i> Database Backup
-                        </button>
-                        <div id="admin-status" style="display:none; margin-top:12px; padding:10px 14px; border-radius:7px; font-size:0.9em;"></div>
-                        <button class="stg-admin-btn stg-admin-btn--danger" onclick="openModal('wipe-data-modal')">
-                            <i class="fas fa-trash-alt stg-btn-icon"></i> Wipe Database Data
-                        </button>
-                    </div>
-                    {% endif %}
-
-                    <!-- Download App Card -->
-                    <div class="stg-card stg-download-card">
-                        <div class="stg-card-header" style="justify-content: center;">
-                            <i class="fas fa-mobile-alt stg-card-header-icon"></i>
-                            <h3 class="stg-card-title">Download App</h3>
-                        </div>
-                        <i class="fab fa-android stg-android-icon"></i>
-                        <p class="stg-app-name">VapeCrib <span class="stg-app-version">v1.1</span></p>
-                        <p style="font-size: 12px; color: #64748b; margin: 0 0 14px;">Get VapeCrib on your Android device</p>
-                        <button class="stg-btn" onclick="showDownloadOptions()">
-                            <i class="fab fa-android"></i> Android APK
-                        </button>
-                        <div id="download-status" style="display:none; margin-top:12px; padding:10px 14px; border-radius:7px; font-size:0.9em; background: rgba(109,40,217,0.2); color: #c4b5fd;"></div>
-                    </div>
-
-                </div>
-
-                <!-- Preferences (full-width bottom row) -->
-                <div class="stg-card">
-                    <div class="stg-card-header">
-                        <i class="fas fa-sliders-h stg-card-header-icon"></i>
-                        <h3 class="stg-card-title">Preferences</h3>
-                    </div>
-                    <div class="stg-prefs-grid">
-                        <div class="stg-toggle-row">
-                            <div class="stg-toggle-info">
-                                <div class="stg-toggle-info-label">Email Notifications</div>
-                                <div class="stg-toggle-info-sublabel">Receive alerts for low stock and forecasts</div>
-                            </div>
-                            <label class="stg-toggle">
-                                <input type="checkbox" id="pref-email-notifications">
-                                <span class="stg-toggle-track"><span class="stg-toggle-thumb"></span></span>
-                            </label>
-                        </div>
-                        <div class="stg-toggle-row">
-                            <div class="stg-toggle-info">
-                                <div class="stg-toggle-info-label">Auto-generate Forecasts</div>
-                                <div class="stg-toggle-info-sublabel">Daily automatic forecast regeneration</div>
-                            </div>
-                            <label class="stg-toggle">
-                                <input type="checkbox" id="pref-auto-forecasts">
-                                <span class="stg-toggle-track"><span class="stg-toggle-thumb"></span></span>
-                            </label>
-                        </div>
-                    </div>
-                    <div id="preferences-status" style="display: none; padding: 10px 14px; border-radius: 7px; margin-top: 12px;"></div>
-                    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-                        <button class="stg-btn" style="width: auto; padding: 10px 24px;" onclick="savePreferences()">
-                            <i class="fas fa-save"></i> Save Preferences
-                        </button>
-                    </div>
-                </div>
-
-            </div>
-
-    <!-- Admin Modals -->
-    {% if current_user.role == 'admin' %}
-
-    <!-- System Logs Modal -->
-    <div id="system-logs-modal" class="modal" aria-hidden="true">
-        <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-header">
-                <h3><i class="fas fa-clipboard-list"></i> System Logs</h3>
-                <span class="modal-close" onclick="closeModal('system-logs-modal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">View system activity and audit logs.</p>
-                
-                <div id="logs-loading" style="text-align: center; padding: 20px;">
-                    <p style="color: var(--color-text-secondary);">Loading logs...</p>
-                </div>
-                
-                <div id="logs-container" style="display: none;">
-                    <div style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="position: sticky; top: 0; background: var(--color-primary-dark); z-index: 1;">
-                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Timestamp</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">User</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="logs-table-body">
-                                <!-- Logs will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div id="logs-pagination" style="margin-top: 15px; text-align: center;">
-                        <!-- Pagination will be added here -->
-                    </div>
-                </div>
-                
-                <div id="logs-error" style="display: none; padding: 15px; background: #fee2e2; border-radius: 8px; color: #991b1b; margin-top: 15px;">
-                    <p id="logs-error-message"></p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('system-logs-modal')">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Database Backup Modal -->
-    <div id="database-backup-modal" class="modal" aria-hidden="true">
-        <div class="modal-content" style="max-width: 700px;">
-            <div class="modal-header">
-                <h3><i class="fas fa-database"></i> Database Backup & Restore</h3>
-                <span class="modal-close" onclick="closeModal('database-backup-modal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Create full system backups and restore from previous backups.</p>
-                
-                <!-- Backup Section -->
-                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="color: white; margin: 0 0 10px 0;"><i class="fas fa-download"></i> Create Backup</h4>
-                    <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
-                        Download a complete backup (ZIP) containing all products, sales, and users.
-                    </p>
-                    <button id="create-backup-btn" onclick="downloadBackup()" class="btn" style="background: white; color: #10b981; width: 100%; font-weight: 600;">
-                        <i class="fas fa-file-archive"></i> Download Full Backup (ZIP)
-                    </button>
-                </div>
-                
-                <!-- Restore Section -->
-                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="color: white; margin: 0 0 10px 0;"><i class="fas fa-upload"></i> Restore from Backup</h4>
-                    <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
-                        Upload a backup ZIP or CSV file to restore data.
-                    </p>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Restore Mode:</label>
-                        <select id="restore-mode-select" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px;">
-                            <option value="soft">Soft Restore (Keep users, replace products & sales)</option>
-                            <option value="hard">Hard Restore (Replace everything including users)</option>
-                        </select>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                            <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Backup File (ZIP or CSV):</label>
-                        <input type="file" id="restore-file-input" accept=".zip,.csv" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px; background: white; color: #333;">
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Confirm Password:</label>
-                        <div class="password-input-wrapper">
-                            <input type="password" id="restore-password-input" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px;">
-                            <button type="button" class="toggle-password-btn" onclick="togglePassword('restore-password-input', this)" tabindex="-1" aria-label="Toggle password visibility">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <button id="restore-backup-btn" onclick="restoreBackup()" class="btn" style="background: white; color: #f59e0b; width: 100%; font-weight: 600;">
-                        <i class="fas fa-redo"></i> Restore from Backup
-                    </button>
-                </div>
-                
-                <!-- Status Messages -->
-                <div id="backup-restore-status" style="display: none; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                    <p id="backup-restore-message" style="margin: 0;"></p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('database-backup-modal')">Close</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Train Model Modal -->
-    <div id="train-model-modal" class="modal" aria-hidden="true">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <h3><i class="fas fa-brain"></i> Train Linear Regression Model</h3>
-                <span class="modal-close" onclick="closeModal('train-model-modal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Retrain the forecasting model with current sales data. The model uses incremental learning to preserve historical patterns while adapting to new data.</p>
-                
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="color: white; margin: 0 0 10px 0;">Model Information</h4>
-                    <ul style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0; padding-left: 20px;">
-                        <li>Uses Linear Regression algorithm</li>
-                        <li>Requires minimum 730 days (2 years) of sales data</li>
-                        <li>Preserves prior knowledge (incremental learning)</li>
-                        <li>Generates 1-day, 7-day, and 30-day forecasts</li>
-                    </ul>
-                </div>
-                
-                <div id="training-progress" style="display: none; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 6px; margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #f59e0b; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;"></div>
-                        <div>
-                            <div style="font-weight: 600; color: #92400e;">Training in progress...</div>
-                            <div id="training-status-text" style="font-size: 0.9em; color: #92400e;">Initializing model training...</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div id="training-results" style="display: none; padding: 15px; border-radius: 6px; margin-bottom: 20px;"></div>
-                
-                <button id="train-model-btn" onclick="startModelTraining()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; font-weight: 600;">
-                    <i class="fas fa-play-circle"></i> Start Training
-                </button>
-                
-                <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="viewTrainingHistory()">
-                    <i class="fas fa-chart-line"></i> View Training History
-                </button>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('train-model-modal')">Close</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Wipe Data Modal -->
-    <div id="wipe-data-modal" class="modal" aria-hidden="true">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header" style="background: #dc2626;">
-                <h3 style="color: white;"><i class="fas fa-trash-alt"></i> Wipe Database Data</h3>
-                <span class="modal-close" onclick="closeModal('wipe-data-modal')" style="color: white;">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-                    <h4 style="color: #991b1b; margin-top: 0;"><i class="fas fa-exclamation-triangle"></i> Warning: Destructive Action</h4>
-                    <p style="color: #991b1b; margin: 0; font-size: 14px;">
-                        This action will permanently delete data from the database. Tables and schema will be preserved, but all records will be removed. This action cannot be undone!
-                    </p>
-                </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 10px; color: var(--color-text-primary);">Select what to wipe:</label>
-                    <select id="wipe-type-select" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
-                        <option value="all">All Data (Complete Wipe)</option>
-                        <option value="sales">Sales Data Only</option>
-                        <option value="products">Products Only</option>
-                        <option value="forecasts">Forecasts Only</option>
-                    </select>
-                </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 10px; color: var(--color-text-primary);">Confirm your password:</label>
-                    <div class="password-input-wrapper">
-                        <input type="password" id="wipe-password" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
-                        <button type="button" class="toggle-password-btn" onclick="togglePassword('wipe-password', this)" tabindex="-1" aria-label="Toggle password visibility">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <div id="wipe-status" style="display: none; padding: 15px; border-radius: 6px; margin-bottom: 20px;"></div>
-                
-                <button id="wipe-confirm-btn" onclick="confirmWipeData()" class="btn btn-danger" style="width: 100%; background: #dc2626; font-weight: 600;">
-                    <i class="fas fa-trash-alt"></i> Confirm and Wipe Data
-                </button>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('wipe-data-modal')">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Training History Modal -->
-    <div id="training-history-modal" class="modal" aria-hidden="true">
-        <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-header">
-                <h3><i class="fas fa-chart-line"></i> Training History</h3>
-                <span class="modal-close" onclick="closeModal('training-history-modal')">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">View history of model training sessions and forecasts.</p>
-                
-                <div id="training-loading" style="text-align: center; padding: 20px;">
-                    <p style="color: var(--color-text-secondary);">Loading training history...</p>
-                </div>
-                
-                <div id="training-container" style="display: none;">
-                    <div style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead style="position: sticky; top: 0; background: var(--color-primary-dark); z-index: 1;">
-                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Timestamp</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">User</th>
-                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="training-table-body">
-                                <!-- Training history will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <div id="training-error" style="display: none; padding: 15px; background: #fee2e2; border-radius: 8px; color: #991b1b; margin-top: 15px;">
-                    <p id="training-error-message"></p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('training-history-modal')">Close</button>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Account Edit Modal (available to all users) -->
-    <div id="account-edit-modal" class="modal" aria-hidden="true">
-        <div class="modal-content" style="max-width: 480px;">
-            <div class="modal-header" style="background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border-radius: 12px 12px 0 0;">
-                <h3 style="color: white;"><i class="fas fa-user-edit"></i> Edit Account</h3>
-                <span class="modal-close" onclick="closeModal('account-edit-modal')" style="color: white;">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; margin-bottom: 8px;">What would you like to change?</label>
-                    <select id="acct-edit-type" onchange="switchAccountEditForm(this.value)"
-                            style="width: 100%; padding: 11px 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--color-text-primary); font-size: 14px; outline: none; cursor: pointer;">
-                        <option value="password" style="background:#1e293b; color:#e2e8f0;">Change Password</option>
-                        <option value="username" style="background:#1e293b; color:#e2e8f0;">Change Username</option>
-                        <option value="email" style="background:#1e293b; color:#e2e8f0;">Update Email</option>
-                    </select>
-                </div>
-                <div id="acct-edit-fields"></div>
-                <div id="acct-edit-status" style="display: none; margin-top: 14px; padding: 11px 14px; border-radius: 6px; font-size: 14px;"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('account-edit-modal')">Cancel</button>
-                <button class="btn btn-primary" id="acct-edit-submit" onclick="submitAccountEdit()">
-                    <i class="fas fa-save"></i> Save Changes
-                </button>
-            </div>
-        </div>
-    </div>
-{% endblock %}
-
-{% block extra_scripts %}
+{% block extra_head %}
     <style>
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -696,6 +289,458 @@
             transform: translateX(17px);
         }
     </style>
+{% endblock %}
+
+{% block content %}
+            <div class="container" style="max-width: 1200px; padding: 28px 20px;">
+
+                <!-- Page Header -->
+                <div class="stg-page-header">
+                    <div class="stg-page-header-icon"><i class="fas fa-cog"></i></div>
+                    <div>
+                        <h2 class="stg-page-title">Settings</h2>
+                        <p class="stg-page-subtitle">Manage your account and system preferences.</p>
+                    </div>
+                </div>
+
+                <!-- Top grid: Account | Admin Controls | Download App -->
+                <div class="stg-top-grid">
+
+                    <!-- Account Card -->
+                    <div class="stg-card">
+                        <div class="stg-card-header">
+                            <i class="fas fa-user stg-card-header-icon"></i>
+                            <h3 class="stg-card-title">Account</h3>
+                        </div>
+                        <div class="stg-avatar">{{ current_user.username[0]|upper }}</div>
+                        <div class="stg-info-row">
+                            <span class="stg-info-label">Username</span>
+                            <span class="stg-info-value">{{ current_user.username }}</span>
+                        </div>
+                        <div class="stg-info-row">
+                            <span class="stg-info-label">Email</span>
+                            <span class="stg-info-value">{{ current_user.email }}</span>
+                        </div>
+                        <div class="stg-info-row">
+                            <span class="stg-info-label">Role</span>
+                            <span class="stg-role-badge">{{ current_user.role }}</span>
+                        </div>
+                        <div class="stg-info-row">
+                            <span class="stg-info-label">Member Since</span>
+                            <span class="stg-info-value">{{ current_user.created_at.strftime('%B %d, %Y') if current_user.created_at else 'N/A' }}</span>
+                        </div>
+                        <button class="stg-btn" onclick="openModal('account-edit-modal')">
+                            <i class="fas fa-pencil-alt"></i> Edit Account
+                        </button>
+                    </div>
+
+                    <!-- Admin Controls (admin only) -->
+                    {% if current_user.role == 'admin' %}
+                    <div class="stg-card">
+                        <div class="stg-card-header">
+                            <i class="fas fa-tools stg-card-header-icon"></i>
+                            <h3 class="stg-card-title">Admin Controls</h3>
+                        </div>
+                        <button class="stg-admin-btn" onclick="refreshAllForecasts()">
+                            <i class="fas fa-sync-alt stg-btn-icon"></i> Refresh All Forecasts
+                        </button>
+                        <button class="stg-admin-btn" onclick="openModal('train-model-modal')">
+                            <i class="fas fa-brain stg-btn-icon"></i> Train Model
+                        </button>
+                        <button class="stg-admin-btn" onclick="openManageUsersModal()">
+                            <i class="fas fa-users stg-btn-icon"></i> Manage Users
+                        </button>
+                        <button class="stg-admin-btn" onclick="openModal('system-logs-modal')">
+                            <i class="fas fa-clipboard-list stg-btn-icon"></i> System Logs
+                        </button>
+                        <button class="stg-admin-btn" onclick="openModal('database-backup-modal')">
+                            <i class="fas fa-database stg-btn-icon"></i> Database Backup
+                        </button>
+                        <div id="admin-status" style="display:none; margin-top:12px; padding:10px 14px; border-radius:7px; font-size:0.9em;"></div>
+                        <button class="stg-admin-btn stg-admin-btn--danger" onclick="openModal('wipe-data-modal')">
+                            <i class="fas fa-trash-alt stg-btn-icon"></i> Wipe Database Data
+                        </button>
+                    </div>
+                    {% endif %}
+
+                    <!-- Download App Card -->
+                    <div class="stg-card stg-download-card">
+                        <div class="stg-card-header" style="justify-content: center;">
+                            <i class="fas fa-mobile-alt stg-card-header-icon"></i>
+                            <h3 class="stg-card-title">Download App</h3>
+                        </div>
+                        <i class="fab fa-android stg-android-icon"></i>
+                        <p class="stg-app-name">VapeCrib <span class="stg-app-version">v1.1</span></p>
+                        <p style="font-size: 12px; color: #64748b; margin: 0 0 14px;">Get VapeCrib on your Android device</p>
+                        <button class="stg-btn" onclick="showDownloadOptions()">
+                            <i class="fab fa-android"></i> Android APK
+                        </button>
+                        <div id="download-status" style="display:none; margin-top:12px; padding:10px 14px; border-radius:7px; font-size:0.9em; background: rgba(109,40,217,0.2); color: #c4b5fd;"></div>
+                    </div>
+
+                </div>
+
+                <!-- Preferences (full-width bottom row) -->
+                <div class="stg-card">
+                    <div class="stg-card-header">
+                        <i class="fas fa-sliders-h stg-card-header-icon"></i>
+                        <h3 class="stg-card-title">Preferences</h3>
+                    </div>
+                    <div class="stg-prefs-grid">
+                        <div class="stg-toggle-row">
+                            <div class="stg-toggle-info">
+                                <div class="stg-toggle-info-label">Email Notifications</div>
+                                <div class="stg-toggle-info-sublabel">Receive alerts for low stock and forecasts</div>
+                            </div>
+                            <label class="stg-toggle">
+                                <input type="checkbox" id="pref-email-notifications">
+                                <span class="stg-toggle-track"><span class="stg-toggle-thumb"></span></span>
+                            </label>
+                        </div>
+                        <div class="stg-toggle-row">
+                            <div class="stg-toggle-info">
+                                <div class="stg-toggle-info-label">Auto-generate Forecasts</div>
+                                <div class="stg-toggle-info-sublabel">Daily automatic forecast regeneration</div>
+                            </div>
+                            <label class="stg-toggle">
+                                <input type="checkbox" id="pref-auto-forecasts">
+                                <span class="stg-toggle-track"><span class="stg-toggle-thumb"></span></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="preferences-status" style="display: none; padding: 10px 14px; border-radius: 7px; margin-top: 12px;"></div>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                        <button class="stg-btn" style="width: auto; padding: 10px 24px;" onclick="savePreferences()">
+                            <i class="fas fa-save"></i> Save Preferences
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+    <!-- Admin Modals -->
+    {% if current_user.role == 'admin' %}
+
+    <!-- System Logs Modal -->
+    <div id="system-logs-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-clipboard-list"></i> System Logs</h3>
+                <span class="modal-close" onclick="closeModal('system-logs-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">View system activity and audit logs.</p>
+                
+                <div id="logs-loading">
+                    <div style="overflow-x: auto; max-height: 500px; overflow-y: hidden;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 100px;"></div></th>
+                                    <th style="padding: 12px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 80px;"></div></th>
+                                    <th style="padding: 12px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 90px;"></div></th>
+                                    <th style="padding: 12px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 150px;"></div></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for i in range(5) %}
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 120px;"></div></td>
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 70px;"></div></td>
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 20px; width: 80px; border-radius: 12px;"></div></td>
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 85%;"></div></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="logs-container" style="display: none;">
+                    <div style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="position: sticky; top: 0; background: var(--color-primary-dark); z-index: 1;">
+                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Timestamp</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">User</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logs-table-body">
+                                <!-- Logs will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="logs-pagination" style="margin-top: 15px; text-align: center;">
+                        <!-- Pagination will be added here -->
+                    </div>
+                </div>
+                
+                <div id="logs-error" style="display: none; padding: 15px; background: #fee2e2; border-radius: 8px; color: #991b1b; margin-top: 15px;">
+                    <p id="logs-error-message"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('system-logs-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Backup Modal -->
+    <div id="database-backup-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-database"></i> Database Backup & Restore</h3>
+                <span class="modal-close" onclick="closeModal('database-backup-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Create full system backups and restore from previous backups.</p>
+                
+                <!-- Backup Section -->
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: white; margin: 0 0 10px 0;"><i class="fas fa-download"></i> Create Backup</h4>
+                    <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
+                        Download a complete backup (ZIP) containing all products, sales, and users.
+                    </p>
+                    <button id="create-backup-btn" onclick="downloadBackup()" class="btn" style="background: white; color: #10b981; width: 100%; font-weight: 600;">
+                        <i class="fas fa-file-archive"></i> Download Full Backup (ZIP)
+                    </button>
+                </div>
+                
+                <!-- Restore Section -->
+                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: white; margin: 0 0 10px 0;"><i class="fas fa-upload"></i> Restore from Backup</h4>
+                    <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-bottom: 15px;">
+                        Upload a backup ZIP or CSV file to restore data.
+                    </p>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Restore Mode:</label>
+                        <select id="restore-mode-select" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px;">
+                            <option value="soft">Soft Restore (Keep users, replace products & sales)</option>
+                            <option value="hard">Hard Restore (Replace everything including users)</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                            <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Backup File (ZIP or CSV):</label>
+                        <input type="file" id="restore-file-input" accept=".zip,.csv" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px; background: white; color: #333;">
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; color: white; font-weight: 600; margin-bottom: 8px;">Confirm Password:</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="restore-password-input" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border-radius: 6px; border: none; font-size: 14px;">
+                            <button type="button" class="toggle-password-btn" onclick="togglePassword('restore-password-input', this)" tabindex="-1" aria-label="Toggle password visibility">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button id="restore-backup-btn" onclick="restoreBackup()" class="btn" style="background: white; color: #f59e0b; width: 100%; font-weight: 600;">
+                        <i class="fas fa-redo"></i> Restore from Backup
+                    </button>
+                </div>
+                
+                <!-- Status Messages -->
+                <div id="backup-restore-status" style="display: none; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p id="backup-restore-message" style="margin: 0;"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('database-backup-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Train Model Modal -->
+    <div id="train-model-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-brain"></i> Train Linear Regression Model</h3>
+                <span class="modal-close" onclick="closeModal('train-model-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Retrain the forecasting model with current sales data. The model uses incremental learning to preserve historical patterns while adapting to new data.</p>
+                
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: white; margin: 0 0 10px 0;">Model Information</h4>
+                    <ul style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0; padding-left: 20px;">
+                        <li>Uses Linear Regression algorithm</li>
+                        <li>Requires minimum 730 days (2 years) of sales data</li>
+                        <li>Preserves prior knowledge (incremental learning)</li>
+                        <li>Generates 1-day, 7-day, and 30-day forecasts</li>
+                    </ul>
+                </div>
+                
+                <div id="training-progress" style="display: none; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 6px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #f59e0b; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;"></div>
+                        <div>
+                            <div style="font-weight: 600; color: #92400e;">Training in progress...</div>
+                            <div id="training-status-text" style="font-size: 0.9em; color: #92400e;">Initializing model training...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="training-results" style="display: none; padding: 15px; border-radius: 6px; margin-bottom: 20px;"></div>
+                
+                <button id="train-model-btn" onclick="startModelTraining()" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 100%; font-weight: 600;">
+                    <i class="fas fa-play-circle"></i> Start Training
+                </button>
+                
+                <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="viewTrainingHistory()">
+                    <i class="fas fa-chart-line"></i> View Training History
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('train-model-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Wipe Data Modal -->
+    <div id="wipe-data-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header" style="background: #dc2626;">
+                <h3 style="color: white;"><i class="fas fa-trash-alt"></i> Wipe Database Data</h3>
+                <span class="modal-close" onclick="closeModal('wipe-data-modal')" style="color: white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <h4 style="color: #991b1b; margin-top: 0;"><i class="fas fa-exclamation-triangle"></i> Warning: Destructive Action</h4>
+                    <p style="color: #991b1b; margin: 0; font-size: 14px;">
+                        This action will permanently delete data from the database. Tables and schema will be preserved, but all records will be removed. This action cannot be undone!
+                    </p>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 10px; color: var(--color-text-primary);">Select what to wipe:</label>
+                    <select id="wipe-type-select" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                        <option value="all">All Data (Complete Wipe)</option>
+                        <option value="sales">Sales Data Only</option>
+                        <option value="products">Products Only</option>
+                        <option value="forecasts">Forecasts Only</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 10px; color: var(--color-text-primary);">Confirm your password:</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="wipe-password" placeholder="Enter your admin password" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                        <button type="button" class="toggle-password-btn" onclick="togglePassword('wipe-password', this)" tabindex="-1" aria-label="Toggle password visibility">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="wipe-status" style="display: none; padding: 15px; border-radius: 6px; margin-bottom: 20px;"></div>
+                
+                <button id="wipe-confirm-btn" onclick="confirmWipeData()" class="btn btn-danger" style="width: 100%; background: #dc2626; font-weight: 600;">
+                    <i class="fas fa-trash-alt"></i> Confirm and Wipe Data
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('wipe-data-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Training History Modal -->
+    <div id="training-history-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-line"></i> Training History</h3>
+                <span class="modal-close" onclick="closeModal('training-history-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--color-text-secondary); margin-bottom: 20px;">View history of model training sessions and forecasts.</p>
+                
+                <div id="training-loading">
+                    <div style="overflow-x: auto; max-height: 500px; overflow-y: hidden;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 100px;"></div></th>
+                                    <th style="padding: 12px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 70px;"></div></th>
+                                    <th style="padding: 12px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 80px;"></div></th>
+                                    <th style="padding: 12px; text-align: left;"><div class="vc-skeleton" style="height: 14px; width: 60px;"></div></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for i in range(4) %}
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 120px;"></div></td>
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 20px; width: 60px; border-radius: 12px;"></div></td>
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 70px;"></div></td>
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 50px;"></div></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="training-container" style="display: none;">
+                    <div style="overflow-x: auto; max-height: 500px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="position: sticky; top: 0; background: var(--color-primary-dark); z-index: 1;">
+                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Timestamp</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">User</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="training-table-body">
+                                <!-- Training history will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="training-error" style="display: none; padding: 15px; background: #fee2e2; border-radius: 8px; color: #991b1b; margin-top: 15px;">
+                    <p id="training-error-message"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('training-history-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Account Edit Modal (available to all users) -->
+    <div id="account-edit-modal" class="modal" aria-hidden="true">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header" style="background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border-radius: 12px 12px 0 0;">
+                <h3 style="color: white;"><i class="fas fa-user-edit"></i> Edit Account</h3>
+                <span class="modal-close" onclick="closeModal('account-edit-modal')" style="color: white;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; margin-bottom: 8px;">What would you like to change?</label>
+                    <select id="acct-edit-type" onchange="switchAccountEditForm(this.value)"
+                            style="width: 100%; padding: 11px 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: var(--color-text-primary); font-size: 14px; outline: none; cursor: pointer;">
+                        <option value="password" style="background:#1e293b; color:#e2e8f0;">Change Password</option>
+                        <option value="username" style="background:#1e293b; color:#e2e8f0;">Change Username</option>
+                        <option value="email" style="background:#1e293b; color:#e2e8f0;">Update Email</option>
+                    </select>
+                </div>
+                <div id="acct-edit-fields"></div>
+                <div id="acct-edit-status" style="display: none; margin-top: 14px; padding: 11px 14px; border-radius: 6px; font-size: 14px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('account-edit-modal')">Cancel</button>
+                <button class="btn btn-primary" id="acct-edit-submit" onclick="submitAccountEdit()">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
     <script>
         // Model Training Functions
         function startModelTraining() {

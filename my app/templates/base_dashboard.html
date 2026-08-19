@@ -20,6 +20,7 @@
     })();
     </script>
     {% block extra_head %}{% endblock %}
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
 </head>
 <body>
     <div class="dashboard">
@@ -90,8 +91,31 @@
             <div class="modal-body">
                 <p style="color: var(--color-text-secondary); margin-bottom: 20px;">View and manage user accounts in the system.</p>
                 
-                <div id="users-loading" style="text-align: center; padding: 20px;">
-                    <p style="color: var(--color-text-secondary);">Loading users...</p>
+                <div id="users-loading">
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Username</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Email</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Role</th>
+                                    <th style="padding: 12px; text-align: left; font-weight: 600; color: var(--color-text-primary);">Created</th>
+                                    <th style="padding: 12px; text-align: center; font-weight: 600; color: var(--color-text-primary);">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for i in range(3) %}
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 60%; margin: 4px 0;"></div></td>
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 80%; margin: 4px 0;"></div></td>
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 20px; width: 60px; border-radius: 12px;"></div></td>
+                                    <td style="padding: 12px;"><div class="vc-skeleton" style="height: 16px; width: 50%; margin: 4px 0;"></div></td>
+                                    <td style="padding: 12px; text-align: center;"><div class="vc-skeleton" style="height: 28px; width: 60px; margin: 0 auto; border-radius: 4px;"></div></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 
                 <div id="users-container" style="display: none;">
@@ -134,8 +158,16 @@
             <div class="modal-body">
                 <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Recent system activities and updates.</p>
                 
-                <div id="notifications-loading" style="text-align: center; padding: 20px;">
-                    <p style="color: var(--color-text-secondary);"><i class="fas fa-spinner fa-spin"></i> Loading notifications...</p>
+                <div id="notifications-loading">
+                    {% for i in range(4) %}
+                    <div style="display: flex; gap: 15px; padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: flex-start;">
+                        <div class="vc-skeleton" style="width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;"></div>
+                        <div style="flex-grow: 1;">
+                            <div class="vc-skeleton" style="width: 60%; height: 16px; margin-bottom: 8px;"></div>
+                            <div class="vc-skeleton" style="width: 40%; height: 12px;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
                 
                 <div id="notifications-container" style="display: none; max-height: 400px; overflow-y: auto;">
@@ -162,8 +194,15 @@
             <div class="modal-body">
                 <p style="color: var(--color-text-secondary); margin-bottom: 20px;">Real-time overview of key business metrics.</p>
                 
-                <div id="quick-stats-loading" style="text-align: center; padding: 20px;">
-                    <p style="color: var(--color-text-secondary);"><i class="fas fa-spinner fa-spin"></i> Loading stats...</p>
+                <div id="quick-stats-loading">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                        {% for i in range(4) %}
+                        <div style="background: var(--color-primary); border: 1px solid var(--color-divider); padding: 20px; border-radius: 10px;">
+                            <div class="vc-skeleton" style="width: 50%; height: 14px; margin-bottom: 12px;"></div>
+                            <div class="vc-skeleton" style="width: 40%; height: 32px;"></div>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
                 
                 <div id="quick-stats-container" style="display: none;">
@@ -766,3 +805,4 @@
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>
+

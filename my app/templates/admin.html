@@ -53,30 +53,30 @@
                 <div class="summary-cards">
                     <div class="card">
                         <h3>Total Sales Products</h3>
-                        <div class="metric" id="total-units">Loading...</div>
+                        <div class="metric" id="total-units"><div class="vc-skeleton" style="height: 36px; width: 65%; margin-top: 4px; border-radius: 6px;"></div></div>
                         <div class="hint" id="total-units-period" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Last 7 days</div>
                         <div class="change" id="change-units" style="display: none;"></div>
                     </div>
                     <div class="card">
                         <h3>Total Sales Revenue</h3>
-                        <div class="metric" id="total-revenue">Loading...</div>
+                        <div class="metric" id="total-revenue"><div class="vc-skeleton" style="height: 36px; width: 75%; margin-top: 4px; border-radius: 6px;"></div></div>
                         <div class="hint" id="total-revenue-period" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Last 7 days</div>
                         <div class="change" id="change-revenue" style="display: none;"></div>
                     </div>
                     <div class="card">
                         <h3>Total Inventory Value</h3>
-                        <div class="metric" id="total-inventory-value">Loading...</div>
+                        <div class="metric" id="total-inventory-value"><div class="vc-skeleton" style="height: 36px; width: 85%; margin-top: 4px; border-radius: 6px;"></div></div>
                         <div class="hint" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Current stock × Unit cost</div>
                     </div>
                     <div class="card">
                         <h3>Forecast Accuracy</h3>
-                        <div class="metric" id="accuracy">Loading...</div>
+                        <div class="metric" id="accuracy"><div class="vc-skeleton" style="height: 36px; width: 55%; margin-top: 4px; border-radius: 6px;"></div></div>
                             <div class="hint" id="accuracy-period" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Overall forecast accuracy</div>
                         <div class="change" id="change-accuracy" style="display: none;"></div>
                     </div>
                     <div class="card">
                         <h3>Active Alerts</h3>
-                        <div class="metric" id="alerts-count">Loading...</div>
+                        <div class="metric" id="alerts-count"><div class="vc-skeleton" style="height: 36px; width: 45%; margin-top: 4px; border-radius: 6px;"></div></div>
                         <div class="hint" style="font-size: 0.75em; color: var(--color-text-secondary); margin-top: 5px;">Low stock warnings</div>
                         <div class="change" id="change-alerts" style="display: none;"></div>
                     </div>
@@ -216,7 +216,17 @@
                             <i class="fas fa-square" style="color: #dc2626;"></i> CRITICAL: Stock < 1-day forecast | <i class="fas fa-square" style="color: #f97316;"></i> HIGH: Stock < 7-day forecast | <i class="fas fa-square" style="color: #eab308;"></i> MEDIUM: Stock < 30-day forecast
                         </div>
                         <div id="alerts-list">
-                            <div class="loading-message">Loading alerts...</div>
+                            <div class="loading-message">
+                                {% for i in range(3) %}
+                                <div style="display: flex; gap: 12px; margin-bottom: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px;">
+                                    <div class="vc-skeleton" style="width: 24px; height: 24px; border-radius: 4px; flex-shrink: 0;"></div>
+                                    <div style="flex-grow: 1;">
+                                        <div class="vc-skeleton" style="width: 60%; height: 16px; margin-bottom: 8px;"></div>
+                                        <div class="vc-skeleton" style="width: 40%; height: 12px;"></div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
                     <div class="activity-panel">
@@ -225,7 +235,15 @@
                             <i class="fas fa-box"></i> Inventory tracked with real-time stock levels
                         </div>
                         <ul id="activity-list">
-                            <li style="color: #999;">Loading recent activity...</li>
+                            {% for i in range(4) %}
+                            <li style="display: flex; gap: 12px; margin-bottom: 15px; align-items: flex-start;">
+                                <div class="vc-skeleton" style="width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;"></div>
+                                <div style="flex-grow: 1; padding-top: 4px;">
+                                    <div class="vc-skeleton" style="width: 70%; height: 14px; margin-bottom: 6px;"></div>
+                                    <div class="vc-skeleton" style="width: 30%; height: 12px;"></div>
+                                </div>
+                            </li>
+                            {% endfor %}
                         </ul>
                     </div>
                 </div>
