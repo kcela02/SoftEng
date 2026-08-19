@@ -3,118 +3,130 @@
 {% block title %}Settings - VapeCrib Dashboard{% endblock %}
 
 {% block content %}
-            <div class="container" style="max-width: 1200px; padding: 20px;">
-                <h2 style="margin-bottom: 10px;"><i class="fas fa-cog"></i> Settings</h2>
-                <p style="color: var(--color-text-secondary); margin-bottom: 30px;">Manage your account and system preferences.</p>
-                
-                <div style="display: grid; gap: 20px;">
-                    <!-- Account Settings -->
-                    <div class="card">
-                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-user"></i> Account Settings</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Your profile information</p>
-                        </div>
-                        
-                        <div style="display: grid; gap: 15px;">
-                            <div>
-                                <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 6px; font-weight: 500;">Username:</label>
-                                <div style="padding: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--color-text-primary);">
-                                    {{ current_user.username }}
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 6px; font-weight: 500;">Email:</label>
-                                <div style="padding: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--color-text-primary);">
-                                    {{ current_user.email }}
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 6px; font-weight: 500;">Role:</label>
-                                <div style="padding: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
-                                    <span style="background: #4f46e5; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;">
-                                        {{ current_user.role }}
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 6px; font-weight: 500;">Member Since:</label>
-                                <div style="padding: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--color-text-primary);">
-                                    {{ current_user.created_at.strftime('%B %d, %Y') if current_user.created_at else 'N/A' }}
-                                </div>
-                            </div>
-                        </div>
+            <div class="container" style="max-width: 1200px; padding: 28px 20px;">
 
-                        <button class="btn btn-primary" style="width: 100%; margin-top: 18px;" onclick="openModal('account-edit-modal')">
-                            <i class="fas fa-user-edit"></i> Edit Account
+                <!-- Page Header -->
+                <div class="stg-page-header">
+                    <div class="stg-page-header-icon"><i class="fas fa-cog"></i></div>
+                    <div>
+                        <h2 class="stg-page-title">Settings</h2>
+                        <p class="stg-page-subtitle">Manage your account and system preferences.</p>
+                    </div>
+                </div>
+
+                <!-- Top grid: Account | Admin Controls | Download App -->
+                <div class="stg-top-grid">
+
+                    <!-- Account Card -->
+                    <div class="stg-card">
+                        <div class="stg-card-header">
+                            <i class="fas fa-user stg-card-header-icon"></i>
+                            <h3 class="stg-card-title">Account</h3>
+                        </div>
+                        <div class="stg-avatar">{{ current_user.username[0]|upper }}</div>
+                        <div class="stg-info-row">
+                            <span class="stg-info-label">Username</span>
+                            <span class="stg-info-value">{{ current_user.username }}</span>
+                        </div>
+                        <div class="stg-info-row">
+                            <span class="stg-info-label">Email</span>
+                            <span class="stg-info-value">{{ current_user.email }}</span>
+                        </div>
+                        <div class="stg-info-row">
+                            <span class="stg-info-label">Role</span>
+                            <span class="stg-role-badge">{{ current_user.role }}</span>
+                        </div>
+                        <div class="stg-info-row">
+                            <span class="stg-info-label">Member Since</span>
+                            <span class="stg-info-value">{{ current_user.created_at.strftime('%B %d, %Y') if current_user.created_at else 'N/A' }}</span>
+                        </div>
+                        <button class="stg-btn" onclick="openModal('account-edit-modal')">
+                            <i class="fas fa-pencil-alt"></i> Edit Account
                         </button>
                     </div>
 
-                    <!-- System Preferences -->
-                    <div class="card">
-                        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-sliders-h"></i> System Preferences</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Customize your experience</p>
-                        </div>
-                        
-                        <div style="display: grid; gap: 15px;">
-                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer;">
-                                <input type="checkbox" id="pref-email-notifications" style="width: 18px; height: 18px; cursor: pointer;">
-                                <div>
-                                    <div style="font-weight: 500; color: var(--color-text-primary);">Email Notifications</div>
-                                    <div style="font-size: 13px; color: #64748b;">Receive alerts for low stock and forecasts</div>
-                                </div>
-                            </label>
-                            
-                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; cursor: pointer;">
-                                <input type="checkbox" id="pref-auto-forecasts" style="width: 18px; height: 18px; cursor: pointer;">
-                                <div>
-                                    <div style="font-weight: 500; color: var(--color-text-primary);">Auto-generate Forecasts</div>
-                                    <div style="font-size: 13px; color: #64748b;">Daily automatic forecast regeneration</div>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div id="preferences-status" style="display: none; padding: 12px; border-radius: 6px; margin-top: 15px;"></div>
-                        <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="savePreferences()"><i class="fas fa-save"></i> Save Preferences</button>
-                    </div>
-
+                    <!-- Admin Controls (admin only) -->
                     {% if current_user.role == 'admin' %}
-                    <div class="card" style="margin-top: 20px;">
-                        <div style="background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-tools"></i> Admin Controls</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">System maintenance and operations</p>
+                    <div class="stg-card">
+                        <div class="stg-card-header">
+                            <i class="fas fa-tools stg-card-header-icon"></i>
+                            <h3 class="stg-card-title">Admin Controls</h3>
                         </div>
-                        
-                        <div style="display: grid; gap: 12px;">
-                            <button class="btn btn-primary" style="width: 100%;" onclick="refreshAllForecasts()"><i class="fas fa-sync-alt"></i> Refresh All Forecasts</button>
-                            <button class="btn btn-primary" style="width: 100%;" onclick="openModal('train-model-modal')"><i class="fas fa-brain"></i> Train Model</button>
-                            <button class="btn btn-primary" style="width: 100%;" onclick="openManageUsersModal()"><i class="fas fa-users"></i> Manage Users</button>
-                            <button class="btn btn-primary" style="width: 100%;" onclick="openModal('system-logs-modal')"><i class="fas fa-clipboard-list"></i> System Logs</button>
-                            <button class="btn btn-primary" style="width: 100%;" onclick="openModal('database-backup-modal')"><i class="fas fa-database"></i> Database Backup</button>
-                            <button class="btn btn-danger" style="width: 100%; background: #ef4444;" onclick="openModal('wipe-data-modal')"><i class="fas fa-trash-alt"></i> Wipe Database Data</button>
-                        </div>
-                        
-                        <div id="admin-status" style="display: none; margin-top: 15px; padding: 12px; border-radius: 6px; color: white; font-size: 0.9em;"></div>
+                        <button class="stg-admin-btn" onclick="refreshAllForecasts()">
+                            <i class="fas fa-sync-alt stg-btn-icon"></i> Refresh All Forecasts
+                        </button>
+                        <button class="stg-admin-btn" onclick="openModal('train-model-modal')">
+                            <i class="fas fa-brain stg-btn-icon"></i> Train Model
+                        </button>
+                        <button class="stg-admin-btn" onclick="openManageUsersModal()">
+                            <i class="fas fa-users stg-btn-icon"></i> Manage Users
+                        </button>
+                        <button class="stg-admin-btn" onclick="openModal('system-logs-modal')">
+                            <i class="fas fa-clipboard-list stg-btn-icon"></i> System Logs
+                        </button>
+                        <button class="stg-admin-btn" onclick="openModal('database-backup-modal')">
+                            <i class="fas fa-database stg-btn-icon"></i> Database Backup
+                        </button>
+                        <div id="admin-status" style="display:none; margin-top:12px; padding:10px 14px; border-radius:7px; font-size:0.9em;"></div>
+                        <button class="stg-admin-btn stg-admin-btn--danger" onclick="openModal('wipe-data-modal')">
+                            <i class="fas fa-trash-alt stg-btn-icon"></i> Wipe Database Data
+                        </button>
                     </div>
                     {% endif %}
 
                     <!-- Download App Card -->
-                    <div class="card" style="margin-top: 20px;">
-                        <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-mobile-alt"></i> Download App <span style="font-size:13px; font-weight:400; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:12px;">v1.1</span></h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Get VapeCrib on your Android device</p>
+                    <div class="stg-card stg-download-card">
+                        <div class="stg-card-header" style="justify-content: center;">
+                            <i class="fas fa-mobile-alt stg-card-header-icon"></i>
+                            <h3 class="stg-card-title">Download App</h3>
                         </div>
-                        
-                        <div style="display: grid; gap: 12px;">
-                            <button class="btn btn-primary" style="width: 100%;" onclick="showDownloadOptions()"><i class="fab fa-android"></i> Android App</button>
+                        <i class="fab fa-android stg-android-icon"></i>
+                        <p class="stg-app-name">VapeCrib <span class="stg-app-version">v1.1</span></p>
+                        <p style="font-size: 12px; color: #64748b; margin: 0 0 14px;">Get VapeCrib on your Android device</p>
+                        <button class="stg-btn" onclick="showDownloadOptions()">
+                            <i class="fab fa-android"></i> Android APK
+                        </button>
+                        <div id="download-status" style="display:none; margin-top:12px; padding:10px 14px; border-radius:7px; font-size:0.9em; background: rgba(109,40,217,0.2); color: #c4b5fd;"></div>
+                    </div>
+
+                </div>
+
+                <!-- Preferences (full-width bottom row) -->
+                <div class="stg-card">
+                    <div class="stg-card-header">
+                        <i class="fas fa-sliders-h stg-card-header-icon"></i>
+                        <h3 class="stg-card-title">Preferences</h3>
+                    </div>
+                    <div class="stg-prefs-grid">
+                        <div class="stg-toggle-row">
+                            <div class="stg-toggle-info">
+                                <div class="stg-toggle-info-label">Email Notifications</div>
+                                <div class="stg-toggle-info-sublabel">Receive alerts for low stock and forecasts</div>
+                            </div>
+                            <label class="stg-toggle">
+                                <input type="checkbox" id="pref-email-notifications">
+                                <span class="stg-toggle-track"><span class="stg-toggle-thumb"></span></span>
+                            </label>
                         </div>
-                        
-                        <div id="download-status" style="display: none; margin-top: 15px; padding: 12px; border-radius: 6px; color: white; font-size: 0.9em; background: #6d28d9;"></div>
+                        <div class="stg-toggle-row">
+                            <div class="stg-toggle-info">
+                                <div class="stg-toggle-info-label">Auto-generate Forecasts</div>
+                                <div class="stg-toggle-info-sublabel">Daily automatic forecast regeneration</div>
+                            </div>
+                            <label class="stg-toggle">
+                                <input type="checkbox" id="pref-auto-forecasts">
+                                <span class="stg-toggle-track"><span class="stg-toggle-thumb"></span></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="preferences-status" style="display: none; padding: 10px 14px; border-radius: 7px; margin-top: 12px;"></div>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                        <button class="stg-btn" style="width: auto; padding: 10px 24px;" onclick="savePreferences()">
+                            <i class="fas fa-save"></i> Save Preferences
+                        </button>
                     </div>
                 </div>
+
             </div>
 
     <!-- Admin Modals -->
@@ -403,7 +415,7 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+
         /* Password visibility toggle */
         .password-input-wrapper {
             position: relative;
@@ -428,6 +440,260 @@
         }
         .toggle-password-btn:hover {
             color: var(--color-text-primary);
+        }
+
+        /* ── Settings Page Scoped Styles ──────────────────────── */
+
+        /* Page header */
+        .stg-page-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .stg-page-header-icon {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--color-divider);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            color: var(--color-text-primary);
+            flex-shrink: 0;
+        }
+        .stg-page-title {
+            font-size: 22px; font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0;
+        }
+        .stg-page-subtitle {
+            font-size: 13px;
+            color: #94a3b8;
+            margin: 3px 0 0;
+        }
+
+        /* Top grid layout */
+        .stg-top-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 260px;
+            gap: 20px;
+            align-items: start;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 900px) {
+            .stg-top-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 600px) {
+            .stg-top-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Card */
+        .stg-card {
+            background: var(--color-primary);
+            border: 1px solid var(--color-divider);
+            border-radius: 10px;
+            padding: 20px 22px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        }
+        .stg-card-header {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding-bottom: 14px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid var(--color-divider);
+        }
+        .stg-card-header-icon {
+            color: #94a3b8;
+            font-size: 13px;
+            width: 16px;
+            text-align: center;
+        }
+        .stg-card-title {
+            font-size: 11px; font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            color: #94a3b8;
+            margin: 0;
+        }
+
+        /* Avatar */
+        .stg-avatar {
+            width: 52px; height: 52px;
+            border-radius: 50%;
+            background: var(--color-divider);
+            color: var(--color-text-primary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; font-weight: 700;
+            margin: 0 auto 18px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Info rows */
+        .stg-info-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 14px;
+        }
+        .stg-info-row:last-of-type { border-bottom: none; }
+        .stg-info-label { color: #888; }
+        .stg-info-value { color: var(--color-text-primary); font-weight: 500; }
+        .stg-role-badge {
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 12px; font-weight: 600;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid var(--color-divider);
+            color: var(--color-text-primary);
+        }
+
+        /* Generic button */
+        .stg-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 7px;
+            border: 1px solid var(--color-divider);
+            background: rgba(255,255,255,0.06);
+            color: var(--color-text-primary);
+            font-size: 13px; font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            margin-top: 14px;
+        }
+        .stg-btn:hover {
+            background: rgba(255,255,255,0.10);
+            border-color: #616161;
+        }
+
+        /* Admin action buttons */
+        .stg-admin-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 7px;
+            border: 1px solid var(--color-divider);
+            background: rgba(255,255,255,0.04);
+            color: var(--color-text-primary);
+            font-size: 13px; font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            text-align: left;
+            margin-bottom: 8px;
+        }
+        .stg-admin-btn:last-child { margin-bottom: 0; }
+        .stg-admin-btn:hover {
+            background: rgba(255,255,255,0.09);
+            border-color: #616161;
+        }
+        .stg-btn-icon {
+            width: 16px;
+            color: #94a3b8;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        /* Danger button — Wipe Database only */
+        .stg-admin-btn--danger {
+            background: rgba(127, 29, 29, 0.25);
+            border-color: rgba(239, 68, 68, 0.35);
+            color: #fca5a5;
+            margin-top: 8px;
+        }
+        .stg-admin-btn--danger:hover {
+            background: rgba(127, 29, 29, 0.45);
+            border-color: rgba(239, 68, 68, 0.6);
+        }
+        .stg-admin-btn--danger .stg-btn-icon { color: #fca5a5; }
+
+        /* Download card */
+        .stg-download-card { text-align: center; }
+        .stg-android-icon {
+            font-size: 40px;
+            color: #94a3b8;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .stg-app-name {
+            font-size: 15px; font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0 0 4px;
+        }
+        .stg-app-version {
+            font-size: 12px; font-weight: 400;
+            color: #64748b;
+        }
+
+        /* Preferences grid */
+        .stg-prefs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 40px;
+        }
+        @media (max-width: 600px) {
+            .stg-prefs-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Toggle rows */
+        .stg-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .stg-toggle-row:last-child { border-bottom: none; }
+        .stg-toggle-info { flex: 1; }
+        .stg-toggle-info-label {
+            font-size: 14px; font-weight: 500;
+            color: var(--color-text-primary);
+        }
+        .stg-toggle-info-sublabel {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        /* CSS Toggle switch */
+        .stg-toggle {
+            position: relative;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .stg-toggle input { display: none; }
+        .stg-toggle-track {
+            display: block;
+            width: 38px; height: 21px;
+            background: #424242;
+            border-radius: 11px;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+        }
+        .stg-toggle input:checked ~ .stg-toggle-track {
+            background: #616161;
+        }
+        .stg-toggle-thumb {
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 17px; height: 17px;
+            border-radius: 50%;
+            background: #fff;
+            transition: transform 0.2s;
+            pointer-events: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .stg-toggle input:checked ~ .stg-toggle-track .stg-toggle-thumb {
+            transform: translateX(17px);
         }
     </style>
     <script>
@@ -996,31 +1262,33 @@
                         prefs.email_notifications !== 'false';
                     document.getElementById('pref-auto-forecasts').checked = 
                         prefs.auto_forecasts !== 'false';
-                    document.getElementById('pref-realtime-updates').checked = 
-                        prefs.realtime_updates !== 'false';
+                    const rtEl = document.getElementById('pref-realtime-updates');
+                    if (rtEl) rtEl.checked = prefs.realtime_updates !== 'false';
                 })
                 .catch(error => {
                     console.error('Error loading preferences:', error);
                     // Default to checked if load fails
                     document.getElementById('pref-email-notifications').checked = true;
                     document.getElementById('pref-auto-forecasts').checked = true;
-                    document.getElementById('pref-realtime-updates').checked = true;
+                    const rtEl = document.getElementById('pref-realtime-updates');
+                    if (rtEl) rtEl.checked = true;
                 });
         }
         
         // Save user preferences
         function savePreferences() {
             const statusDiv = document.getElementById('preferences-status');
+            const rtEl = document.getElementById('pref-realtime-updates');
             const preferences = {
                 email_notifications: document.getElementById('pref-email-notifications').checked.toString(),
                 auto_forecasts: document.getElementById('pref-auto-forecasts').checked.toString(),
-                realtime_updates: document.getElementById('pref-realtime-updates').checked.toString()
+                realtime_updates: rtEl ? rtEl.checked.toString() : 'true'
             };
             
             statusDiv.style.display = 'block';
-            statusDiv.style.background = '#fef3c7';
-            statusDiv.style.borderLeft = '4px solid #f59e0b';
-            statusDiv.style.color = '#92400e';
+            statusDiv.style.background = 'rgba(255,255,255,0.05)';
+            statusDiv.style.border = '1px solid var(--color-divider)';
+            statusDiv.style.color = '#94a3b8';
             statusDiv.textContent = 'Saving preferences...';
             
             fetch('/api/preferences/', {
@@ -1031,9 +1299,9 @@
             .then(response => response.json())
             .then(data => {
                 if (data.message) {
-                    statusDiv.style.background = '#d1fae5';
-                    statusDiv.style.borderLeft = '4px solid #10b981';
-                    statusDiv.style.color = '#065f46';
+                    statusDiv.style.background = 'rgba(16,185,129,0.1)';
+                    statusDiv.style.border = '1px solid #10b981';
+                    statusDiv.style.color = '#34d399';
                     statusDiv.textContent = 'Preferences saved successfully!';
                     
                     setTimeout(() => {
@@ -1044,9 +1312,9 @@
                 }
             })
             .catch(error => {
-                statusDiv.style.background = '#fee2e2';
-                statusDiv.style.borderLeft = '4px solid #ef4444';
-                statusDiv.style.color = '#991b1b';
+                statusDiv.style.background = 'rgba(239,68,68,0.1)';
+                statusDiv.style.border = '1px solid #ef4444';
+                statusDiv.style.color = '#f87171';
                 statusDiv.textContent = 'Error: ' + error.message;
             });
         }

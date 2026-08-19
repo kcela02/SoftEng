@@ -1,4 +1,4 @@
-﻿{% extends "base_dashboard.html" %}
+{% extends "base_dashboard.html" %}
 
 {% block title %}Reports - VapeCrib Dashboard{% endblock %}
 
@@ -9,10 +9,11 @@
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
                     <div class="card">
-                        <div style="background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-chart-line"></i> Sales Report</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Detailed sales transactions and trends</p>
+                        <div style="display: flex; align-items: center; gap: 9px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--color-divider);">
+                            <i class="fas fa-chart-line" style="color: #94a3b8; font-size: 13px; width: 16px; text-align: center;"></i>
+                            <h3 style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: #94a3b8; margin: 0;">Sales Report</h3>
                         </div>
+                        <p style="font-size: 13px; color: #64748b; margin: 0 0 16px;">Detailed sales transactions and trends</p>
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 8px;">Time Period:</label>
                             <select id="sales-report-period" class="form-control" style="width: 100%;">
@@ -27,10 +28,11 @@
                     </div>
 
                     <div class="card">
-                        <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-box"></i> Inventory Report</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">Current stock levels and inventory valuation</p>
+                        <div style="display: flex; align-items: center; gap: 9px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--color-divider);">
+                            <i class="fas fa-box" style="color: #94a3b8; font-size: 13px; width: 16px; text-align: center;"></i>
+                            <h3 style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: #94a3b8; margin: 0;">Inventory Report</h3>
                         </div>
+                        <p style="font-size: 13px; color: #64748b; margin: 0 0 16px;">Current stock levels and inventory valuation</p>
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 8px;">Report Type:</label>
                             <select id="inventory-report-type" class="form-control" style="width: 100%;">
@@ -43,10 +45,11 @@
                     </div>
 
                     <div class="card">
-                        <div style="background: linear-gradient(135deg, #f97316 0%, #dc2626 100%); padding: 20px; border-radius: 8px 8px 0 0; margin: -20px -20px 20px -20px;">
-                            <h3 style="color: white; margin: 0 0 8px 0; font-size: 18px;"><i class="fas fa-clipboard-list"></i> Import History</h3>
-                            <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">CSV upload and processing logs</p>
+                        <div style="display: flex; align-items: center; gap: 9px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--color-divider);">
+                            <i class="fas fa-clipboard-list" style="color: #94a3b8; font-size: 13px; width: 16px; text-align: center;"></i>
+                            <h3 style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: #94a3b8; margin: 0;">Import History</h3>
                         </div>
+                        <p style="font-size: 13px; color: #64748b; margin: 0 0 16px;">CSV upload and processing logs</p>
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; font-size: 14px; color: var(--color-text-primary); margin-bottom: 8px;">Show Records:</label>
                             <select id="import-history-limit" class="form-control" style="width: 100%;">
