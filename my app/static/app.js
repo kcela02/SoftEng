@@ -532,7 +532,27 @@ function initializePeriodFilters() {
     }
 }
 
+function setDashboardLoading(isLoading) {
+    const totalUnits = document.getElementById('total-units');
+    const totalRevenue = document.getElementById('total-revenue');
+    const totalInventoryValue = document.getElementById('total-inventory-value');
+    const accuracy = document.getElementById('accuracy');
+    const changeUnits = document.getElementById('change-units');
+    const changeRevenue = document.getElementById('change-revenue');
+
+    if (isLoading) {
+        if (totalUnits) totalUnits.innerHTML = '<div class="vc-skeleton" style="height: 36px; width: 65%; border-radius: 6px;"></div>';
+        if (totalRevenue) totalRevenue.innerHTML = '<div class="vc-skeleton" style="height: 36px; width: 75%; border-radius: 6px;"></div>';
+        if (totalInventoryValue) totalInventoryValue.innerHTML = '<div class="vc-skeleton" style="height: 36px; width: 85%; border-radius: 6px;"></div>';
+        if (accuracy) accuracy.innerHTML = '<div class="vc-skeleton" style="height: 36px; width: 55%; border-radius: 6px;"></div>';
+        if (changeUnits) changeUnits.style.display = 'none';
+        if (changeRevenue) changeRevenue.style.display = 'none';
+    }
+}
+
 function loadDashboardData(period, dateRange = null) {
+    setDashboardLoading(true);
+
     // Build API URL with period parameter
     let url = `/api/metrics?period=${period}`;
     
@@ -598,12 +618,14 @@ function loadDashboardData(period, dateRange = null) {
             return response.json();
         })
         .then(data => {
+            setDashboardLoading(false);
             if (data && (data.error || data.success === false)) {
                 throw new Error(data.error || 'Failed to load metrics');
             }
             updateDashboardWithData(data);
         })
         .catch(error => {
+            setDashboardLoading(false);
             console.error('Error loading dashboard data:', error);
             showNotification('Failed to load dashboard data: ' + error.message, 'error');
         });
